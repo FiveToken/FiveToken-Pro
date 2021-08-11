@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-
+/// display mne of the wallet
 class WalletMnePage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

@@ -1,6 +1,6 @@
 import 'package:fil/index.dart';
 import 'package:fil/pages/wallet/mne.dart';
-
+/// display private key of the wallet
 class WalletPrivatekeyPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

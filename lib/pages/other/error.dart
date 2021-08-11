@@ -15,7 +15,6 @@ class ErrorPageState extends State<ErrorPage> {
     store.setBool('ignoreDeviceCheck', true);
     var activeStr = store.getString('activeWalletAddress');
     if (activeStr != null) {
-      //Get.offAllNamed(userWalletPage);
     } else {
       Get.offAllNamed(introPage);
     }
@@ -30,13 +29,6 @@ class ErrorPageState extends State<ErrorPage> {
   void initState() {
     super.initState();
   }
-
-  // void getHash() async {
-  //   var hash = await Apkhash.getHash;
-  //   setState(() {
-  //     this.hash = hash;
-  //   });
-  // }
 
   @override
   Widget build(BuildContext context) {

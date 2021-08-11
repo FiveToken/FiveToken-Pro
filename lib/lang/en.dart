@@ -349,5 +349,11 @@ const Map<String, String> EN_LANG = {
   'sectorType': 'Sector Type',
   'workerBls': 'The worker address shall begin with f3',
   'params': 'Params',
-  'selectMiner':'Select Miner'
+  "copyErrorMes":
+      'Error reminder: the message saved on the clipboard is not JSON message. Please copy the correct JSON message to continue the import',
+  'copyMes':
+      'Text import: if the JSON of the message has been copied, click here',
+  'ownerIsMulti':
+      "The current miner's owner is a multi-sign account. Please withdraw on the multi-sign page",
+  "selectMiner": "Select Miner"
 };

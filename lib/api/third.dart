@@ -1,5 +1,6 @@
 import 'package:fil/index.dart';
 
+/// get fil price
 Future<FilPrice> getFilPrice() async {
   try {
     var url=apiMap[mode];

@@ -1,7 +1,7 @@
 import 'package:fil/index.dart';
 import 'package:fil/store/store.dart';
 import 'package:oktoast/oktoast.dart';
-
+/// display detail of a transaction
 class FilDetailPage extends StatefulWidget {
   @override
   State createState() => FilDetailPageState();
@@ -52,7 +52,7 @@ class FilDetailPageState extends State<FilDetailPage> {
       hasFooter: false,
       body: SingleChildScrollView(
         physics: BouncingScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(12, 30, 12, 0),
+        padding: EdgeInsets.fromLTRB(12, 30, 12, 40),
         child: Column(
           children: [
             Container(
@@ -100,7 +100,7 @@ class FilDetailPageState extends State<FilDetailPage> {
                 ? ChainMeta(
                     cid: msgDetail.signedCid,
                     height: msgDetail.height.toString(),
-                    params: msgDetail.methodName == 'Exec'
+                    params: ['Exec','CreateMiner'].contains(msgDetail.methodName)
                         ? msgDetail.returns
                         : msgDetail.args)
                 : CommonCard(MessageRow(
@@ -154,7 +154,7 @@ class MessageStatusHeader extends StatelessWidget {
     );
   }
 }
-
+/// widget to show message field
 class MessageRow extends StatelessWidget {
   final bool selectable;
   final String label;

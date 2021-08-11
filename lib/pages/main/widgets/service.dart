@@ -1,3 +1,4 @@
+
 import 'package:fil/index.dart';
 
 Future checkCreateMessages() async {
@@ -25,7 +26,6 @@ Future checkCreateMessages() async {
               copy.id = returns['IDAddress'];
               copy.signerMap = res.signerMap;
               copy.robustAddress = res.robustAddress;
-              //copy.balance=atto2Fil(value)
               box.put(returns['IDAddress'], copy);
             }
           }
@@ -46,7 +46,6 @@ Future checkCreateMessages() async {
 }
 
 void tapSign(List<MultiSignWallet> multiList) {
-  // checkCreateMessages();
   var comleteList = multiList.where((wal) => wal.status == 1).toList();
   if (comleteList.isEmpty) {
     showModalBottomSheet(
@@ -142,8 +141,8 @@ class HdService extends StatelessWidget {
           children: [
             IconBtn(
               onTap: () {
-                Get.toNamed(walletCodePage);
-                // Get.toNamed(signIndexPage);
+                // Get.toNamed(walletCodePage);
+                Get.toNamed(signIndexPage);
               },
               path: 'send.png',
               color: CustomColor.primary,

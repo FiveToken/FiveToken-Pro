@@ -1,13 +1,12 @@
 import 'dart:io';
 import 'package:fil/index.dart';
 import 'package:oktoast/oktoast.dart';
-
-var messageApi = 'https://api.filwallet.ai:5679/rpc/v0';
-// var messageApi = 'http://192.168.1.189:5678/rpc/v0';
 var mesMap = {
   't': 'http://192.168.1.189:5678/rpc/v0',
   'f': 'https://api.filwallet.ai:5679/rpc/v0'
 };
+
+/// push signed message to lotus 
 Future<String> pushSignedMsg(Map<String, dynamic> msg) async {
   var data = JsonRPCRequest(1, "Filecoin.MessagePush", [msg]);
   try {
@@ -44,6 +43,7 @@ Future<String> pushSignedMsg(Map<String, dynamic> msg) async {
   }
 }
 
+/// format error message when push message failed
 String getErrorMessage(String message) {
   if (message.contains('nonce')) {
     return 'wrongNonce'.tr;
@@ -60,6 +60,7 @@ String getErrorMessage(String message) {
   }
 }
 
+/// collect error 
 void addError(Map<String, dynamic> data) async {
   var response = await Dio().post('${apiMap[mode]}/error/addMsg', data: data);
   if (response.data['code'] == 0) {
@@ -69,6 +70,8 @@ void addError(Map<String, dynamic> data) async {
   }
 }
 
+
+///collect app run error
 void addAppError(String err) async {
   Map<String, String> data = {
     "platform": Platform.operatingSystem,
@@ -85,6 +88,7 @@ void addAppError(String err) async {
   }
 }
 
+/// record request time
 void addRequestTime(String method, int time, String params) async {
   Map<String, dynamic> data = {
     "method": method,
@@ -100,6 +104,12 @@ void addRequestTime(String method, int time, String params) async {
   }
 }
 
+/// get messages related to the specified address
+///  [address]  address use to search
+///  [timePoint]  tipset timestamp
+///  [direction]  'up': find messages before [timePoint] 'down': find messages after [timePoint]
+///  [count] num of the messages 
+///  [method] message's method
 Future<List> getMessageList(
     {String address = '',
     num time,
@@ -116,7 +126,6 @@ Future<List> getMessageList(
         "method": ""
       }
     ]);
-    //var result = await Global.dio.post('/rpc/v1', data: data);
     var response = JsonRPCResponse.fromJson(result.data);
     if (response.error != null) {
       return [];
@@ -136,6 +145,7 @@ Future<List> getMessageList(
   }
 }
 
+/// get the message detail infomation by signed cid
 Future<MessageDetail> getMessageDetail(StoreMessage mes) async {
   var result = await fetch('filscan.MessageDetails', [mes.signedCid]);
   var response = JsonRPCResponse.fromJson(result.data);
@@ -152,32 +162,9 @@ Future<MessageDetail> getMessageDetail(StoreMessage mes) async {
   }
 }
 
-Future<Gas> getGasInfo(Map<String, dynamic> map) async {
-  var data =
-      JsonRPCRequest(1, "Filecoin.GasEstimateMessageGas", [map, null, []]);
-  var result = await Global.dio
-      .post(
-    "/rpc/v1",
-    data: data,
-  )
-      .catchError((e) {
-    print(e);
-  });
-  var response = JsonRPCResponse.fromJson(result.data);
-  if (response.error != null) {
-    return Gas();
-  }
-  var res = response.result;
-  if (res != null) {
-    var feeCap = res["GasFeeCap"];
-    var gasLimit = res["GasLimit"];
-    var premium = res["GasPremium"];
-    return Gas(feeCap: feeCap, gasLimit: gasLimit, premium: premium);
-  } else {
-    return Gas();
-  }
-}
-
+/// pass unserialized params to get a unsigned message 
+///  [map] message fields: from to and value
+///  [params] raw params in json string
 Future<TMessage> buildMessage(Map<String, dynamic> map, String params) async {
   var result =
       await fetch("filscan.BuildMessage", [map, params, 0], loading: true);
@@ -195,6 +182,9 @@ Future<TMessage> buildMessage(Map<String, dynamic> map, String params) async {
   }
 }
 
+/// get gas_limit,gas_premium and base_fee to predict gas 
+///  [method]  'method' filed in message
+///  [to] 'to' field in message
 Future<Gas> getGasDetail({num method = 0, String to}) async {
   if (to == null || to == '') {
     to = Global.netPrefix + '099';
@@ -237,6 +227,12 @@ Future<Gas> getGasDetail({num method = 0, String to}) async {
   }
 }
 
+/// get multi-sig messages related to the specified address
+///  [address]  address use to search
+///  [timePoint]  tipset timestamp
+///  [direction]  'up': find messages before [timePoint] 'down': find messages after [timePoint]
+///  [count] num of the messages 
+///  [method] 'Propose': message whose method name  is 'Propose' 'Approve': message whose method name  is 'Approve'
 Future<List> getMultiMessageList(
     {String address = '',
     num time,
@@ -269,6 +265,7 @@ Future<List> getMultiMessageList(
   }
 }
 
+///get multi-sig account info by actor id
 Future<MultiWalletInfo> getMultiInfo(String id) async {
   try {
     var result = await fetch("filscan.MsigAddressState", [id]);

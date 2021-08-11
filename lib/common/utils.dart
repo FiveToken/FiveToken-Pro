@@ -3,19 +3,12 @@ import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:crypto/crypto.dart';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:bip32/bip32.dart' as bip32;
-import 'package:device_info/device_info.dart';
-import 'package:connectivity/connectivity.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:math';
 
 const psalt = "vFIzIawYOU";
-var _box = Hive.box<Wallet>(addressBox);
-Future<bool> checkNetStatus() async {
-  var connectivityResult = await Connectivity().checkConnectivity();
-  bool isOn = connectivityResult != ConnectivityResult.none;
-  return isOn;
-}
 
+/// decrypt the string that was encrypted
 String aesDecrypt(String raw, String mix) {
   if (raw == '') {
     return '';
@@ -29,14 +22,7 @@ String aesDecrypt(String raw, String mix) {
   return decoded;
 }
 
-String encryptPrivateKey(String pk) {
-  return pk;
-}
-
-String decryptPrivateKey(String pk) {
-  return pk;
-}
-
+/// use aes algorithm to encrypt a string
 String aesEncrypt(String raw, String mix) {
   if (raw == '') {
     return '';
@@ -49,6 +35,7 @@ String aesEncrypt(String raw, String mix) {
   return encoded.base64;
 }
 
+/// generate the digest of the given string
 String tokenify(String str, {String salt = psalt}) {
   var key = utf8.encode(salt);
   var bytes = utf8.encode(str.trim());
@@ -58,18 +45,12 @@ String tokenify(String str, {String salt = psalt}) {
   return digest.toString();
 }
 
+/// hide keyboard
 void unFocusOf(BuildContext context) {
   FocusScope.of(context).requestFocus(FocusNode());
 }
 
-void toastError(BuildContext context, {String msg = "", num sec = 2}) {
-  Scaffold.of(context).showSnackBar(SnackBar(
-    content: Text("$msg"),
-    duration: Duration(seconds: sec),
-    backgroundColor: Colors.red[300],
-  ));
-}
-
+/// set  data of clipboard to the given [text] then call the [callback]
 void copyText(String text, {Function callback}) {
   var data = ClipboardData(text: text);
   Clipboard.setData(data).then((_) {
@@ -79,41 +60,7 @@ void copyText(String text, {Function callback}) {
   });
 }
 
-int calPasswordLevel(password) {
-  var p = password.trim();
-  var len = p.length;
-  if (len == 0) {
-    return 0;
-  }
-  final allDigital = RegExp(r"^\d+$");
-  final allLowerAlpha = RegExp(r"^[a-z]+$");
-  final allUpperAlpha = RegExp(r"^[A-Z]+$");
-  final allLowerAlphaOrDigital = RegExp(r"^[a-z0-9]+$");
-  final allUpperAlphaOrDigital = RegExp(r"^[A-Z0-9]+$");
-  if (len < 8 ||
-      allDigital.hasMatch(p) ||
-      allLowerAlpha.hasMatch(p) ||
-      allUpperAlpha.hasMatch(p)) {
-    return 1;
-  }
-
-  if (len < 12) {
-    if (allUpperAlphaOrDigital.hasMatch(p) ||
-        allLowerAlphaOrDigital.hasMatch(p)) {
-      return 2;
-    } else {
-      return 3;
-    }
-  }
-
-  if (allUpperAlphaOrDigital.hasMatch(p) ||
-      allLowerAlphaOrDigital.hasMatch(p)) {
-    return 3;
-  }
-
-  return 4;
-}
-
+/// convert a long string to short
 String dotString({String str = '', int headLen = 6, int tailLen = 6}) {
   int strLen = str.length;
   if (strLen < headLen + tailLen) {
@@ -129,20 +76,7 @@ String dotString({String str = '', int headLen = 6, int tailLen = 6}) {
   return "$headStr...$tailStr";
 }
 
-bool needAuth() {
-  var curTime = DateTime.now();
-  if (Global.latestAuthTime == null) {
-    return true;
-  }
-
-  var d = curTime.difference(Global.latestAuthTime);
-  if (d.inSeconds > 60) {
-    Global.latestAuthTime = null;
-    return true;
-  }
-  return false;
-}
-
+/// convert a big float number in exponential form to int string
 String parseE(String str) {
   final isE = RegExp(r"[eE][+-]\d+$");
   if (!isE.hasMatch(str)) {
@@ -153,7 +87,7 @@ String parseE(String str) {
   var n = parts[0];
   var p = parts[1];
   var sign = p[0];
-  var len = int.parse(p.substring(1)); //Number(p.slice(1))
+  var len = int.parse(p.substring(1));
   var r = "";
   if (sign == '+') {
     r = "1";
@@ -180,6 +114,7 @@ String toFixed(double input, int len) {
   return parseE(r);
 }
 
+/// verify if [input] is a valid double number
 bool isDecimal(String input) {
   var r = RegExp(r"(^\d+(?:\.\d+)?([eE]-?\d+)?$|^\.\d+([eE]-?\d+)?$)");
   if (r.hasMatch(input.trim())) {
@@ -188,6 +123,7 @@ bool isDecimal(String input) {
   return false;
 }
 
+/// verify if [input] is a valid filecoin address
 bool isValidAddress(String input) {
   if (input.indexOf(' ') != -1) {
     return false;
@@ -218,16 +154,7 @@ bool isValidAddress(String input) {
   return true;
 }
 
-List<String> parseFee(double fee) {
-  if (fee == 0) {
-    return ['0', '1000'];
-  } else if (fee < 0.0000001) {
-    return ['1000', (fee * pow(10, 15)).toStringAsFixed(0)];
-  } else {
-    return [(fee * pow(10, 10)).toStringAsFixed(0), '99999999'];
-  }
-}
-
+/// generate private key by [mne]
 String genCKBase64(String mne) {
   var seed = bip39.mnemonicToSeed(mne);
   bip32.BIP32 nodeFromSeed = bip32.BIP32.fromSeed(seed);
@@ -235,47 +162,9 @@ String genCKBase64(String mne) {
   var rs0 = rs.derive(0);
   var ck = base64Encode(rs0.privateKey);
   return ck;
-  // var mergeMethods = [
-  //   (a, b) => ((a << 4) & 0xFF) | (b >> 4),
-  //   (a, b) => a & b,
-  //   (a, b) => ((b << 4) & 0xFF) | (a >> 4),
-  //   (a, b) => a ^ b,
-  // ];
-  // var seed = bip39.mnemonicToSeed(mne);
-  // //print(seed);
-  // var l = seed.length;
-  // var n = l / 2;
-  // Uint8List b32 = Uint8List(32);
-  // for (var i = 0; i < n; i++) {
-  //   var mm = mergeMethods[i % mergeMethods.length];
-  //   b32[i] = mm(seed[i], seed[l - 1 - i]);
-  // }
-  // //print(b32);
-  // var ck = base64Encode(b32);
-  // //print(ck);
-  // return ck;
 }
 
-Future<AndroidDeviceInfo> getAndroidDeviceInfo() async {
-  DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-  AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-  print('Running on ${androidInfo.model}'); // e.g. "Moto G (4)"
-  print("android device id is:");
-  print(androidInfo.androidId);
-
-  return androidInfo;
-}
-
-String genRandStr(int size) {
-  String str = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  String result = "";
-  var strLen = str.length;
-  for (int i = 0; i < size; i++) {
-    result += str[Random().nextInt(strLen)];
-  }
-  return result;
-}
-
+/// convert hex encode string
 String hex2str(String hexString) {
   hexString = hexString.trim();
   List<String> split = [];
@@ -287,33 +176,9 @@ String hex2str(String hexString) {
   return ascii;
 }
 
-String formatTime(num timestamp) {
-  if (timestamp == null) {
-    return '';
-  }
-  var t = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
-  return "${t.year.toString().substring(2)}/${t.month.toString().padLeft(2, '0')}/${t.day.toString().padLeft(2, '0')} ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
-}
-
-String fixedFloat({String number, num size = 2}) {
-  var arr = number.split('.');
-  var intStr = arr[0];
-  var dotStr = arr[1];
-  if (dotStr != null) {
-    return (double.parse(intStr) + double.parse('0.$dotStr').toPrecision(size))
-        .toString();
-  } else {
-    return number;
-  }
-}
-
-String truncate(double value, {int size = 4}) {
-  return ((value * pow(10, size)).floor() / pow(10, size)).toString();
-}
-
-
-String formatFil(String attoFil, {num size = 4,bool fixed=false}) {
-  if(attoFil=='0'){
+/// convert attoFil to different units
+String formatFil(String attoFil, {num size = 4, bool fixed = false}) {
+  if (attoFil == '0') {
     return '0 FIL';
   }
   try {
@@ -325,17 +190,22 @@ String formatFil(String attoFil, {num size = 4,bool fixed=false}) {
     } else if (length >= 5 && length <= 13) {
       var unit = BigInt.from(pow(10, 9));
       var res = v / unit;
-      return fixed?'${res.toStringAsFixed(size)} nanoFIL':'${truncate(res)} nanoFIL';
+      return fixed
+          ? '${res.toStringAsFixed(size)} nanoFIL'
+          : '${truncate(res)} nanoFIL';
     } else {
       var unit = BigInt.from(pow(10, 18));
       var res = v / unit;
-      return fixed?'${res.toStringAsFixed(size)} FIL':'${truncate(res, size: size)} FIL';
+      return fixed
+          ? '${res.toStringAsFixed(size)} FIL'
+          : '${truncate(res, size: size)} FIL';
     }
   } catch (e) {
     return attoFil;
   }
 }
 
+/// convert fil to attofil
 String fil2Atto(String fil) {
   if (fil == null || fil == '') {
     fil = '0';
@@ -345,6 +215,7 @@ String fil2Atto(String fil) {
       .toString();
 }
 
+/// convert attofil to fil
 String atto2Fil(String value, {num len = 6}) {
   try {
     if (value == null || value == '') {
@@ -356,6 +227,7 @@ String atto2Fil(String value, {num len = 6}) {
   }
 }
 
+/// convert bytes to different units
 String unitConversion(String byteStr, num length) {
   try {
     int byte = int.parse(byteStr);
@@ -394,52 +266,67 @@ String unitConversion(String byteStr, num length) {
   }
 }
 
-String unitTime(num time) {
-  var minuteUnit = 60;
-  var hourUnit = minuteUnit * 60;
-  var dayUnit = hourUnit * 24;
-  List<int> numArr = [];
-  var unitArr = [dayUnit, hourUnit, minuteUnit];
-  var suffix =
-      Global.t.langCode == 'en' ? ['day', 'hr', 'min'] : ['天', '时', '分'];
-  unitArr.forEach((unit) {
-    var n = time ~/ unit;
-    time = time - n * unit;
-    numArr.add(n);
+/// verify if the [pass] is valid
+bool isValidPassword(String pass) {
+  pass = pass.trim();
+  var reg = RegExp(r'^(?=.*[0-9].*)(?=.*[A-Z].*)(?=.*[a-z].*).{8,20}$');
+  return reg.hasMatch(pass);
+}
+
+/// convert a base64 encode private key to hex encode private key. [type] represent different algorithm
+String base64ToHex(String pk, String type) {
+  String t = type == '1' ? 'secp256k1' : 'bls';
+  PrivateKey privateKey = PrivateKey(t, pk);
+  String result = '';
+  var list = BinaryWriter.utf8Encoder.convert(jsonEncode(privateKey.toJson()));
+  for (var i = 0; i < list.length; i++) {
+    result += list[i].toRadixString(16);
+  }
+  return result;
+}
+
+/// launch a [url] to open other app or open in browser
+Future openInBrowser(String url) async {
+  if (await canLaunch(url)) {
+    await launch(
+      url,
+      forceSafariVC: false,
+      forceWebView: false,
+    );
+  } else {
+    throw 'Could not launch $url';
+  }
+}
+
+/// call a function in next tick
+void nextTick(Noop callback) {
+  Future.delayed(Duration.zero).then((value) {
+    callback();
   });
-
-  var strArr = numArr
-      .asMap()
-      .entries
-      .map((e) {
-        var i = e.key;
-        return '${numArr[i]}${suffix[i]}';
-      })
-      .where((element) => element[0] != '0')
-      .toList()
-      .join(' ');
-  return strArr;
 }
 
-String walletLabel(String addr, {bool dot = true}) {
-  return _box.containsKey(addr)
-      ? _box.get(addr).label
-      : dot
-          ? dotString(str: addr)
-          : addr;
+String balanceFormatter(dynamic value) {
+  value = value as String;
+  if (value == '0') {
+    return '0';
+  }
+  return double.parse(value).toStringAsFixed(2) + ' FIL';
 }
 
-bool isExistWallet(String addr) {
-  return _box.containsKey(addr);
+String getFilBalance(String str) {
+  return formatDouble(str, truncate: true, size: 2) + ' FIL';
 }
 
-String encodeString(String str, [int times = 1]) {
-  List<int> s = utf8.encode(str);
-  return base64Encode(s);
+String getMaxFee(Gas gas) {
+  var feeCap = gas.feeCap;
+  var gasLimit = gas.gasLimit;
+
+  return formatFil(BigInt.from((double.parse(feeCap) * gasLimit)).toString(),
+      fixed: true);
 }
 
-String decodeString(String str) {
-  return utf8.decode(base64Decode(str));
+String truncate(double value, {int size = 4}) {
+  return ((value * pow(10, size)).floor() / pow(10, size)).toString();
 }
 
 int getSecondSinceEpoch() {
@@ -461,58 +348,4 @@ String formatDouble(String str, {bool truncate = false, int size = 4}) {
   } catch (e) {
     return '0';
   }
-}
-
-String getFilBalance(String str) {
-  return formatDouble(str, truncate: true, size: 2) + ' FIL';
-}
-
-bool isValidPassword(String pass) {
-  pass = pass.trim();
-  var reg = RegExp(r'^(?=.*[0-9].*)(?=.*[A-Z].*)(?=.*[a-z].*).{8,20}$');
-  return reg.hasMatch(pass);
-}
-
-String base64ToHex(String pk, String type) {
-  String t = type == '1' ? 'secp256k1' : 'bls';
-  PrivateKey privateKey = PrivateKey(t, pk);
-  String result = '';
-  var list = BinaryWriter.utf8Encoder.convert(jsonEncode(privateKey.toJson()));
-  for (var i = 0; i < list.length; i++) {
-    result += list[i].toRadixString(16);
-  }
-  return result;
-}
-
-String getMaxFee(Gas gas) {
-  var feeCap = gas.feeCap;
-  var gasLimit = gas.gasLimit;
-
-  return formatFil(BigInt.from((double.parse(feeCap) * gasLimit)).toString(),fixed: true);
-}
-
-Future openInBrowser(String url) async {
-  if (await canLaunch(url)) {
-    await launch(
-      url,
-      forceSafariVC: false,
-      forceWebView: false,
-    );
-  } else {
-    throw 'Could not launch $url';
-  }
-}
-
-String balanceFormatter(dynamic value) {
-  value = value as String;
-  if (value == '0') {
-    return '0';
-  }
-  return double.parse(value).toStringAsFixed(2) + ' FIL';
-}
-
-void nextTick(Noop callback) {
-  Future.delayed(Duration.zero).then((value) {
-    callback();
-  });
 }

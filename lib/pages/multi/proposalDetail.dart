@@ -1,6 +1,6 @@
 import 'package:fil/index.dart';
 import 'package:oktoast/oktoast.dart';
-
+/// display infomation of the proposal or approval
 class MultiProposalDetailPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

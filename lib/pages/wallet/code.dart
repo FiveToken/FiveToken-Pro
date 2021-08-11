@@ -1,6 +1,6 @@
 import 'package:fil/index.dart';
 import 'package:share/share.dart';
-
+/// display qrcode of the wallet address
 class WalletCodePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

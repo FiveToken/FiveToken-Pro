@@ -1,6 +1,6 @@
 import 'package:fil/index.dart';
 import 'package:oktoast/oktoast.dart';
-
+/// import a multi-sig wallet of a signer
 class MultiImportPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

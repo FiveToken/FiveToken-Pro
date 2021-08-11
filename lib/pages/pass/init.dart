@@ -1,6 +1,6 @@
 import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
-
+/// set password of a wallet
 class PassInitPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

@@ -2,7 +2,7 @@ import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
 import 'package:fil/widgets/dialog.dart';
 import 'package:oktoast/oktoast.dart';
-
+/// approve a proposal
 class MultiApprovalPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

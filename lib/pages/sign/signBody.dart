@@ -54,7 +54,7 @@ class DisplayMessage extends StatelessWidget {
           children: [
             MessageRow(
               label: 'method'.tr,
-              value: MethodMap.getMethodDes(message.method.toString(),
+              value: MethodMap().getMethodDes(message.method.toString(),
                   to: message.to),
             ),
             MessageRow(

@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-
+/// push signed message to lotus node
 class MesPushPage extends StatefulWidget {
   @override
   State createState() => MesPushPageState();
@@ -10,6 +10,7 @@ class MesPushPageState extends State<MesPushPage> {
   SignedMessage message;
   bool showDisplay = false;
   Gas gas;
+  /// store message which method is transfer, propose, approve, withdrawbalance or exec
   void checkToStoreMessage(TMessage mes, String cid) {
     var from = mes.from;
     var to = mes.to;
@@ -37,7 +38,7 @@ class MesPushPageState extends State<MesPushPage> {
           signedCid: cid,
           type: 'proposal',
         );
-        if ([0, 16].contains(from)) {
+        if ([0, 16].contains(mes.method)) {
           OpenedBox.messageInsance.put(cid, m);
         }
         if (mes.method == 2) {
@@ -63,6 +64,8 @@ class MesPushPageState extends State<MesPushPage> {
     }
     if (checkGas && gas != null && gas.feeCap != '0') {
       try {
+        /// compare gas fee 
+        /// if fee used in message was too small, display a dialog
         var mes = message.message;
         var nowMaxFee = double.parse(gas.feeCap) * gas.gasLimit;
         var maxFee = double.parse(mes.gasFeeCap) * mes.gasLimit;
@@ -253,16 +256,58 @@ class MesPushPageState extends State<MesPushPage> {
                     },
                     message: message.message,
                   )
-                : GestureDetector(
-                    child: CommonCard(Container(
-                      height: Get.height / 2,
-                      alignment: Alignment.center,
-                      child: CommonText(
-                        'clickCode'.tr,
-                        size: 16,
+                : Column(
+                    children: [
+                      GestureDetector(
+                        child: CommonCard(Container(
+                          height: Get.height / 2,
+                          alignment: Alignment.center,
+                          child: CommonText(
+                            'clickCode'.tr,
+                            size: 16,
+                          ),
+                        )),
+                        onTap: handleScan,
                       ),
-                    )),
-                    onTap: handleScan,
+                      GestureDetector(
+                        onTap: () async {
+                          var data =
+                              await Clipboard.getData(Clipboard.kTextPlain);
+                          var result = data.text;
+                          var valid = result.indexOf('Message') > 0 &&
+                              result.indexOf('Signature') > 0;
+                          if (!valid) {
+                            showCustomError('copyErrorMes'.tr);
+                            return;
+                          }
+                          try {
+                            var res = jsonDecode(result);
+                            SignedMessage message = SignedMessage.fromJson(res);
+                            if (message.message.valid) {
+                              getGas(message.message);
+                              setState(() {
+                                this.message = message;
+                                this.showDisplay = true;
+                              });
+                            }
+                          } catch (e) {
+                            print(e);
+                          }
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Text(
+                            'copyMes'.tr,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: CustomColor.grey,
+                              fontSize: 14,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      )
+                    ],
                   )
           ]),
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20)),

@@ -3,7 +3,7 @@ import 'package:fil/pages/main/online.dart';
 import 'package:fil/pages/main/widgets/select.dart';
 import 'package:fil/pages/multi/widgets/multiMessageList.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
-
+/// display balance and messages of the multi-sig wallet
 class MultiMainPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

@@ -1,6 +1,6 @@
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/widgets/select.dart';
-
+/// display all wallet 
 class WalletListPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

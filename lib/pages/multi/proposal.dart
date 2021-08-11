@@ -1,7 +1,7 @@
 import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
 import 'package:fil/widgets/dialog.dart';
-
+/// Initiate proposal
 class MultiProposalPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -62,7 +62,7 @@ class MultiProposalPageState extends State<MultiProposalPage> {
       });
     }
   }
-
+  /// serialize params
   Future<String> getParamsByMethod(String to, String value) async {
     String params = '';
     String newOwner = ownerCtrl.text.trim();
@@ -262,7 +262,7 @@ class MultiProposalPageState extends State<MultiProposalPage> {
     }
     Get.back();
   }
-
+  /// if the select method is 16, auto display the worker of the owner
   void checkToShowMiners() async {
     var res = await getActiveMiners(wallet.id);
     if (res.isNotEmpty) {

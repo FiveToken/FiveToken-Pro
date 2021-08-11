@@ -3,7 +3,7 @@ import 'package:fil/index.dart';
 import 'package:fil/pages/main/widgets/select.dart';
 import 'package:fil/widgets/dialog.dart';
 import 'package:oktoast/oktoast.dart';
-
+/// miner deposit
 class DepositPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

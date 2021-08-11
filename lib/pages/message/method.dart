@@ -1,16 +1,16 @@
 import 'package:fil/index.dart';
-
+/// select a method 
 class MethodMap {
-  static Map<String, String> _methodMap = {
-    '0': 'transfer'.tr,
-    '2': 'createMiner'.tr,
-    '3': 'changeWorker'.tr,
-    '16': 'withdraw'.tr,
-    '21': 'ConfirmUpdateWorkerKey',
-    '23': 'changeOwner'.tr
-  };
-  static String getMethodDes(String method, {String to}) {
-    var des = MethodMap._methodMap[method];
+  String getMethodDes(String method, {String to}) {
+    var _methodMap = {
+      '0': 'transfer'.tr,
+      '2': 'createMiner'.tr,
+      '3': 'changeWorker'.tr,
+      '16': 'withdraw'.tr,
+      '21': 'ConfirmUpdateWorkerKey',
+      '23': 'changeOwner'.tr
+    };
+    var des = _methodMap[method];
     if (to != null) {
       if (method == '2') {
         if (to == Global.netPrefix + '01') {
@@ -30,7 +30,7 @@ class MethodMap {
       }
     }
 
-    return "${'method'.tr}$method${des != null ? ':$des' : ''}";
+    return "${'method'.tr} $method${des != null ? ':$des' : ''}";
   }
 }
 
@@ -202,7 +202,7 @@ class MethodSelectItem extends StatelessWidget {
               width: 10,
             ),
             CommonText(
-              MethodMap.getMethodDes(method),
+              MethodMap().getMethodDes(method),
               color: caculateActive ? Colors.white : Colors.black,
             )
           ],

@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-
+/// run mode set
 class WalletModePage extends StatelessWidget {
   void setMode(bool mode){
     Global.onlineMode=mode;

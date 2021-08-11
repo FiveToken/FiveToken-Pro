@@ -1,7 +1,7 @@
 import 'package:fil/index.dart';
 
 enum MessageType { MinerWithdraw, OwnerTransfer, MinerRecharge }
-
+/// make unsigned message by given params
 class MesMakePage extends StatefulWidget {
   @override
   State createState() => MesMakePageState();
@@ -21,6 +21,7 @@ class MesMakePageState extends State<MesMakePage> {
   TextEditingController worker = TextEditingController();
   List<TextEditingController> controllers = [TextEditingController()];
   String sealType = '8';
+  bool preventNext = false;
   void addController() {
     setState(() {
       controllers.add(TextEditingController());
@@ -265,7 +266,7 @@ class MesMakePageState extends State<MesMakePage> {
   void initState() {
     super.initState();
     checkPendingList();
-    
+
     var args = Get.arguments;
     if (args != null) {
       var mesType = args['type'];
@@ -275,9 +276,20 @@ class MesMakePageState extends State<MesMakePage> {
           break;
         case MessageType.MinerWithdraw:
           //fromCtrl.text = Get.arguments['from'];
-          var list=OpenedBox.monitorInsance.values.where((addr) => addr.type=='owner').toList();
-          if(list.length==1){
-            fromCtrl.text=list[0].cid;
+          var list = OpenedBox.monitorInsance.values
+              .where((addr) =>
+                  addr.type == 'owner' &&
+                  addr.miner == singleStoreController.wal.addrWithNet)
+              .toList();
+          if (list.isNotEmpty) {
+            var owner = list[0].cid;
+            if (owner.trim()[1] == '2') {
+              preventNext = true;
+              nextTick(() {
+                showCustomError('ownerIsMulti'.tr);
+              });
+            }
+            fromCtrl.text = list[0].cid;
           }
           toCtrl.text = Get.arguments['to'];
           valueCtrl.text = '0';
@@ -421,6 +433,10 @@ class MesMakePageState extends State<MesMakePage> {
             EdgeInsets.fromLTRB(12, 20, 12, method == '3' ? keyH + 120 : 120),
       ),
       onPressed: () {
+        if (preventNext) {
+          showCustomError('ownerIsMulti'.tr);
+          return;
+        }
         var list = getPushList();
         if (list.isNotEmpty) {
           makeNewOrSpeed();
@@ -455,7 +471,7 @@ class AdvancedSet extends StatelessWidget {
             child: Row(
               children: [
                 CommonText(
-                  MethodMap.getMethodDes(method),
+                  MethodMap().getMethodDes(method),
                   size: 14,
                   color: Colors.white,
                 ),
