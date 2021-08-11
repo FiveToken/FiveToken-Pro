@@ -4,7 +4,7 @@ import 'package:fil/widgets/index.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:async';
 import 'dart:math';
-
+/// transfer page
 class FilTransferNewPage extends StatefulWidget {
   @override
   State createState() => FilTransferNewPageState();
@@ -65,7 +65,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
         mes.pending == 1 && mes.from == singleStoreController.wal.addrWithNet);
     return pendingList.isNotEmpty;
   }
-
+  /// get suggest gas 
   Future getGas() async {
     var to = _addressCtl.text.trim();
     var res = await getGasDetail(to: to);
@@ -76,7 +76,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
       });
     }
   }
-
+  /// increase gas and resend a blocked message
   void speedup(String ck) async {
     var pendingList = OpenedBox.messageInsance.values
         .where((mes) =>
@@ -97,6 +97,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
     var cacheGas = OpenedBox.gasInsance.get(key);
     if (cacheGas != null) {
       var chainPremium = int.parse(controller.gas.value.premium);
+      /// increase GasPremium to replace the message in mpool
       var caculatePremium = (int.parse(cacheGas.premium) * 1.3).truncate();
       var realPremium = max(chainPremium, caculatePremium);
       var msg = TMessage(
@@ -150,7 +151,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
       }
     }
   }
-
+  /// push message 
   void _pushMsg(String ck) async {
     if (!Global.online) {
       showCustomError('errorNet'.tr);
@@ -161,11 +162,11 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
     if (controller.gas.value.feeCap == '0') {
       showCustomError('errorSetGas'.tr);
     }
-    //var a = double.parse(_amountCtl.text.trim());
     if (nonce == null || nonce == -1) {
       showCustomError("errorGetNonce".tr);
       return;
     }
+    /// use bigger nonce when send multiple messages in a short time
     var realNonce = max(nonce, nonceBoxInstance.get(from).value);
     var value = fil2Atto(_amountCtl.text.trim());
     var msg = TMessage(
@@ -239,7 +240,6 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
       showCustomError('enterValidAmount'.tr);
       return false;
     }
-    //var b = double.parse(controller.wal.balance);
     var balance = double.parse(controller.wal.balance);
     var amountAtto = double.parse(fil2Atto(trimAmount));
     var maxFee = double.parse(feeCap) * gasLimit;
@@ -264,7 +264,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
 
     return true;
   }
-
+  /// get the nonce of the wallet
   void _getNonce() async {
     var wal = singleStoreController.wal;
     var nonce = await getNonce(wal);
@@ -289,7 +289,6 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
   }
 
   void checkInputToGetGas() {
-    //var trimAmount = _amountCtl.text.trim();
     var trimAddress = _addressCtl.text.trim();
     if (trimAddress != '' && isValidAddress(trimAddress)) {
       getGas();

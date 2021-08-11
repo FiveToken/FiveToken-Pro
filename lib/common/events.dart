@@ -1,5 +1,0 @@
-class MsgPushedEvent {
-  
-}
-
-class OtherEvent {}

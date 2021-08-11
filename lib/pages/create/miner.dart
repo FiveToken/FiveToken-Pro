@@ -1,6 +1,6 @@
 import 'package:fil/index.dart';
 import 'package:fil/store/store.dart';
-
+/// import miner address
 class MinerPage extends StatefulWidget {
   @override
   State createState() => MinerPageState();

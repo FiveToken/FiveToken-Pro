@@ -3,7 +3,14 @@ import 'package:fil/index.dart';
 import 'package:fil/pages/main/widgets/service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
-const ValidMethods= ['transfer', 'send', 'Exec', 'WithdrawBalance'];
+
+const ValidMethods = [
+  'transfer',
+  'send',
+  'Exec',
+  'WithdrawBalance',
+  'CreateMiner'
+];
 
 class CommonOnlineWallet extends StatefulWidget {
   final String address;
@@ -86,7 +93,7 @@ class CommonOnlineWidgetState extends State<CommonOnlineWallet>
     this.currentNonce = res.nonce;
     OpenedBox.addressInsance.put(wal.address, wal);
   }
-
+  
   Future getMessagesAfterFirstCompletedMessage() async {
     var list = messageList;
     num time;
@@ -98,6 +105,8 @@ class CommonOnlineWidgetState extends State<CommonOnlineWallet>
         }
       }
     }
+    /// if there is a pending message which send for create multi-sig wallet,
+    /// get the detail info of the multi-sig wallet from this message
     if (list
         .where((mes) => mes.pending == 1 && mes.to == Global.netPrefix + '01')
         .isNotEmpty) {
@@ -114,7 +123,7 @@ class CommonOnlineWidgetState extends State<CommonOnlineWallet>
       }
     }
   }
-
+  /// load messages before 
   Future getMessagesBeforeLastCompletedMessage() async {
     var list = messageList;
     num time;
@@ -175,8 +184,15 @@ class CommonOnlineWidgetState extends State<CommonOnlineWallet>
           mes.owner = controller.wal.address;
           return mes;
         }).toList();
+
+        /// if the current nonce of the wallet is biggger than the nonce of the message,
+        /// message was either packaged or discarded
+        /// delete it from local db
         var nonce = this.currentNonce;
-        var pendingList = box.values.where((mes) => mes.pending == 1).toList();
+        var pendingList = box.values
+            .where(
+                (mes) => mes.pending == 1 && mes.from == controller.wal.address)
+            .toList();
         if (pendingList.isNotEmpty) {
           for (var k = 0; k < pendingList.length; k++) {
             var mes = pendingList[k];
@@ -347,9 +363,9 @@ class MessageItem extends StatelessWidget {
     if (v == '0') {
       return '0 FIL';
     } else {
-      var pre=isSend ? '-' : '+';
-      if(isWithdraw){
-        pre='+';
+      var pre = isSend ? '-' : '+';
+      if (isWithdraw) {
+        pre = '+';
       }
       return '${pending || fail ? '' : pre}${atto2Fil(mes.value)} FIL';
     }

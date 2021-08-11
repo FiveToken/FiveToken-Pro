@@ -1,5 +1,6 @@
 import 'package:fil/index.dart';
 
+/// get nonce of an address
 Future<int> getNonce(Wallet w) async {
   var rs = await fetch("filscan.BalanceNonceByAddress", [
     {"address": w.addrWithNet},
@@ -21,6 +22,7 @@ Future<int> getNonce(Wallet w) async {
   return r == null ? -1 : r;
 }
 
+/// get balance and nonce of an address
 Future<BalanceNonce> getBalance(Wallet w) async {
   var rs = await fetch("filscan.BalanceNonceByAddress", [
     {"address": w.address},
@@ -45,6 +47,7 @@ Future<BalanceNonce> getBalance(Wallet w) async {
   return balanceNonce;
 }
 
+/// get balance and nonce of an address
 Future<WalletMeta> getWalletMeta(String address) async {
   var rs = await fetch("filscan.BalanceNonceByAddress", [
     {"address": address},
@@ -68,6 +71,7 @@ Future<WalletMeta> getWalletMeta(String address) async {
   return defaultInfo;
 }
 
+/// get actor id of an address
 Future<String> getAddressActor(String address) async {
   try {
     var result = await fetch(

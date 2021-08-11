@@ -8,7 +8,7 @@ const _textStyle = TextStyle(
   fontSize: 15,
   color: Color(FColorBlue),
 );
-
+/// display something about app
 class AboutPage extends StatefulWidget {
   @override
   State createState() => AboutPageState();

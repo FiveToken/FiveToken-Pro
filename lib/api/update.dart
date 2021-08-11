@@ -7,6 +7,7 @@ var apiMap = <String, String>{
 };
 var mode = 'pro';
 
+/// get latest android apk info
 Future<ApkInfo> getLatestApkInfo() async {
   try {
     var response = await Dio().get('${apiMap[mode]}/getAppInfo');
@@ -20,20 +21,7 @@ Future<ApkInfo> getLatestApkInfo() async {
   }
 }
 
-Future<ApkInfo> getApkInfoByVersion() async {
-  try {
-    var response = await Dio().get('${apiMap[mode]}/version',
-        queryParameters: {'version': Global.version});
-    if (response.data['code'] == 0) {
-      return ApkInfo.fromMap(response.data['data']);
-    } else {
-      return ApkInfo();
-    }
-  } catch (e) {
-    return ApkInfo();
-  }
-}
-
+/// download a file by path
 Future downloadFile(String urlPath, String savePath,
     {ProgressCallback onReceiveProgress}) async {
   var response = await Dio()

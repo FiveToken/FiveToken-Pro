@@ -1,7 +1,7 @@
 import 'package:fil/index.dart';
 
 typedef EditCallback = void Function(TMessage);
-
+/// widget to show the info of a unsigned message
 class UnsignedMessage extends StatefulWidget {
   final Noop onTap;
   final EditCallback edit;
@@ -61,21 +61,61 @@ class UnsignedMessageState extends State<UnsignedMessage> {
                   },
                   message: widget.message,
                 )
-          : GestureDetector(
-              child: CommonCard(Container(
-                height: Get.height / 2,
-                alignment: Alignment.center,
-                child: CommonText(
-                  'clickCode'.tr,
-                  size: 16,
+          : Column(
+              children: [
+                GestureDetector(
+                  child: CommonCard(Container(
+                    height: Get.height / 2,
+                    alignment: Alignment.center,
+                    child: CommonText(
+                      'clickCode'.tr,
+                      size: 16,
+                    ),
+                  )),
+                  onTap: widget.onTap,
                 ),
-              )),
-              onTap: widget.onTap,
-            ),
+                GestureDetector(
+                  onTap: () async {
+                    var data = await Clipboard.getData(Clipboard.kTextPlain);
+                    var result = data.text;
+                    var valid = result.indexOf('GasLimit') > 0 &&
+                        result.indexOf('Signature') < 0;
+                    if (!valid) {
+                      showCustomError('copyErrorMes'.tr);
+                      return;
+                    }
+                    try {
+                      var res = jsonDecode(result);
+                      TMessage message = TMessage.fromJson(res);
+                      if (message.valid) {
+                        widget.edit(message);
+                      }
+                    } catch (e) {
+                      print(e);
+                    }
+                  },
+                  child: Container(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Text(
+                        'copyMes'.tr,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: CustomColor.grey,
+                          fontSize: 14,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              ],
+            )
     ]);
   }
 }
-
+/// widget which can edit nonce and gas of a unsigned message
 class EditableMessage extends StatefulWidget {
   final TMessage message;
   final Noop update;
@@ -116,7 +156,7 @@ class EditableMessageState extends State<EditableMessage> {
           var mes = TMessage.fromJson(widget.message.toJson());
           var cap = capCtrl.text.trim();
           mes.gasFeeCap = cap;
-          if(cap!=''){
+          if (cap != '') {
             widget.edit(mes);
           }
         } catch (e) {}
@@ -128,7 +168,7 @@ class EditableMessageState extends State<EditableMessage> {
           var mes = TMessage.fromJson(widget.message.toJson());
           var limit = limitCtrl.text.trim();
           mes.gasLimit = num.parse(limit);
-          if(limit!=''){
+          if (limit != '') {
             widget.edit(mes);
           }
         } catch (e) {}

@@ -2,7 +2,7 @@
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/online.dart';
 import 'package:fil/store/store.dart';
-
+/// customize gas fee
 class FilGasPage extends StatefulWidget {
   @override
   State createState() => FilGasPageState();
@@ -297,50 +297,3 @@ class FilGasPageState extends State<FilGasPage> {
   }
 }
 
-// class MaxFee extends StatelessWidget {
-//   final String feeCap;
-//   final String gas;
-//   MaxFee({this.feeCap = '0', this.gas = '0'});
-//   @override
-//   Widget build(BuildContext context) {
-//     var _feeCap = feeCap;
-//     var _gas = gas;
-//     if (_feeCap?.trim() == '') {
-//       _feeCap = '0';
-//     }
-//     if (_gas?.trim() == '') {
-//       _gas = '0';
-//     }
-//     return Column(
-//       children: [
-//         Container(
-//           child: Row(
-//             children: [
-//               Text(
-//                 'maxFee'.tr,
-//                 style: _lableStyle,
-//               ),
-//               Text(formatFil(
-//                   attoFil: double.parse(_feeCap) * double.parse(_gas)))
-//             ],
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//           ),
-//           decoration: _decoration,
-//           padding: EdgeInsets.only(bottom: 10),
-//         ),
-//         SizedBox(
-//           height: 10,
-//         ),
-//         Row(
-//           children: [
-//             CommonText(
-//               'GasFeeCap($_feeCap attoFil)*Gas($_gas)',
-//               size: 14,
-//             )
-//           ],
-//           mainAxisAlignment: MainAxisAlignment.end,
-//         )
-//       ],
-//     );
-//   }
-// }

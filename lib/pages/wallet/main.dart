@@ -1,6 +1,5 @@
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/online.dart';
-
 class WalletMainPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

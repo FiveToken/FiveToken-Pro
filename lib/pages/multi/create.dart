@@ -1,7 +1,7 @@
 import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
 import 'package:fil/widgets/dialog.dart';
-
+/// create a multi-sig wallet
 class MultiCreatePage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -87,6 +87,7 @@ class MultiCreatePageState extends State<MultiCreatePage> {
       'threshold': threshold,
       'unlock_duration': 0
     };
+    /// serialize create params
     var p = await Flotus.genConstructorParamV3(jsonEncode(params));
     var decodeParams = jsonDecode(p);
     var msg = TMessage(
@@ -127,15 +128,14 @@ class MultiCreatePageState extends State<MultiCreatePage> {
       OpenedBox.messageInsance.put(
           res,
           StoreMessage(
-            pending: 1,
-            from: from,
-            to: msg.to,
-            value: msg.value,
-            owner: from,
-            nonce: msg.nonce,
-            signedCid: res,
-            blockTime: getSecondSinceEpoch()
-          ));
+              pending: 1,
+              from: from,
+              to: msg.to,
+              value: msg.value,
+              owner: from,
+              nonce: msg.nonce,
+              signedCid: res,
+              blockTime: getSecondSinceEpoch()));
       OpenedBox.multiInsance.put(
           res,
           MultiSignWallet(
@@ -144,17 +144,6 @@ class MultiCreatePageState extends State<MultiCreatePage> {
               label: labelCtrl.text.trim(),
               threshold: threshold,
               signers: signerAddrs));
-      OpenedBox.multiMesInsance.put(
-          res,
-          StoreMultiMessage(
-              pending: 1,
-              from: from,
-              to: Global.netPrefix + '01',
-              value: '0',
-              owner: from,
-              signedCid: res,
-              type: 'create_multisig',
-              blockTime: now));
       var oldNonce = nonceBoxInstance.get(from);
       nonceBoxInstance.put(
           from, Nonce(value: realNonce + 1, time: oldNonce.time));
@@ -208,7 +197,17 @@ class MultiCreatePageState extends State<MultiCreatePage> {
     if (singleStoreController.wal.readonly == 1) {
       var msg = await genMsg();
       singleStoreController.setPushBackPage(mainPage);
+      var cid = await Flotus.genCid(msg: jsonEncode(msg));
       Get.toNamed(mesBodyPage, arguments: {'mes': msg});
+      
+      OpenedBox.multiInsance.put(
+          cid,
+          MultiSignWallet(
+              cid: cid,
+              blockTime: getSecondSinceEpoch(),
+              label: labelCtrl.text.trim(),
+              threshold: int.parse(thresholdCtrl.text.trim()),
+              signers: signerAddrs));
     } else {
       showPassDialog(context, (String pass) {
         pushMessage(pass);

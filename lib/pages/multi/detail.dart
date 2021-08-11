@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-
+/// display signers and threshold of the multi-sig wallet
 class MultiDetailPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {

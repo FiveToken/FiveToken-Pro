@@ -2,7 +2,6 @@ export 'package:fil/widgets/wallet.dart';
 export 'scaffold.dart';
 export './card.dart';
 export './text.dart';
-export './button.dart';
 export './qr.dart';
 export './style.dart';
 export './selectWallet.dart';

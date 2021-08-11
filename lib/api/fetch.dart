@@ -1,17 +1,17 @@
 import 'package:fil/index.dart';
 import 'package:oktoast/oktoast.dart';
 
+/// mainnet rpc url
 const API_MAIN = 'https://api.filscan.io:8700/';
+
+/// calibration rpc url
 const API_TEST = 'https://calibration.filscan.io:8800/';
-const API_DEV = 'http://192.168.19.89:9999';
-const FilscanWeb = "https://filscan.io";
 var filscanWeb = Global.netPrefix == 'f'
     ? "https://filscan.io"
     : "https://calibration.filscan.io/#";
 class ServerAddress {
   static String get main => API_MAIN;
   static String get test => API_TEST;
-  static String get dev => API_DEV;
   static String get use => Global.netPrefix == 'f' ? API_MAIN : API_TEST;
 }
 

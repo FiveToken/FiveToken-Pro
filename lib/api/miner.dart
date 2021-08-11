@@ -1,5 +1,6 @@
 import 'package:fil/index.dart';
 
+/// get miner detail info
 Future<MinerMeta> getMinerInfo(String address) async {
   try {
     var result = await fetch(
@@ -43,6 +44,7 @@ Future<MinerMeta> getMinerInfo(String address) async {
   }
 }
 
+/// get miner's workers and controllers
 Future<List<MinerAddress>> getMinerControllers(String addr) async {
   var result = await fetch('filscan.WalletStatisticalIndicators', [addr, '1d']);
   var response = JsonRPCResponse.fromJson(result.data);
@@ -59,22 +61,15 @@ Future<List<MinerAddress>> getMinerControllers(String addr) async {
       }).toList();
       addressList.forEach((address) {
         var cid = address.address;
-        if (!box.containsKey(cid)) {
-          box.put(
-              cid,
-              MonitorAddress(
-                  cid: cid,
-                  miner: addr,
-                  label:
-                      '${address.type[0].toUpperCase()}${address.type.substring(1)}',
-                  threshold: '-1',
-                  type: address.type));
-        } else {
-          var item = box.get(cid);
-          var balance = address.balance;
-          var threshold = double.parse(item.threshold);
-          if (threshold > 0 && threshold > double.parse(balance)) {}
-        }
+        box.put(
+            cid,
+            MonitorAddress(
+                cid: cid,
+                miner: addr,
+                label:
+                    '${address.type[0].toUpperCase()}${address.type.substring(1)}',
+                threshold: '-1',
+                type: address.type));
       });
       return addressList;
     } else {
@@ -83,57 +78,7 @@ Future<List<MinerAddress>> getMinerControllers(String addr) async {
   }
 }
 
-Future<MinerStats> getMinerStats(String address) async {
-  var result =
-      await fetch('filscan.WalletStatisticalIndicators', [address, '1d']);
-  var response = JsonRPCResponse.fromJson(result.data);
-  if (response.error != null) {
-    return MinerStats(addressList: [], historicalStats: MinerHistoricalStats());
-  } else {
-    var res = response.result;
-    if (res != null) {
-      var historicalStats = MinerHistoricalStats.fromMap(res);
-      var list = res['address_balances'] ?? [];
-      var box = Hive.box<MonitorAddress>(monitorBox);
-      var owner = '';
-      var addressList = (list as List).map((e) {
-        var address = MinerAddress.fromMap(e);
-        var cid = address.address;
-        if (address.type == 'owner') {
-          owner = cid;
-        }
-
-        return address;
-      }).toList();
-      addressList.forEach((address) {
-        var cid = address.address;
-        if (!box.containsKey(cid)) {
-          box.put(
-              cid,
-              MonitorAddress(
-                  cid: cid,
-                  label:
-                      '${address.type[0].toUpperCase()}${address.type.substring(1)}',
-                  threshold: '-1',
-                  type: address.type));
-        } else {
-          var item = box.get(cid);
-          var balance = address.balance;
-          var threshold = double.parse(item.threshold);
-          if (threshold > 0 && threshold > double.parse(balance)) {}
-        }
-      });
-      return MinerStats(
-          historicalStats: historicalStats,
-          addressList: addressList,
-          owner: owner);
-    } else {
-      return MinerStats(
-          addressList: [], historicalStats: MinerHistoricalStats());
-    }
-  }
-}
-
+/// get miner yesterday's statistical indicators
 Future<MinerHistoricalStats> getMinerYestodayInfo(String address) async {
   var result = await fetch('filscan.StatisticalIndicatorsUnite', [
     [address],
@@ -152,7 +97,7 @@ Future<MinerHistoricalStats> getMinerYestodayInfo(String address) async {
     }
   }
 }
-
+/// get miner's active workers 
 Future<List<String>> getActiveMiners(String address) async {
   try {
     var result = await fetch(

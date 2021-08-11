@@ -103,7 +103,7 @@ const Map<String, String> ZH_LANG = {
   'tradeFail': '交易失败',
   'rec': '接收',
   'send': '发送',
-  'close':'关闭',
+  'close': '关闭',
   'reced': '已接收',
   'sended': '已发送',
   'sending': "消息发送中",
@@ -300,7 +300,7 @@ const Map<String, String> ZH_LANG = {
   'monitorRecharge': '充值',
   'monitorChange': '修改标签名',
   'monitorTitle': '余额监控',
-  'monitorGas':'昨日消耗',
+  'monitorGas': '昨日消耗',
   'updateTips': '是否升级到最新版本？',
   'updateInstall': '安装',
   'updateTitle': '升级',
@@ -321,7 +321,7 @@ const Map<String, String> ZH_LANG = {
   'notification': '消息通知',
   'opSucc': '操作成功',
   'opFail': '操作失败',
-  'inAccount':'账户内转账',
+  'inAccount': '账户内转账',
   'selectPurpose': '选择你的用途',
   'onlineMode': '该钱包将会联网',
   'offlineMode': '该钱包不联网，做为离线钱包使用',
@@ -332,5 +332,8 @@ const Map<String, String> ZH_LANG = {
   'sectorType': '扇区类型',
   'workerBls': 'worker必须为f3地址',
   'params': '参数',
-  'selectMiner':'选择矿工'
+  'copyErrorMes': '错误提醒：剪贴板保存的内容非消息的JSON，请复制正确的消息JSON在进行导入',
+  'copyMes': '文本方式导入：若已复制消息的json，点击此处即可',
+  'ownerIsMulti': '当前矿工的Owner为多签账户，请至多签页面提现',
+  "selectMiner": "选择矿工"
 };

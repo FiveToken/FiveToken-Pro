@@ -1,6 +1,6 @@
 import 'package:fil/index.dart';
 import 'package:fil/store/store.dart';
-
+/// import readonly wallet
 class ReadonlyPage extends StatefulWidget {
   @override
   State createState() => ReadonlyPageState();
