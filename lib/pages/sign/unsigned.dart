@@ -19,14 +19,14 @@ class UnsignedMessageState extends State<UnsignedMessage> {
   }
 
   bool advanced = false;
-  @override
-  void initState() {
-    super.initState();
-    var mode = Global.store.getInt('signMode') ?? 0;
-    if (mode == 1) {
-      advanced = true;
-    }
-  }
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   // var mode = Global.store.getInt('signMode') ?? 0;
+  //   // if (mode == 1) {
+  //   //   advanced = true;
+  //   // }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -258,14 +258,14 @@ class EditableMessageState extends State<EditableMessage> {
         controller: capCtrl,
         focusNode: capNode,
         type: TextInputType.number,
-        inputFormatters: [PrecisionLimitFormatter(8)],
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       ),
       Field(
         label: 'GasLimit',
         controller: limitCtrl,
         focusNode: limitNode,
         type: TextInputType.number,
-        inputFormatters: [PrecisionLimitFormatter(8)],
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       ),
       Container(
         width: double.infinity,

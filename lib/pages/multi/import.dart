@@ -32,7 +32,7 @@ class MultiImportPageState extends State<MultiImportPage> {
     if (res.balance == null) {
       showCustomError('searchFailed'.tr);
     } else {
-      var signer = singleStoreController.wal.addr;
+      var signer = $store.wal.addr;
       var signers = res.signerMap.keys.toList();
       if (!signers.contains(Global.netPrefix + signer.substring(1))) {
         showCustomError('notSigner'.tr);
@@ -50,7 +50,8 @@ class MultiImportPageState extends State<MultiImportPage> {
             balance: atto2Fil(res.balance));
         OpenedBox.multiInsance.put(addr, wallet);
         showCustomToast('importSuccess'.tr);
-        singleStoreController.setMultiWallet(wallet);
+        addOperation('import_multisig');
+        $store.setMultiWallet(wallet);
         Global.store.setString('activeMultiAddress', wallet.addrWithNet);
         Get.offAndToNamed(multiMainPage);
       }

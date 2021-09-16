@@ -21,7 +21,8 @@ class MonitorAddressAdapter extends TypeAdapter<MonitorAddress> {
       cid: fields[1] as String,
       threshold: fields[2] as String,
       type: fields[3] as String,
-    )..miner = fields[4] as String;
+      miner: fields[4] as String,
+    );
   }
 
   @override

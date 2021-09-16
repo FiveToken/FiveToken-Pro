@@ -9,7 +9,7 @@ class FilGasPage extends StatefulWidget {
 }
 
 class FilGasPageState extends State<FilGasPage> {
-  StoreController controller = singleStoreController;
+  StoreController controller = $store;
   TextEditingController feeCapCtrl = TextEditingController();
   TextEditingController gasLimitCtrl = TextEditingController();
   TextEditingController premiumCtrl = TextEditingController();
@@ -20,7 +20,7 @@ class FilGasPageState extends State<FilGasPage> {
   }
 
   Gas get gas {
-    return singleStoreController.gas.value;
+    return $store.gas.value;
   }
 
   int get premium {
@@ -48,7 +48,7 @@ class FilGasPageState extends State<FilGasPage> {
 
   String get feePrice {
     return getMarketPrice(
-        singleStoreController.maxFeeNum, Global.price?.rate);
+        $store.maxFeeNum, Global.price?.rate);
   }
 
   void handleSubmit(BuildContext context) {
@@ -110,7 +110,7 @@ class FilGasPageState extends State<FilGasPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       CommonText.white('fee'.tr),
-                      Obx(() => CommonText.white(singleStoreController.maxFee,
+                      Obx(() => CommonText.white($store.maxFee,
                           size: 18))
                     ],
                   ),
@@ -177,7 +177,7 @@ class FilGasPageState extends State<FilGasPage> {
                       feeCap: chainGas.feeCap,
                       gasLimit: chainGas.gasLimit,
                       premium: chainGas.premium);
-                  singleStoreController.setGas(g);
+                  $store.setGas(g);
                   syncGas(g);
                 });
               },
@@ -227,7 +227,7 @@ class FilGasPageState extends State<FilGasPage> {
                         premium: chainGas.premium,
                         feeCap: feeCap,
                         gasLimit: chainGas.gasLimit);
-                    singleStoreController.setGas(g);
+                    $store.setGas(g);
                     syncGas(g);
                   } catch (e) {}
                 });
@@ -271,21 +271,21 @@ class FilGasPageState extends State<FilGasPage> {
                           label: '',
                           controller: feeCapCtrl,
                           type: TextInputType.number,
-                          inputFormatters: [PrecisionLimitFormatter(8)],
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         ),
                         CommonText.white('GasPremium', size: 10),
                         Field(
                           label: '',
                           controller: premiumCtrl,
                           type: TextInputType.number,
-                          inputFormatters: [PrecisionLimitFormatter(8)],
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         ),
                         CommonText.white('GasLimit', size: 10),
                         Field(
                           label: '',
                           controller: gasLimitCtrl,
                           type: TextInputType.number,
-                          inputFormatters: [PrecisionLimitFormatter(8)],
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         )
                       ],
                     ),

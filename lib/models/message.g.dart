@@ -6,63 +6,57 @@ part of 'message.dart';
 // TypeAdapterGenerator
 // **************************************************************************
 
-class StoreMessageAdapter extends TypeAdapter<StoreMessage> {
+class TMessageAdapter extends TypeAdapter<TMessage> {
   @override
-  final int typeId = 4;
+  final int typeId = 1;
 
   @override
-  StoreMessage read(BinaryReader reader) {
+  TMessage read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return StoreMessage(
-      from: fields[0] as String,
-      to: fields[1] as String,
-      signedCid: fields[3] as String,
-      value: fields[4] as String,
-      blockTime: fields[5] as num,
-      owner: fields[2] as String,
-      pending: fields[7] as num,
-      args: fields[8] as String,
-      type: fields[9] as String,
-      multiParams: fields[10] as String,
-      nonce: fields[11] as num,
-      exitCode: fields[6] as num,
-      methodName: fields[12] as String,
+    return TMessage(
+      version: fields[6] as num,
+      to: fields[0] as String,
+      from: fields[1] as String,
+      value: fields[2] as String,
+      gasFeeCap: fields[3] as String,
+      gasPremium: fields[5] as String,
+      gasLimit: fields[9] as num,
+      params: fields[4] as String,
+      nonce: fields[7] as num,
+      args: fields[10] as String,
+      method: fields[8] as num,
     );
   }
 
   @override
-  void write(BinaryWriter writer, StoreMessage obj) {
+  void write(BinaryWriter writer, TMessage obj) {
     writer
-      ..writeByte(13)
-      ..writeByte(0)
-      ..write(obj.from)
-      ..writeByte(1)
-      ..write(obj.to)
-      ..writeByte(2)
-      ..write(obj.owner)
-      ..writeByte(3)
-      ..write(obj.signedCid)
-      ..writeByte(4)
-      ..write(obj.value)
-      ..writeByte(5)
-      ..write(obj.blockTime)
-      ..writeByte(6)
-      ..write(obj.exitCode)
-      ..writeByte(7)
-      ..write(obj.pending)
-      ..writeByte(8)
-      ..write(obj.args)
-      ..writeByte(9)
-      ..write(obj.type)
-      ..writeByte(10)
-      ..write(obj.multiParams)
       ..writeByte(11)
+      ..writeByte(0)
+      ..write(obj.to)
+      ..writeByte(1)
+      ..write(obj.from)
+      ..writeByte(2)
+      ..write(obj.value)
+      ..writeByte(3)
+      ..write(obj.gasFeeCap)
+      ..writeByte(4)
+      ..write(obj.params)
+      ..writeByte(5)
+      ..write(obj.gasPremium)
+      ..writeByte(6)
+      ..write(obj.version)
+      ..writeByte(7)
       ..write(obj.nonce)
-      ..writeByte(12)
-      ..write(obj.methodName);
+      ..writeByte(8)
+      ..write(obj.method)
+      ..writeByte(9)
+      ..write(obj.gasLimit)
+      ..writeByte(10)
+      ..write(obj.args);
   }
 
   @override
@@ -71,80 +65,35 @@ class StoreMessageAdapter extends TypeAdapter<StoreMessage> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is StoreMessageAdapter &&
+      other is TMessageAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
 
-class StoreMultiMessageAdapter extends TypeAdapter<StoreMultiMessage> {
+class SignatureAdapter extends TypeAdapter<Signature> {
   @override
-  final int typeId = 15;
+  final int typeId = 2;
 
   @override
-  StoreMultiMessage read(BinaryReader reader) {
+  Signature read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return StoreMultiMessage(
-      from: fields[0] as String,
-      to: fields[1] as String,
-      signedCid: fields[3] as String,
-      value: fields[4] as String,
-      blockTime: fields[5] as num,
-      owner: fields[2] as String,
-      pending: fields[7] as num,
-      type: fields[8] as String,
-      exitCode: fields[6] as num,
-      msigTo: fields[9] as String,
-      msigValue: fields[10] as String,
-      txnId: fields[11] as String,
-      msigRequired: fields[12] as num,
-      msigApproved: fields[13] as num,
-      proposalCid: fields[15] as String,
-      methodName: fields[16] as String,
-      msigSuccess: fields[14] as bool,
+    return Signature(
+      fields[1] as num,
+      fields[0] as String,
     );
   }
 
   @override
-  void write(BinaryWriter writer, StoreMultiMessage obj) {
+  void write(BinaryWriter writer, Signature obj) {
     writer
-      ..writeByte(17)
-      ..writeByte(0)
-      ..write(obj.from)
-      ..writeByte(1)
-      ..write(obj.to)
       ..writeByte(2)
-      ..write(obj.owner)
-      ..writeByte(3)
-      ..write(obj.signedCid)
-      ..writeByte(4)
-      ..write(obj.value)
-      ..writeByte(5)
-      ..write(obj.blockTime)
-      ..writeByte(6)
-      ..write(obj.exitCode)
-      ..writeByte(7)
-      ..write(obj.pending)
-      ..writeByte(8)
-      ..write(obj.type)
-      ..writeByte(9)
-      ..write(obj.msigTo)
-      ..writeByte(10)
-      ..write(obj.msigValue)
-      ..writeByte(11)
-      ..write(obj.txnId)
-      ..writeByte(12)
-      ..write(obj.msigRequired)
-      ..writeByte(13)
-      ..write(obj.msigApproved)
-      ..writeByte(14)
-      ..write(obj.msigSuccess)
-      ..writeByte(15)
-      ..write(obj.proposalCid)
-      ..writeByte(16)
-      ..write(obj.methodName);
+      ..writeByte(0)
+      ..write(obj.data)
+      ..writeByte(1)
+      ..write(obj.type);
   }
 
   @override
@@ -153,7 +102,127 @@ class StoreMultiMessageAdapter extends TypeAdapter<StoreMultiMessage> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is StoreMultiMessageAdapter &&
+      other is SignatureAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class SignedMessageAdapter extends TypeAdapter<SignedMessage> {
+  @override
+  final int typeId = 0;
+
+  @override
+  SignedMessage read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return SignedMessage(
+      fields[0] as TMessage,
+      fields[1] as Signature,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, SignedMessage obj) {
+    writer
+      ..writeByte(2)
+      ..writeByte(0)
+      ..write(obj.message)
+      ..writeByte(1)
+      ..write(obj.signature);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SignedMessageAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class StoreUnsignedMessageAdapter extends TypeAdapter<StoreUnsignedMessage> {
+  @override
+  final int typeId = 7;
+
+  @override
+  StoreUnsignedMessage read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return StoreUnsignedMessage(
+      message: fields[0] as TMessage,
+      time: fields[1] as String,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, StoreUnsignedMessage obj) {
+    writer
+      ..writeByte(2)
+      ..writeByte(0)
+      ..write(obj.message)
+      ..writeByte(1)
+      ..write(obj.time);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StoreUnsignedMessageAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class StoreSignedMessageAdapter extends TypeAdapter<StoreSignedMessage> {
+  @override
+  final int typeId = 8;
+
+  @override
+  StoreSignedMessage read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return StoreSignedMessage(
+      message: fields[0] as SignedMessage,
+      time: fields[1] as String,
+      pending: fields[2] as num,
+      cid: fields[3] as String,
+      nonce: fields[4] as num,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, StoreSignedMessage obj) {
+    writer
+      ..writeByte(5)
+      ..writeByte(0)
+      ..write(obj.message)
+      ..writeByte(1)
+      ..write(obj.time)
+      ..writeByte(2)
+      ..write(obj.pending)
+      ..writeByte(3)
+      ..write(obj.cid)
+      ..writeByte(4)
+      ..write(obj.nonce);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StoreSignedMessageAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

@@ -1,4 +1,5 @@
 import 'package:fil/index.dart';
+
 /// push signed message to lotus node
 class MesPushPage extends StatefulWidget {
   @override
@@ -10,6 +11,7 @@ class MesPushPageState extends State<MesPushPage> {
   SignedMessage message;
   bool showDisplay = false;
   Gas gas;
+
   /// store message which method is transfer, propose, approve, withdrawbalance or exec
   void checkToStoreMessage(TMessage mes, String cid) {
     var from = mes.from;
@@ -25,7 +27,7 @@ class MesPushPageState extends State<MesPushPage> {
           owner: mes.from,
           signedCid: cid,
           blockTime: now);
-      if ([0, 2, 3, 16].contains(mes.method)) {
+      if ([0, 2, 3, 16, 21, 23].contains(mes.method)) {
         var multiMes = StoreMultiMessage(
           pending: 1,
           from: from,
@@ -38,10 +40,23 @@ class MesPushPageState extends State<MesPushPage> {
           signedCid: cid,
           type: 'proposal',
         );
-        if ([0, 16].contains(mes.method)) {
+        if ([0, 16, 21, 23].contains(mes.method)) {
+          var methodName = <String, String>{
+            '0': FilecoinMethod.transfer,
+            '16': FilecoinMethod.withdraw,
+            '21': FilecoinMethod.confirmUpdateWorkerKey,
+            '23': FilecoinMethod.changeOwner
+          };
+          m.methodName = methodName[mes.method.toString()];
           OpenedBox.messageInsance.put(cid, m);
         }
         if (mes.method == 2) {
+          if (mes.to == FilecoinAccount.f04) {
+            m.methodName =  FilecoinMethod.createMiner;
+          }
+          if (mes.to == FilecoinAccount.f01) {
+            m.methodName = FilecoinMethod.exec;
+          }
           if (OpenedBox.multiInsance.containsKey(mes.to)) {
             OpenedBox.multiMesInsance.put(cid, multiMes);
           } else {
@@ -52,6 +67,9 @@ class MesPushPageState extends State<MesPushPage> {
           multiMes.type = 'approval';
           if (OpenedBox.multiInsance.containsKey(mes.to)) {
             OpenedBox.multiMesInsance.put(cid, multiMes);
+          } else {
+            m.methodName = FilecoinMethod.changeWorker;
+            OpenedBox.messageInsance.put(cid, m);
           }
         }
       }
@@ -64,7 +82,7 @@ class MesPushPageState extends State<MesPushPage> {
     }
     if (checkGas && gas != null && gas.feeCap != '0') {
       try {
-        /// compare gas fee 
+        /// compare gas fee
         /// if fee used in message was too small, display a dialog
         var mes = message.message;
         var nowMaxFee = double.parse(gas.feeCap) * gas.gasLimit;
@@ -81,7 +99,8 @@ class MesPushPageState extends State<MesPushPage> {
         var now = DateTime.now().millisecondsSinceEpoch;
         var mes = message.message;
         checkToStoreMessage(mes, res);
-        Hive.box<StoreSignedMessage>(pushMessageBox).put(
+        addOperation('push_mes');
+        OpenedBox.pushInsance.put(
             res,
             StoreSignedMessage(
                 time: now.toString(),
@@ -90,7 +109,7 @@ class MesPushPageState extends State<MesPushPage> {
                 pending: 1,
                 nonce: message.message.nonce));
         showCustomToast('pushSuccess'.tr);
-        var page = singleStoreController.pushBackPage;
+        var page = $store.pushBackPage;
         var backPage = mainPage;
         if (page != '') {
           backPage = page;

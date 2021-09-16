@@ -5,7 +5,8 @@ class WalletSelect extends StatefulWidget {
   final SingleParamCallback<Wallet> onTap;
   final bool more;
   final String filterType;
-  WalletSelect({this.bottom, this.onTap, this.more = false, this.filterType});
+  final double footerHeight; 
+  WalletSelect({this.bottom, this.onTap, this.more = false, this.filterType,this.footerHeight=0});
   @override
   State<StatefulWidget> createState() {
     return WalletSelectState();
@@ -114,25 +115,34 @@ class WalletSelectState extends State<WalletSelect> {
           width: 10,
         ),
         Expanded(
-            child: SingleChildScrollView(
-          padding: EdgeInsets.only(bottom: widget.bottom ?? 20),
-          child: Column(
-            children: List.generate(list.length, (index) {
-              var item = list[index];
-              return Padding(
-                child: TypedListWidget(
-                  list: item.list,
-                  title: item.title,
-                  onTap: widget.onTap,
-                  more: widget.more,
+            child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(bottom: widget.bottom ?? 20),
+                child: Column(
+                  children: List.generate(list.length, (index) {
+                    var item = list[index];
+                    return Padding(
+                      child: TypedListWidget(
+                        list: item.list,
+                        title: item.title,
+                        onTap: widget.onTap,
+                        more: widget.more,
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                      ),
+                    );
+                  }),
                 ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                ),
-              );
-            }),
-          ),
-        ))
+              ),
+            ),
+            SizedBox(
+              height: widget.footerHeight,
+            )
+          ],
+        )),
       ],
     );
   }
@@ -238,8 +248,7 @@ class TypedListWidget extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                             borderRadius: CustomRadius.b8,
-                            color: wallet.addrWithNet ==
-                                    singleStoreController.wal.addrWithNet
+                            color: wallet.addrWithNet == $store.wal.addrWithNet
                                 ? CustomColor.primary
                                 : Color(0xff8297B0)),
                       )),

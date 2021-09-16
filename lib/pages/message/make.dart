@@ -1,6 +1,8 @@
 import 'package:fil/index.dart';
+import 'package:oktoast/oktoast.dart';
 
-enum MessageType { MinerWithdraw, OwnerTransfer, MinerRecharge }
+enum MessageType { MinerManage, OwnerTransfer, MinerRecharge }
+
 /// make unsigned message by given params
 class MesMakePage extends StatefulWidget {
   @override
@@ -17,11 +19,15 @@ class MesMakePageState extends State<MesMakePage> {
   String method = '0';
   var box = Hive.box<StoreUnsignedMessage>(unsignedMessageBox);
   bool showFrom = true;
-  Wallet wallet = singleStoreController.wal;
+  Wallet wallet = $store.wal;
   TextEditingController worker = TextEditingController();
   List<TextEditingController> controllers = [TextEditingController()];
   String sealType = '8';
   bool preventNext = false;
+  Timer timer;
+  BigInt fromBalance = BigInt.zero;
+  BigInt minerBalance = BigInt.zero;
+  bool showTips = false;
   void addController() {
     setState(() {
       controllers.add(TextEditingController());
@@ -97,15 +103,12 @@ class MesMakePageState extends State<MesMakePage> {
   void handleSubmit(BuildContext context) async {
     var res = await makeMessage();
     if (res is TMessage) {
-      if (res.value != null) {
-        unFocusOf(context);
-        singleStoreController.setPushBackPage(mainPage);
-        Get.toNamed(mesBodyPage, arguments: {
-          'mes': res,
-        });
-      } else {
-        showCustomError('makeFail'.tr);
-      }
+      addOperation('make_mes');
+      unFocusOf(context);
+      $store.setPushBackPage(mainPage);
+      Get.toNamed(mesBodyPage, arguments: {
+        'mes': res,
+      });
     }
   }
 
@@ -114,7 +117,9 @@ class MesMakePageState extends State<MesMakePage> {
     var to = toCtrl.text.trim();
     var value = valueCtrl.text.trim();
     var params = '';
-    if (value == '') {
+    var prefix = 'from'.tr;
+
+    if (!['0', '16'].contains(method)) {
       value = '0';
     }
     if (from == '') {
@@ -122,29 +127,58 @@ class MesMakePageState extends State<MesMakePage> {
       return;
     }
     if (to == '' && method != '2') {
-      showCustomError('enterAddr'.tr);
+      showCustomError('enterTo'.tr);
       return;
     }
-    if (!isValidAddress(to)) {
+    if (!isValidAddress(to) && method != '2') {
       showCustomError('errorAddr'.tr);
+      return;
     }
-
+    if (value == '' && ['0', '16'].contains(method)) {
+      showCustomError('enterValidAmount'.tr);
+      return;
+    }
     try {
       double.parse(value);
     } catch (e) {
       showCustomError('enterValidAmount'.tr);
       return;
     }
+    var requestValue = fil2Atto(value);
     if (method == '16') {
       params = '{"AmountRequested": "${fil2Atto(value)}"}';
       value = '0';
+      prefix = 'Owner';
     }
-
+    showCustomLoading('Loading');
+    if (fromBalance == BigInt.zero) {
+      await getFromBalance(from);
+      if (fromBalance == BigInt.zero) {
+        showCustomError(prefix + 'errorLowBalance'.tr);
+        return;
+      }
+    }
+    if (method == '16' && minerBalance == BigInt.zero) {
+      await getMinerBalance(to);
+    }
+    if (method == '16' && minerBalance < BigInt.tryParse(requestValue)) {
+      showCustomError('errorLowBalance'.tr);
+      return;
+    }
+    var newOwner = ownerCtrl.text.trim();
     if (method == '23') {
-      var newOwner = ownerCtrl.text.trim();
       if (newOwner == '') {
         showCustomError('enterOwner'.tr);
         return;
+      }
+      if (newOwner[1] != '0') {
+        var ownerId = await getAddressActor(newOwner);
+        if (ownerId == '') {
+          showCustomError('searchOwnerFail'.tr);
+          return;
+        } else {
+          newOwner = ownerId;
+        }
       }
       params = '\"$newOwner\"';
     }
@@ -158,7 +192,12 @@ class MesMakePageState extends State<MesMakePage> {
         showCustomError('workerBls'.tr);
         return;
       }
-      to = Global.netPrefix + '04';
+      var actor = await getAddressActor(w);
+      if (actor == '') {
+        showCustomError('invalidWorker'.tr);
+        return;
+      }
+      to = FilecoinAccount.f04;
       params = jsonEncode({
         "Peer": null,
         "Owner": from,
@@ -173,6 +212,13 @@ class MesMakePageState extends State<MesMakePage> {
         showCustomError('enterWorker'.tr);
         return;
       }
+      if (newWorker[1] != '0') {
+        var actor = await getAddressActor(newWorker);
+        if (actor == '') {
+          showCustomError('notActiveWorker'.tr);
+          return;
+        }
+      }
       if (controllers
           .map((ctrl) => ctrl.text.trim())
           .toList()
@@ -185,41 +231,51 @@ class MesMakePageState extends State<MesMakePage> {
         'NewControlAddrs': controllers.map((ctrl) => ctrl.text.trim()).toList()
       });
     }
-    var res = await buildMessage({
-      'from': from,
-      'to': to,
-      'value': fil2Atto(value),
-      'method': int.parse(method)
-    }, params == '' ? null : params);
-    return res;
+    try {
+      var res = await buildMessage({
+        'from': from,
+        'to': to,
+        'value': fil2Atto(value),
+        'method': int.parse(method)
+      }, params == '' ? null : params);
+      var gas = Gas(
+          feeCap: res.gasFeeCap,
+          gasLimit: res.gasLimit,
+          premium: res.gasPremium);
+      var valueNum = BigInt.tryParse(fil2Atto(value)) ?? BigInt.zero;
+      if (fromBalance < valueNum + gas.feeNum) {
+        showCustomError(prefix + 'errorLowBalance'.tr);
+        return;
+      }
+      dismissAllToast();
+      return res;
+    } catch (e) {
+      print(e);
+    }
   }
 
   List<StoreSignedMessage> getPushList() {
-    return OpenedBox.pushInsance.values
-        .where((mes) =>
-            mes.pending == 1 && mes.message.message.from == wallet.addrWithNet)
-        .toList();
+    var wal = $store.wal;
+    return OpenedBox.pushInsance.values.where((mes) {
+      var source = $store.wal.addrWithNet;
+      if (wal.walletType == 2) {
+        var list = OpenedBox.monitorInsance.values
+            .where(
+                (addr) => addr.miner == wal.addrWithNet && addr.type == 'owner')
+            .toList();
+        if (list.isNotEmpty) {
+          source = list[0].cid;
+        }
+      }
+      return mes.from == source;
+    }).toList();
   }
 
   void speedUp() {
-    var list = getPushList();
-    var usedMes = list[0].message.message;
-    if (list.length != 1) {
-      var minNonceMes = list[0];
-      list.forEach((mes) {
-        if (mes.nonce < minNonceMes.nonce) {
-          minNonceMes = mes;
-        }
-      });
-      usedMes = minNonceMes.message.message;
-    }
-    var caculatePremium = (int.parse(usedMes.gasPremium) * 1.3).truncate();
-    var caculateFeeCap = (int.parse(usedMes.gasFeeCap) * 1.3).truncate();
-    usedMes.gasPremium = caculatePremium.toString();
-    usedMes.gasFeeCap = caculateFeeCap.toString();
-    singleStoreController.setPushBackPage(mainPage);
+    var msg = FilecoinProvider.getIncreaseGasMessage();
+    $store.setPushBackPage(mainPage);
     Get.toNamed(mesBodyPage, arguments: {
-      'mes': usedMes,
+      'mes': msg,
     });
   }
 
@@ -235,37 +291,19 @@ class MesMakePageState extends State<MesMakePage> {
     }
     var res = await makeMessage();
     if (res is TMessage) {
-      if (res.value != null) {
-        res.nonce = nonce + 1;
-        unFocusOf(context);
-        singleStoreController.setPushBackPage(mainPage);
-        Get.toNamed(mesBodyPage, arguments: {
-          'mes': res,
-        });
-      } else {
-        showCustomError('makeFail'.tr);
-      }
-    }
-  }
-
-  void checkPendingList() async {
-    var pushList = getPushList();
-    if (pushList.isNotEmpty) {
-      var res = await getBalance(wallet);
-      if (res.nonce != -1) {
-        pushList.forEach((mes) {
-          if (mes.nonce < res.nonce) {
-            OpenedBox.pushInsance.delete(mes.cid);
-          }
-        });
-      }
+      res.nonce = nonce + 1;
+      addOperation('make_mes');
+      unFocusOf(context);
+      $store.setPushBackPage(mainPage);
+      Get.toNamed(mesBodyPage, arguments: {
+        'mes': res,
+      });
     }
   }
 
   @override
   void initState() {
     super.initState();
-    checkPendingList();
 
     var args = Get.arguments;
     if (args != null) {
@@ -274,12 +312,11 @@ class MesMakePageState extends State<MesMakePage> {
         case MessageType.OwnerTransfer:
           fromCtrl.text = Get.arguments['from'];
           break;
-        case MessageType.MinerWithdraw:
+        case MessageType.MinerManage:
           //fromCtrl.text = Get.arguments['from'];
           var list = OpenedBox.monitorInsance.values
               .where((addr) =>
-                  addr.type == 'owner' &&
-                  addr.miner == singleStoreController.wal.addrWithNet)
+                  addr.type == 'owner' && addr.miner == $store.wal.addrWithNet)
               .toList();
           if (list.isNotEmpty) {
             var owner = list[0].cid;
@@ -292,8 +329,12 @@ class MesMakePageState extends State<MesMakePage> {
             fromCtrl.text = list[0].cid;
           }
           toCtrl.text = Get.arguments['to'];
-          valueCtrl.text = '0';
-          method = '16';
+          // valueCtrl.text = '0';
+          method = Get.arguments['method'];
+          showTips = true;
+          if (method == '16') {
+            getMinerBalance(Get.arguments['to']);
+          }
           break;
         default:
       }
@@ -302,11 +343,36 @@ class MesMakePageState extends State<MesMakePage> {
         this.showFrom = false;
         fromCtrl.text = wallet.addrWithNet;
       }
+      if (fromCtrl.text != '') {
+        getFromBalance(fromCtrl.text);
+      }
     }
   }
 
   void changeMethod(String method) {
     this.method = method;
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    timer?.cancel();
+  }
+
+  Future getFromBalance(String addr) async {
+    var res = await getBalance(fromCtrl.text);
+    if (res.balance != '0') {
+      var balance = BigInt.tryParse(res.balance);
+      fromBalance = balance ?? BigInt.zero;
+    }
+  }
+
+  Future getMinerBalance(String addr) async {
+    var meta = await getMinerInfo(addr);
+    if (meta.balance != '0') {
+      var balance = BigInt.tryParse(fil2Atto(meta.available));
+      minerBalance = balance ?? BigInt.zero;
+    }
   }
 
   @override
@@ -328,115 +394,138 @@ class MesMakePageState extends State<MesMakePage> {
           });
         })
       ],
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Visibility(
-                visible: showFrom,
-                child: Field(
-                  label: 'from'.tr,
-                  controller: fromCtrl,
-                  extra: GestureDetector(
-                    child: Padding(
-                      child: Image(
-                          width: 20, image: AssetImage('images/book.png')),
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    onTap: () {
-                      Get.toNamed(addressSelectPage).then((value) {
-                        if (value != null) {
-                          fromCtrl.text = (value as Wallet).address;
-                        }
-                      });
-                    },
-                  ),
-                )),
-            Visibility(
-                visible: method != '2',
-                child: Field(
-                  label: method == '0' ? 'to'.tr : 'minerAddr'.tr,
-                  controller: toCtrl,
-                  extra: GestureDetector(
-                    child: Padding(
-                      child: Image(
-                          width: 20, image: AssetImage('images/book.png')),
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    onTap: () {
-                      Get.toNamed(addressSelectPage).then((value) {
-                        if (value != null) {
-                          toCtrl.text = (value as Wallet).address;
-                        }
-                      });
-                    },
-                  ),
-                )),
-            Visibility(
-              child: Field(
-                  label: 'amount'.tr,
-                  controller: valueCtrl,
-                  type: TextInputType.numberWithOptions(decimal: true),
-                  // append: CommonText(
-                  //     formatFil(singleStoreController.wal.balance)),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp("[0-9.]"))
-                  ]),
-              visible: method == '0' || method == '16',
-            ),
-            AdvancedSet(
-              method: method,
-              onChange: (String v) {
-                setState(() {
-                  this.method = v;
-                  if (method == '3' || method == '23') {
-                    valueCtrl.text = '0';
-                  }
-                });
-              },
-            ),
-            SizedBox(
-              height: 10,
-            ),
-            Column(
+      body: Column(
+        children: [
+          Expanded(
+              child: SingleChildScrollView(
+            padding:
+                EdgeInsets.fromLTRB(12, 20, 12, method == '3' ? keyH + 20 : 20),
+            child: Column(
               children: [
-                Visibility(
-                  visible: method == '23',
-                  child: Field(
-                    label: 'owner'.tr,
-                    controller: ownerCtrl,
-                  ),
-                ),
-                Visibility(
-                  child: ChangeWorkerAddress(
-                    worker: worker,
-                    controllers: controllers,
-                    add: addController,
-                    remove: removeController,
-                  ),
-                  visible: method == '3',
-                ),
-                Visibility(
-                    visible: method == '2',
-                    child: CreateMiner(
-                        workerController: worker,
-                        onChange: (v) {
-                          setState(() {
-                            this.sealType = v;
-                          });
-                        },
-                        sealType: sealType))
+                Column(
+                  children: [
+                    AdvancedSet(
+                      method: method,
+                      label: 'messageType'.tr,
+                      onChange: (String v) {
+                        setState(() {
+                          this.method = v;
+                          if (method == '3' || method == '23') {
+                            valueCtrl.text = '0';
+                          }
+                        });
+                      },
+                    ),
+                    SizedBox(
+                      height: 12,
+                    ),
+                    Visibility(
+                        visible: showFrom,
+                        child: Field(
+                          label: 'from'.tr,
+                          controller: fromCtrl,
+                          extra: GestureDetector(
+                            child: Padding(
+                              child: Image(
+                                  width: 20,
+                                  image: AssetImage('images/book.png')),
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                            onTap: () {
+                              Get.toNamed(addressSelectPage).then((value) {
+                                if (value != null) {
+                                  fromCtrl.text = (value as Wallet).address;
+                                }
+                              });
+                            },
+                          ),
+                        )),
+                    Visibility(
+                        visible: method != '2',
+                        child: Field(
+                          label: method == '0' ? 'to'.tr : 'minerAddr'.tr,
+                          controller: toCtrl,
+                          extra: GestureDetector(
+                            child: Padding(
+                              child: Image(
+                                  width: 20,
+                                  image: AssetImage('images/book.png')),
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                            onTap: () {
+                              Get.toNamed(addressSelectPage).then((value) {
+                                if (value != null) {
+                                  toCtrl.text = (value as Wallet).address;
+                                }
+                              });
+                            },
+                          ),
+                        )),
+                    Visibility(
+                      child: Field(
+                          label: 'amount'.tr,
+                          controller: valueCtrl,
+                          type: TextInputType.numberWithOptions(decimal: true),
+                          // append: CommonText(
+                          //     formatFil($store.wal.balance)),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp("[0-9.]"))
+                          ]),
+                      visible: method == '0' || method == '16',
+                    ),
+                    SizedBox(
+                      height: 10,
+                    ),
+                    Column(
+                      children: [
+                        Visibility(
+                          visible: method == '23',
+                          child: Field(
+                            label: 'owner'.tr,
+                            controller: ownerCtrl,
+                          ),
+                        ),
+                        Visibility(
+                          child: ChangeWorkerAddress(
+                            worker: worker,
+                            controllers: controllers,
+                            add: addController,
+                            remove: removeController,
+                          ),
+                          visible: method == '3',
+                        ),
+                        Visibility(
+                            visible: method == '2',
+                            child: CreateMiner(
+                                workerController: worker,
+                                onChange: (v) {
+                                  setState(() {
+                                    this.sealType = v;
+                                  });
+                                },
+                                sealType: sealType))
+                      ],
+                    ),
+                    Visibility(
+                      child: Tips(['minerManageTip'.tr]),
+                      visible: showTips,
+                    )
+                  ],
+                )
               ],
             ),
-          ],
-        ),
-        padding:
-            EdgeInsets.fromLTRB(12, 20, 12, method == '3' ? keyH + 120 : 120),
+          )),
+          SizedBox(
+            height: 120,
+          )
+        ],
       ),
-      onPressed: () {
+      onPressed: () async {
         if (preventNext) {
           showCustomError('ownerIsMulti'.tr);
           return;
         }
+
         var list = getPushList();
         if (list.isNotEmpty) {
           makeNewOrSpeed();
@@ -453,17 +542,22 @@ class AdvancedSet extends StatelessWidget {
   final String method;
   final Function(String) onChange;
   final bool hideMethods;
-  AdvancedSet({this.method, this.onChange, this.hideMethods = false});
+  final String label;
+  AdvancedSet(
+      {this.method,
+      this.onChange,
+      this.hideMethods = false,
+      @required this.label});
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            child: CommonText.main('op'.tr),
-            padding: EdgeInsets.symmetric(vertical: 12),
-          ),
+          // Container(
+          //   child: CommonText.main(label),
+          //   padding: EdgeInsets.symmetric(vertical: 12),
+          // ),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 18),
             decoration: BoxDecoration(
@@ -609,7 +703,7 @@ class CreateMiner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Layout.colStart([
       Field(
-        label: 'Worker(f3)',
+        label: 'workerf3'.tr,
         controller: workerController,
         extra: GestureDetector(
             onTap: () {

@@ -21,7 +21,7 @@ class PassResetPageState extends State<PassResetPage> {
       showCustomError('enterOldPass'.tr);
       return false;
     }
-    var wal = singleStoreController.wal;
+    var wal = $store.wal;
     var valid =
         await validatePrivateKey(wal.addrWithNet, old, wal.skKek, wal.digest);
     if (!valid) {
@@ -46,7 +46,7 @@ class PassResetPageState extends State<PassResetPage> {
     } else {
       var pass = newCtrl.text.trim();
       var oldPass = oldCtrl.text.trim();
-      var wal = singleStoreController.wal;
+      var wal = $store.wal;
       var addr = wal.addrWithNet;
       var sk = await getPrivateKey(addr, oldPass, wal.skKek);
       var mne = aesDecrypt(wal.mne, sk);
@@ -61,7 +61,7 @@ class PassResetPageState extends State<PassResetPage> {
       wal.digest = digest;
       OpenedBox.addressInsance.put(addr, wal);
       Global.cacheWallet = wal;
-      singleStoreController.setWallet(wal);
+      $store.setWallet(wal);
       Get.back();
       showCustomToast('changePassSucc'.tr);
     }

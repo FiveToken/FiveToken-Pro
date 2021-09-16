@@ -38,7 +38,6 @@ Future<String> initSharedPreferences() async {
   var walletstr = instance.getString(StoreKeyActiveWallet);
   var activeAddrStr = instance.getString('activeWalletAddress');
   var activeMultiStr = instance.getString('activeMultiAddress');
-
   /// Compatible historical version
   /// In the original version, all data store in SharedPreferences as string
   if (walletstr != null || activeAddrStr != null) {
@@ -63,7 +62,7 @@ Future<String> initSharedPreferences() async {
       }
     }
     if (wallet != null) {
-      singleStoreController.setWallet(wallet);
+      $store.setWallet(wallet);
       instance.setString('activeWalletAddress', wallet.addr);
     } else {
       initialRoute = initLangPage;
@@ -74,7 +73,7 @@ Future<String> initSharedPreferences() async {
   /// set current multi-sig wallet
   if (activeMultiStr != null) {
     MultiSignWallet wal = OpenedBox.multiInsance.get(activeMultiStr);
-    singleStoreController.setMultiWallet(wal);
+    $store.setMultiWallet(wal);
   }
   return initialRoute;
 }

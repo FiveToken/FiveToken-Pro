@@ -3,14 +3,13 @@ import 'package:fil/common/navigation.dart';
 import 'package:fil/i10n/localization.dart';
 import 'package:fil/index.dart';
 import 'package:fil/lang/index.dart';
-import 'package:fil/pages/main/messageList.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:oktoast/oktoast.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import './routes/routes.dart';
-final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+import 'package:jpush_flutter/jpush_flutter.dart';
 
-class AppStateChangeEvent {}
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 class App extends StatefulWidget {
   final String initialRoute;
@@ -38,6 +37,8 @@ class AppState extends State<App> with WidgetsBindingObserver {
     }));
     Global.dio = dio;
   }
+  Timer timer;
+  final JPush jpush = new JPush();
   @override
   void initState() {
     super.initState();
@@ -45,11 +46,21 @@ class AppState extends State<App> with WidgetsBindingObserver {
     freshList();
     initDevice();
     migrateAddress();
+    timer = Timer.periodic(Duration(seconds: 5), (timer) {
+      deletePushList();
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    timer.cancel();
   }
 
   void freshList() {
     var invalidList = OpenedBox.messageInsance.values.where((mes) {
-      var invalidMethod = !ValidMethods.contains(mes.methodName ?? '');
+      var invalidMethod =
+          !FilecoinMethod.validMethods.contains(mes.methodName ?? '');
       if (mes.blockTime != null) {
         return invalidMethod ||
             getSecondSinceEpoch() - mes.blockTime > 3600 * 24 * 30;
@@ -58,6 +69,39 @@ class AppState extends State<App> with WidgetsBindingObserver {
       }
     }).map((mes) => mes.signedCid);
     OpenedBox.messageInsance.deleteAll(invalidList);
+  }
+
+  void deletePushList() async {
+    var wal = $store.wal;
+    var source = wal.addrWithNet;
+    var list = OpenedBox.pushInsance.values.where((mes) {
+      if (wal.walletType != 2) {
+        return mes.from == $store.wal.addrWithNet;
+      } else {
+        var list = OpenedBox.monitorInsance.values
+            .where(
+                (addr) => addr.miner == wal.addrWithNet && addr.type == 'owner')
+            .toList();
+        if (list.isNotEmpty) {
+          source = list[0].cid;
+        }
+        return mes.from == source;
+      }
+    });
+    if (list.isNotEmpty) {
+      var nonce = await getNonce(source);
+      if (nonce != -1) {
+        var now = getSecondSinceEpoch();
+        List<String> keys = [];
+        list.forEach((mes) {
+          var time = int.tryParse(mes.time) ?? 0;
+          if (mes.nonce < nonce || now - time > 3600 * 2) {
+            keys.add(mes.cid);
+          }
+        });
+        OpenedBox.pushInsance.deleteAll(keys);
+      }
+    }
   }
 
   @override
@@ -81,10 +125,53 @@ class AppState extends State<App> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> initPlatformState() async {
+    try {
+      jpush.addEventHandler(
+          onReceiveNotification: (Map<String, dynamic> message) async {
+            print("flutter onReceiveNotification: $message");
+          },
+          onOpenNotification: (Map<String, dynamic> message) async {},
+          onReceiveMessage: (Map<String, dynamic> message) async {
+            print("flutter onReceiveMessage: $message");
+          },
+          onReceiveNotificationAuthorization:
+              (Map<String, dynamic> message) async {
+            print("flutter onReceiveNotificationAuthorization: $message");
+          });
+    } on PlatformException {
+      print('error');
+    }
+
+    jpush.setup(
+      appKey: "ca9f7f0f57a10c8a7637bcbb",
+      channel: "developer-default",
+      production: Global.isRelease,
+      debug: !Global.isRelease,
+    );
+    // jpush.applyPushAuthority(
+    //     new NotificationSettingsIOS(sound: true, alert: true, badge: true));
+    var rid = Global.store.getString('registerId');
+    if (rid == null) {
+      jpush.getRegistrationID().then((id) {
+        if (id != '') {
+          Global.store.setString('registerId', id);
+          registerJpushId(id);
+        }
+      });
+    }
+  }
 
   void initDevice() async {
     await initDeviceInfo();
     await listenNetwork();
+    initPlatformState();
+    registerDevice();
+    // if (Global.store.getString('register') == null) {
+    //   await registerDevice();
+    //   Global.store.setString('register', '1');
+    // }
+    pushAction(page: '', type: 'open');
   }
 
   Future listenNetwork() async {

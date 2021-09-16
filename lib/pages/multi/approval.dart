@@ -2,6 +2,7 @@ import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
 import 'package:fil/widgets/dialog.dart';
 import 'package:oktoast/oktoast.dart';
+
 /// approve a proposal
 class MultiApprovalPage extends StatefulWidget {
   @override
@@ -19,10 +20,9 @@ class MultiApprovalPageState extends State<MultiApprovalPage> {
   dynamic params;
   String proposer;
   String actorId = '';
-  MultiSignWallet wallet = singleStoreController.multiWal;
+  MultiSignWallet wallet = $store.multiWal;
   var nonceBoxInstance = OpenedBox.nonceInsance;
-  int nonce;
-  Wallet signerWallet = singleStoreController.wal;
+  Wallet signerWallet = $store.wal;
   MessageDetail detail = MessageDetail();
   Gas chainGas = Gas();
   void handleSearch() async {
@@ -53,35 +53,6 @@ class MultiApprovalPageState extends State<MultiApprovalPage> {
     }
   }
 
-  Future getGas() async {
-    var res = await getGasDetail(to: wallet.id, method: 3);
-    if (res.feeCap != '0') {
-      singleStoreController.setGas(res);
-      setState(() {
-        this.chainGas = res;
-      });
-    }
-  }
-
-  void getWalletNonce() async {
-    var wal = singleStoreController.wal;
-    var nonce = await getNonce(wal);
-    var address = wal.address;
-    var now = DateTime.now().millisecondsSinceEpoch;
-    if (nonce != -1) {
-      this.nonce = nonce;
-      if (!nonceBoxInstance.containsKey(address)) {
-        nonceBoxInstance.put(address, Nonce(time: now, value: nonce));
-      } else {
-        Nonce nonceInfo = nonceBoxInstance.get(address);
-        var interval = 5 * 60 * 1000;
-        if (now - nonceInfo.time > interval) {
-          nonceBoxInstance.put(address, Nonce(time: now, value: nonce));
-        }
-      }
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -89,9 +60,7 @@ class MultiApprovalPageState extends State<MultiApprovalPage> {
       controller.text = Get.arguments['cid'];
       Future.delayed(Duration.zero).then((value) => handleSearch());
     }
-    getWalletNonce();
-    getGas();
-    //getActor();
+    FilecoinProvider.getNonceAndGas(to: wallet.id, method: 3);
   }
 
   Future getActor(String addr) async {
@@ -106,12 +75,19 @@ class MultiApprovalPageState extends State<MultiApprovalPage> {
       showCustomError('sameAsSigner'.tr);
       return;
     }
-    if (singleStoreController.gas.value.feeCap == '0') {
-      await getGas();
-      if (singleStoreController.gas.value.feeCap == '0') {
-        showCustomError('wrongGas'.tr);
+    if (!$store.canPush) {
+      var valid =
+          await FilecoinProvider.getNonceAndGas(to: wallet.id, method: 2);
+      if (!valid) {
+        showCustomError('errorSetGas'.tr);
         return;
       }
+    }
+    var balanceNum = BigInt.tryParse($store.wal.balance);
+    var feeNum = $store.gas.value.feeNum;
+    if (balanceNum < feeNum) {
+      showCustomError('errorLowBalance'.tr);
+      return;
     }
     if (actorId == '') {
       if (!wallet.signerMap.containsKey(proposer)) {
@@ -121,37 +97,39 @@ class MultiApprovalPageState extends State<MultiApprovalPage> {
         actorId = wallet.signerMap[proposer];
       }
     }
-    if (nonce == null || nonce == -1) {
-      showCustomError("errorGetNonce".tr);
-      return;
-    }
-    if (singleStoreController.wal.readonly == 1) {
+    if ($store.wal.readonly == 1) {
       var msg = await genMsg();
-      singleStoreController.setPushBackPage(multiMainPage);
+      $store.setPushBackPage(multiMainPage);
       Get.toNamed(mesBodyPage, arguments: {'mes': msg});
     } else {
-      showPassDialog(context, (String pass) {
-        pushMessage(pass);
-      });
+      FilecoinProvider.checkSpeedUpOrMakeNew(
+          context: context,
+          onNew: () {
+            showPassDialog(context, (String pass) {
+              pushMessage(pass);
+            });
+          },
+          onSpeedup: () {
+            showPassDialog(context, (String pass) async {
+              var wal = $store.wal;
+              var private =
+                  await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
+              var res = await FilecoinProvider.speedup(
+                  private: private, gas: $store.chainGas);
+              if (res != '') {
+                Get.back();
+              }
+            });
+          });
     }
   }
 
   String get from {
-    return singleStoreController.wal.addrWithNet;
-  }
-
-  int get realNonce {
-    var cahcheNonce = nonceBoxInstance.get(from);
-    var storeNonce = 0;
-    if (cahcheNonce != null) {
-      storeNonce = cahcheNonce.value;
-    }
-    var n = max(nonce, storeNonce);
-    return n;
+    return $store.wal.addrWithNet;
   }
 
   Future<TMessage> genMsg() async {
-    var ctrl = singleStoreController;
+    var ctrl = $store;
     var transactionInput = {
       'tx_id': txid,
       'requester': actorId,
@@ -166,7 +144,7 @@ class MultiApprovalPageState extends State<MultiApprovalPage> {
     var msg = TMessage(
         version: 0,
         method: 3,
-        nonce: realNonce,
+        nonce: $store.nonce,
         from: from,
         to: wallet.id,
         params: decodeParams['param'],
@@ -178,50 +156,15 @@ class MultiApprovalPageState extends State<MultiApprovalPage> {
   }
 
   void pushMessage(String pass) async {
-    var ctrl = singleStoreController;
     var msg = await genMsg();
-    String sign = '';
-    num signType;
-    var cid = await Flotus.messageCid(msg: jsonEncode(msg));
-    var wal = singleStoreController.wal;
-    var ck = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
-    //var ck = base64.encode(sk);
-    if (ctrl.wal.type == '1') {
-      signType = SignTypeSecp;
-      sign = await Flotus.secpSign(ck: ck, msg: cid);
-    } else {
-      signType = SignTypeBls;
-      sign = await Bls.cksign(num: "$ck $cid");
-    }
-    var sm = SignedMessage(msg, Signature(signType, sign));
-    String res = await pushSignedMsg(sm.toLotusSignedMessage());
+    var wal = $store.wal;
+    var private = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
+    var res = await FilecoinProvider.sendMessage(
+        message: msg, private: private, multiId: wallet.id);
     if (res != '') {
-      ctrl.setGas(Gas());
-      OpenedBox.multiMesInsance.put(
-          res,
-          StoreMultiMessage(
-              pending: 1,
-              from: from,
-              to: wallet.id,
-              value: '0',
-              owner: from,
-              signedCid: res,
-              msigTo: to,
-              msigValue: value,
-              type: 'approval',
-              proposalCid: controller.text.trim(),
-              blockTime: getSecondSinceEpoch()));
-      var oldNonce = nonceBoxInstance.get(from);
-      nonceBoxInstance.put(
-          from, Nonce(value: realNonce + 1, time: oldNonce.time));
+      Get.offNamedUntil(
+          multiMainPage, (route) => route.settings.name == mainPage);
     }
-    Get.offNamedUntil(
-        multiMainPage, (route) => route.settings.name == mainPage);
-  }
-
-  String get maxFee {
-    var maxFee = formatFil(singleStoreController.gas.value.attoFil);
-    return maxFee;
   }
 
   void handleScan() {
@@ -310,9 +253,8 @@ class MultiApprovalPageState extends State<MultiApprovalPage> {
                   ],
                 )),
                 Obx(() => SetGas(
-                      maxFee:
-                          singleStoreController.maxFee,
-                      gas: chainGas,
+                      maxFee: $store.maxFee,
+                      gas: $store.chainGas,
                     )),
               ])),
         ]),

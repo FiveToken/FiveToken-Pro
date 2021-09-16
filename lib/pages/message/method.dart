@@ -1,5 +1,6 @@
 import 'package:fil/index.dart';
-/// select a method 
+
+/// select a method
 class MethodMap {
   String getMethodDes(String method, {String to}) {
     var _methodMap = {
@@ -7,15 +8,15 @@ class MethodMap {
       '2': 'createMiner'.tr,
       '3': 'changeWorker'.tr,
       '16': 'withdraw'.tr,
-      '21': 'ConfirmUpdateWorkerKey',
+      '21': 'confirmUpdateWorkerKey'.tr,
       '23': 'changeOwner'.tr
     };
     var des = _methodMap[method];
     if (to != null) {
       if (method == '2') {
-        if (to == Global.netPrefix + '01') {
-          des = 'Exec';
-        } else if (to == Global.netPrefix + '04') {
+        if (to == FilecoinAccount.f01) {
+          des = FilecoinMethod.exec;
+        } else if (to == FilecoinAccount.f04) {
           des = 'createMiner'.tr;
         } else {
           des = 'propose'.tr;
@@ -85,9 +86,8 @@ class MethodSelectPageState extends State<MethodSelectPage> {
 
   @override
   Widget build(BuildContext context) {
-    var filterList = _methods
-        .where((m) => hideMethods ? m != '2' && m != '21' : true)
-        .toList();
+    var filterList =
+        _methods.where((m) => hideMethods ? m != '2' : true).toList();
     return CommonScaffold(
       title: 'advanced'.tr,
       footerText: 'sure'.tr,
@@ -97,7 +97,7 @@ class MethodSelectPageState extends State<MethodSelectPage> {
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(12, 20, 12, 100),
         child: Layout.colStart([
-          CommonText.main('op'.tr),
+          CommonText.main('opOption'.tr),
           SizedBox(
             height: 13,
           ),
@@ -210,4 +210,41 @@ class MethodSelectItem extends StatelessWidget {
       ),
     );
   }
+}
+
+void showMethodSelector(
+    {@required BuildContext context,
+    @required List<String> methods,
+    @required SingleParamCallback<String> onTap,
+    @required String title}) {
+  showCustomModalBottomSheet(
+      shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
+      context: context,
+      builder: (BuildContext context) {
+        return SingleChildScrollView(
+          padding: EdgeInsets.only(bottom: 30),
+          child: Column(
+            children: [
+              CommonTitle(
+                title,
+                showDelete: true,
+              ),
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+                child: Column(
+                  children: methods
+                      .map((method) => MethodSelectItem(
+                          method: method,
+                          active: false,
+                          onTap: () {
+                            Get.back();
+                            onTap(method);
+                          }))
+                      .toList(),
+                ),
+              )
+            ],
+          ),
+        );
+      });
 }

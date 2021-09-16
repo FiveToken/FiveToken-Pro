@@ -81,7 +81,8 @@ class CommonTitle extends StatelessWidget {
 
 class PassDialog extends StatefulWidget {
   final SingleStringParamFn callback;
-  PassDialog(this.callback);
+  final Wallet from;
+  PassDialog(this.callback, {this.from});
   @override
   State<StatefulWidget> createState() {
     return PassDialogState();
@@ -96,7 +97,8 @@ class PassDialogState extends State<PassDialog> {
       showCustomError('enterPass'.tr);
       return;
     }
-    var wal = singleStoreController.wal;
+    var wal = widget.from ?? $store.wal;
+
     try {
       var valid = await validatePrivateKey(
           wal.addrWithNet, pass, wal.skKek, wal.digest);
@@ -190,8 +192,15 @@ class PassDialogState extends State<PassDialog> {
   }
 }
 
-void showPassDialog(BuildContext context, SingleStringParamFn callback) {
-  showCustomDialog(context, PassDialog(callback), color: CustomColor.bgGrey);
+void showPassDialog(BuildContext context, SingleStringParamFn callback,
+    {Wallet from}) {
+  showCustomDialog(
+      context,
+      PassDialog(
+        callback,
+        from: from,
+      ),
+      color: CustomColor.bgGrey);
 }
 
 void showDeleteDialog(BuildContext context,

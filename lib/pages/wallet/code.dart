@@ -4,7 +4,7 @@ import 'package:share/share.dart';
 class WalletCodePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    var addr = singleStoreController.wal.addr;
+    var addr = $store.wal.addr;
     return CommonScaffold(
       title: 'rec'.tr,
       hasFooter: false,

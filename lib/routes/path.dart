@@ -11,7 +11,7 @@ const String mneCheckPage = "/create/mneCheck";
 const String importPrivateKeyPage = "/create/importPrivateKey";
 const String importMnePage = "/create/importMne";
 const String readonlyPage = '/create/readonly';
-const String minerPage = '/createminer';
+const String minerPage = '/create/miner';
 const String createWarnPage = '/create/warn';
 const String createEntrancePage='/create/entrance';
 

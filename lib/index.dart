@@ -12,9 +12,7 @@ export 'package:hive/hive.dart';
 export 'package:hive_flutter/hive_flutter.dart';
 export 'package:path_provider/path_provider.dart';
 export 'package:dio/dio.dart' hide VoidCallback;
-export 'package:carousel_slider/carousel_slider.dart';
 export 'package:permission_handler/permission_handler.dart';
-export 'package:image_gallery_saver/image_gallery_saver.dart';
 
 export 'package:fil/app.dart';
 export 'package:fil/pages/index.dart';
@@ -35,3 +33,6 @@ export 'init/device.dart';
 export './update/index.dart';
 export './api/index.dart';
 export './common/index.dart';
+export './event/index.dart';
+export './chain/provider.dart';
+export './chain/constant.dart';

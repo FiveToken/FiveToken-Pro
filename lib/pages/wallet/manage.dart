@@ -1,4 +1,5 @@
 import 'package:fil/index.dart';
+
 /// rename,export mne,export private key, reset pass
 class WalletManagePage extends StatefulWidget {
   @override
@@ -23,12 +24,12 @@ class WalletManagePageState extends State<WalletManagePage> {
     var list = box.values.where((wal) => wal.address != '').toList();
     if (list.isEmpty) {
       Global.store.remove('activeWalletAddress');
-      singleStoreController.setWallet(Wallet());
+      $store.setWallet(Wallet());
       Get.offAllNamed(initLangPage);
     } else {
-      if (wal.addrWithNet == singleStoreController.wal.addrWithNet) {
-        var w = list.where((wal) => wal.addrWithNet!='').toList()[0];
-        singleStoreController.setWallet(w);
+      if (wal.addrWithNet == $store.wal.addrWithNet) {
+        var w = list.where((wal) => wal.addrWithNet != '').toList()[0];
+        $store.setWallet(w);
         Global.store.setString('activeWalletAddress', w.addrWithNet);
       }
       Get.back();
@@ -51,7 +52,7 @@ class WalletManagePageState extends State<WalletManagePage> {
               var sk =
                   await getPrivateKey(wallet.addrWithNet, pass, wallet.skKek);
               Get.toNamed(walletPrivatekey, arguments: {'pk': sk});
-            });
+            }, from: wallet);
           }),
       CardItem(
           label: 'mneExport'.tr,
@@ -66,7 +67,7 @@ class WalletManagePageState extends State<WalletManagePage> {
                 showCustomError(e.toString());
                 print(e);
               }
-            });
+            }, from: wallet);
           }),
     ];
     if (!hasMne) {
@@ -172,8 +173,7 @@ class WalletManagePageState extends State<WalletManagePage> {
                                         wallet.label = newLabel;
                                         OpenedBox.addressInsance
                                             .put(addr, wallet);
-                                        singleStoreController
-                                            .changeWalletName(newLabel);
+                                        $store.changeWalletName(newLabel);
                                         setState(() {});
                                         Get.back();
                                         showCustomToast('changeNameSucc'.tr);

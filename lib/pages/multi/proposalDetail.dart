@@ -1,5 +1,6 @@
 import 'package:fil/index.dart';
 import 'package:oktoast/oktoast.dart';
+
 /// display infomation of the proposal or approval
 class MultiProposalDetailPage extends StatefulWidget {
   @override
@@ -48,72 +49,84 @@ class MultiProposalDetailPageState extends State<MultiProposalDetailPage> {
       onPressed: () {
         Get.toNamed(multiApprovalPage, arguments: {'cid': msg.signedCid});
       },
-      body: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(12, 20, 12, needApprove ? 120 : 20),
-          physics: BouncingScrollPhysics(),
-          child: Column(
-            children: [
-              MultiMessageStatusHeader(msg, label),
-              SizedBox(
-                height: 12,
-              ),
-              CommonCard(MessageRow(
-                label: 'amount'.tr,
-                value: atto2Fil(msg.msigValue) + ' FIL',
-              )),
-              SizedBox(
-                height: 7,
-              ),
-              complete
-                  ? CommonCard(MessageRow(
-                      label: 'fee'.tr,
-                      value:
-                          formatFil(BigInt.parse(detail.allGasFee??'0').toString())??''))
-                  : Container(),
-              SizedBox(
-                height: 7,
-              ),
-              CommonCard(msg.type == 'approval'
-                  ? Column(
-                      children: [
-                        MessageRow(label: 'approver'.tr, value: msg.from),
-                        msg.proposalCid == null
-                            ? Container()
-                            : MessageRow(
-                                label: 'approveId'.tr,
-                                value: msg.proposalCid ?? '',
-                              ),
-                        MessageRow(
-                          label: 'receiver'.tr,
-                          value: msg.msigTo,
-                        ),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        MessageRow(label: 'proposer'.tr, value: msg.from),
-                        MessageRow(
-                          label: 'receiveAddr'.tr,
-                          value: msg.msigTo,
-                        ),
-                      ],
-                    )),
-              SizedBox(
-                height: 7,
-              ),
-              complete
-                  ? ChainMeta(
-                      cid: detail.signedCid,
-                      params: detail.args,
-                      height: detail.height.toString(),
-                    )
-                  : CommonCard(MessageRow(
-                      label: 'cid'.tr,
-                      selectable: true,
-                      value: msg.signedCid,
-                    )),
-            ],
-          )),
+      body: Column(
+        children: [
+          Expanded(
+              child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(12, 20, 12, 20),
+                  physics: BouncingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      MultiMessageStatusHeader(msg, label),
+                      SizedBox(
+                        height: 12,
+                      ),
+                      CommonCard(MessageRow(
+                        label: 'amount'.tr,
+                        value: atto2Fil(msg.msigValue) + ' FIL',
+                      )),
+                      SizedBox(
+                        height: 7,
+                      ),
+                      complete
+                          ? CommonCard(MessageRow(
+                              label: 'fee'.tr,
+                              value: formatFil(
+                                      BigInt.parse(detail.allGasFee ?? '0')
+                                          .toString()) ??
+                                  ''))
+                          : Container(),
+                      SizedBox(
+                        height: 7,
+                      ),
+                      CommonCard(msg.type == 'approval'
+                          ? Column(
+                              children: [
+                                MessageRow(
+                                    label: 'approver'.tr, value: msg.from),
+                                msg.proposalCid == null
+                                    ? Container()
+                                    : MessageRow(
+                                        label: 'approveId'.tr,
+                                        value: msg.proposalCid ?? '',
+                                      ),
+                                MessageRow(
+                                  label: 'receiver'.tr,
+                                  value: msg.msigTo,
+                                ),
+                              ],
+                            )
+                          : Column(
+                              children: [
+                                MessageRow(
+                                    label: 'proposer'.tr, value: msg.from),
+                                MessageRow(
+                                  label: 'receiveAddr'.tr,
+                                  value: msg.msigTo,
+                                ),
+                              ],
+                            )),
+                      SizedBox(
+                        height: 7,
+                      ),
+                      complete
+                          ? ChainMeta(
+                              cid: detail.signedCid,
+                              params: detail.args,
+                              height: detail.height.toString(),
+                            )
+                          : CommonCard(MessageRow(
+                              label: 'cid'.tr,
+                              selectable: true,
+                              value: msg.signedCid,
+                            )),
+                    ],
+                  ))),
+          SizedBox(
+            height: needApprove ? 120 : 0,
+          )
+        ],
+      ),
       footerText: 'approve'.tr,
     );
   }

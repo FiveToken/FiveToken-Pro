@@ -67,6 +67,7 @@ class MneCheckPageState extends State<MneCheckPage> {
           type: type);
       Get.toNamed(passwordSetPage,
           arguments: {'wallet': activeWallet, 'create': true});
+      addOperation('create_mne');
     } catch (e) {
       showCustomError('checkMneFail'.tr);
     }

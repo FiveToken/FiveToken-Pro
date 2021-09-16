@@ -29,3 +29,60 @@ Future downloadFile(String urlPath, String savePath,
   return response;
 }
 
+void pushAction({String page, String type}) async {
+  if (!Global.online) {
+    return;
+  }
+  var data = <String, String>{
+    "page": page,
+    "type": type,
+    "uuid": Global.uuid ?? "",
+  };
+  var response = await Dio().post('${apiMap[mode]}/device/action', data: data);
+  if (response.data['code'] == 0) {
+    print("push success");
+  } else {
+    print("push error");
+  }
+}
+
+void addOperation(String type) async {
+  if (!Global.online) {
+    return;
+  }
+  var data = <String, String>{
+    "type": type,
+    "uuid": Global.uuid ?? "",
+  };
+  var response =
+      await Dio().post('${apiMap[mode]}/device/operation', data: data);
+  if (response.data['code'] == 0) {
+    print("add op success");
+  } else {
+    print("add op error");
+  }
+}
+
+Future registerDevice() async {
+  try {
+    if (!Global.online) {
+      return;
+    }
+    var data = <String, dynamic>{
+      "platform": Global.platform,
+      "uuid": Global.uuid ?? "",
+      "os_version": Global.os,
+      "app_version": Global.version
+    };
+    var response =
+        await Dio().post('${apiMap[mode]}/device/register', data: data);
+    if (response.data['code'] == 0) {
+      print("register success");
+    } else {
+      print("error");
+    }
+  } catch (e) {
+    print(e);
+  }
+}
+

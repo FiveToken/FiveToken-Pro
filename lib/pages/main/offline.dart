@@ -11,7 +11,7 @@ class OfflineWallet extends StatelessWidget {
         ),
         Obx(
           () => CommonText(
-            singleStoreController.wal.label,
+            $store.wal.label,
             size: 30,
             weight: FontWeight.w800,
           ),
@@ -49,7 +49,7 @@ class CopyWalletAddr extends StatelessWidget {
           height: 25,
           padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           child: Obx(() => CommonText(
-                dotString(str: singleStoreController.wal.addr),
+                dotString(str: $store.wal.addr),
                 size: 14,
                 color: Color(0xffB4B5B7),
               )),
@@ -61,7 +61,7 @@ class CopyWalletAddr extends StatelessWidget {
         ),
         GestureDetector(
           onTap: () {
-            copyText(singleStoreController.wal.addr);
+            copyText($store.wal.addr);
             showCustomToast('copyAddr'.tr);
           },
           child: Container(

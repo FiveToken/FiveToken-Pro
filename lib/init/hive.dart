@@ -14,6 +14,8 @@ const multiMessageBox = 'multiSigMessageBox';
 const multiWalletBox = 'multiWalletBox';
 const gasBox = 'gasBox';
 const addressBookBox = 'addressBook';
+const minerMetaBox = 'minerMetaBox';
+const minerStatisticBox = 'minerStatisticBox';
 
 /// init hive db
 Future initHive() async {
@@ -47,9 +49,12 @@ Future initHive() async {
   await Hive.openBox<MultiSignWallet>(multiWalletBox);
   await Hive.openBox<Wallet>(addressBookBox);
   await Hive.openBox<CacheGas>(gasBox);
-  //OpenedBox.addressInsance.deleteFromDisk();
-  //OpenedBox.multiMesInsance.deleteFromDisk();
+  await Hive.openBox<MinerMeta>(minerMetaBox);
+  await Hive.openBox<MinerHistoricalStats>(minerStatisticBox);
+  // OpenedBox.addressInsance.deleteFromDisk();
+  // OpenedBox.multiMesInsance.deleteFromDisk();
   // OpenedBox.multiInsance.deleteFromDisk();
+  // OpenedBox.messageInsance.deleteFromDisk();
 }
 
 class OpenedBox {
@@ -111,5 +116,13 @@ class OpenedBox {
   /// box to store used gas
   static Box<CacheGas> get gasInsance {
     return Hive.box<CacheGas>(gasBox);
+  }
+  /// box to store miner meta info
+  static Box<MinerMeta> get minerMetaInstance {
+    return Hive.box<MinerMeta>(minerMetaBox);
+  }
+  /// box to store miner statistic info
+  static Box<MinerHistoricalStats> get minerStatisticInstance {
+    return Hive.box<MinerHistoricalStats>(minerStatisticBox);
   }
 }
