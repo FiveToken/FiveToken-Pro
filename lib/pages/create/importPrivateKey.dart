@@ -37,7 +37,6 @@ class ImportPrivateKeyPageState extends State<ImportPrivateKeyPage> {
           walletType: 0,
           type: type);
       Get.toNamed(passwordSetPage, arguments: {'wallet': wallet});
-      addOperation('import_private_key');
     } catch (e) {
       showCustomError('wrongPk'.tr);
     }

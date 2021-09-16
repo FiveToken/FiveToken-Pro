@@ -46,7 +46,6 @@ class MinerPageState extends State<MinerPage> {
       OpenedBox.addressInsance.put(address, activeWallet);
       $store.setWallet(activeWallet);
       Global.store.setString('activeWalletAddress', address);
-      addOperation('add_miner');
       Get.offAllNamed(mainPage);
     }
   }

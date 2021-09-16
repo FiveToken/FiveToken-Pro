@@ -78,7 +78,6 @@ class FilecoinProvider {
               nonce: sm.message.nonce));
       OpenedBox.nonceInsance.put(from,
           Nonce(value: nonce + 1, time: DateTime.now().millisecondsSinceEpoch));
-      addOperation(methodName);
       return res;
     } else {
       // showCustomError('sendFail'.tr);

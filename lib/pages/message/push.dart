@@ -99,7 +99,6 @@ class MesPushPageState extends State<MesPushPage> {
         var now = DateTime.now().millisecondsSinceEpoch;
         var mes = message.message;
         checkToStoreMessage(mes, res);
-        addOperation('push_mes');
         OpenedBox.pushInsance.put(
             res,
             StoreSignedMessage(

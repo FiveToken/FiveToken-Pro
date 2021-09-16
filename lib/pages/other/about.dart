@@ -41,7 +41,7 @@ class AboutPageState extends State<AboutPage> {
     Map<PermissionGroup, PermissionStatus> permissions =
         await PermissionHandler().requestPermissions([PermissionGroup.storage]);
     if (permissions[PermissionGroup.storage] == PermissionStatus.granted) {
-      InstallPlugin.installApk(file.path, 'io.forcewallet.fil').then((result) {
+      InstallPlugin.installApk(file.path, 'io.fivetokenpro.fil').then((result) {
         print('install apk $result');
       }).catchError((error) {
         print('install apk error: $error');
@@ -201,30 +201,7 @@ class AboutPageState extends State<AboutPage> {
                 ),
               ),
               _divider,
-              isAndroid
-                  ? Column(
-                      children: [
-                        ListTile(
-                          onTap: () {
-                            checkUpdate();
-                          },
-                          title: Row(
-                            children: [
-                              Text('updateCheck'.tr),
-                              Spacer(),
-                              Global.online
-                                  ? Text(
-                                      '${'latestVersion'.tr} ${apk.version}',
-                                      style: _textStyle,
-                                    )
-                                  : Container()
-                            ],
-                          ),
-                        ),
-                        _divider
-                      ],
-                    )
-                  : Container(),
+              
             ],
           ))
         ],
