@@ -4,4 +4,3 @@ export './lang.dart';
 export './setting.dart';
 export './discovery.dart';
 export './about.dart';
-export './notification.dart';

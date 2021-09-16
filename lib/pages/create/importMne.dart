@@ -51,7 +51,6 @@ class ImportMnePageState extends State<ImportMnePage> {
       showCustomError('errorExist'.tr);
       return;
     }
-    addOperation('import_mne');
     Wallet wallet = Wallet(
       ck: ck,
       address: address,

@@ -7,8 +7,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:oktoast/oktoast.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import './routes/routes.dart';
-import 'package:jpush_flutter/jpush_flutter.dart';
-
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 class App extends StatefulWidget {
@@ -38,7 +36,6 @@ class AppState extends State<App> with WidgetsBindingObserver {
     Global.dio = dio;
   }
   Timer timer;
-  final JPush jpush = new JPush();
   @override
   void initState() {
     super.initState();
@@ -125,53 +122,10 @@ class AppState extends State<App> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> initPlatformState() async {
-    try {
-      jpush.addEventHandler(
-          onReceiveNotification: (Map<String, dynamic> message) async {
-            print("flutter onReceiveNotification: $message");
-          },
-          onOpenNotification: (Map<String, dynamic> message) async {},
-          onReceiveMessage: (Map<String, dynamic> message) async {
-            print("flutter onReceiveMessage: $message");
-          },
-          onReceiveNotificationAuthorization:
-              (Map<String, dynamic> message) async {
-            print("flutter onReceiveNotificationAuthorization: $message");
-          });
-    } on PlatformException {
-      print('error');
-    }
-
-    jpush.setup(
-      appKey: "ca9f7f0f57a10c8a7637bcbb",
-      channel: "developer-default",
-      production: Global.isRelease,
-      debug: !Global.isRelease,
-    );
-    // jpush.applyPushAuthority(
-    //     new NotificationSettingsIOS(sound: true, alert: true, badge: true));
-    var rid = Global.store.getString('registerId');
-    if (rid == null) {
-      jpush.getRegistrationID().then((id) {
-        if (id != '') {
-          Global.store.setString('registerId', id);
-          registerJpushId(id);
-        }
-      });
-    }
-  }
 
   void initDevice() async {
     await initDeviceInfo();
     await listenNetwork();
-    initPlatformState();
-    registerDevice();
-    // if (Global.store.getString('register') == null) {
-    //   await registerDevice();
-    //   Global.store.setString('register', '1');
-    // }
-    pushAction(page: '', type: 'open');
   }
 
   Future listenNetwork() async {

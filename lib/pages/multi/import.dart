@@ -50,7 +50,6 @@ class MultiImportPageState extends State<MultiImportPage> {
             balance: atto2Fil(res.balance));
         OpenedBox.multiInsance.put(addr, wallet);
         showCustomToast('importSuccess'.tr);
-        addOperation('import_multisig');
         $store.setMultiWallet(wallet);
         Global.store.setString('activeMultiAddress', wallet.addrWithNet);
         Get.offAndToNamed(multiMainPage);

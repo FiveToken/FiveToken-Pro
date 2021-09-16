@@ -36,7 +36,6 @@ class ReadonlyPageState extends State<ReadonlyPage> {
     OpenedBox.addressInsance.put(address, activeWallet);
     $store.setWallet(activeWallet);
     Global.store.setString('activeWalletAddress', address);
-    addOperation('add_readonly');
     Get.offAllNamed(mainPage);
   }
 

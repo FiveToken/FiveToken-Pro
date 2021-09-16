@@ -103,7 +103,6 @@ class MesMakePageState extends State<MesMakePage> {
   void handleSubmit(BuildContext context) async {
     var res = await makeMessage();
     if (res is TMessage) {
-      addOperation('make_mes');
       unFocusOf(context);
       $store.setPushBackPage(mainPage);
       Get.toNamed(mesBodyPage, arguments: {
@@ -292,7 +291,6 @@ class MesMakePageState extends State<MesMakePage> {
     var res = await makeMessage();
     if (res is TMessage) {
       res.nonce = nonce + 1;
-      addOperation('make_mes');
       unFocusOf(context);
       $store.setPushBackPage(mainPage);
       Get.toNamed(mesBodyPage, arguments: {

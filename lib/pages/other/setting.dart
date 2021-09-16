@@ -47,19 +47,19 @@ class SetPageState extends State<SetPage> {
             SizedBox(
               height: 15,
             ),
-            TabCard(
-              items: [
-                CardItem(
-                  label: 'notification'.tr,
-                  onTap: () {
-                    Get.toNamed(notificationPage);
-                  },
-                ),
-              ],
-            ),
-            SizedBox(
-              height: 15,
-            ),
+            // TabCard(
+            //   items: [
+            //     CardItem(
+            //       label: 'notification'.tr,
+            //       onTap: () {
+            //         Get.toNamed(notificationPage);
+            //       },
+            //     ),
+            //   ],
+            // ),
+            // SizedBox(
+            //   height: 15,
+            // ),
             TabCard(
               items: [
                 CardItem(
