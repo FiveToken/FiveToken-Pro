@@ -1,6 +1,7 @@
 import 'package:fil/index.dart';
 import 'package:fil/store/store.dart';
 import 'package:oktoast/oktoast.dart';
+
 /// display detail of a transaction
 class FilDetailPage extends StatefulWidget {
   @override
@@ -12,6 +13,7 @@ class FilDetailPageState extends State<FilDetailPage> {
       MessageDetail(value: '0', methodName: '', allGasFee: '0');
   StoreMessage mes = Get.arguments;
   StoreController controller = Get.find();
+  String amount;
   void getMessageDetailInfo() async {
     if (mes.pending == 1 || mes.exitCode == -1 || mes.exitCode == -2) {
       setState(() {
@@ -21,6 +23,7 @@ class FilDetailPageState extends State<FilDetailPage> {
             value: mes.value,
             methodName: '',
             signedCid: mes.signedCid);
+        amount = mes.value;
       });
       return;
     }
@@ -30,7 +33,23 @@ class FilDetailPageState extends State<FilDetailPage> {
     if (res.height != null) {
       setState(() {
         msgDetail = res;
+        if (res.methodName == FilecoinMethod.withdraw && res.args is Map) {
+          amount = res.args['AmountRequested'];
+        }
       });
+    }
+  }
+
+  String get methodName => msgDetail.methodName;
+  String get toLabel {
+    if ([
+      FilecoinMethod.withdraw,
+      FilecoinMethod.changeWorker,
+      FilecoinMethod.changeOwner
+    ].contains(methodName)) {
+      return 'minerAddr'.tr;
+    } else {
+      return 'to'.tr;
     }
   }
 
@@ -41,12 +60,192 @@ class FilDetailPageState extends State<FilDetailPage> {
   }
 
   void goFilScan(MessageDetail m) {
-    openInBrowser("$filscanWeb/tipset/message-detail?cid=${m.signedCid}&utm_source=filwallet_app");
+    openInBrowser(
+        "$filscanWeb/tipset/message-detail?cid=${m.signedCid}&utm_source=filwallet_app");
+  }
+
+  Widget get withdrawWidget {
+    if (methodName == FilecoinMethod.withdraw) {
+      amount = msgDetail.args['AmountRequested'];
+      return Column(
+        children: [
+          CommonCard(Column(
+            children: [
+              MessageRow(
+                label: 'minerAddr'.tr,
+                value: msgDetail.to,
+              ),
+              MessageRow(
+                label: 'withdrawNum'.tr,
+                value: formatFil(amount),
+              )
+            ],
+          )),
+          SizedBox(
+            height: 7,
+          )
+        ],
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  Widget get changeOwnerWidget {
+    if (methodName == FilecoinMethod.changeOwner) {
+      return Column(
+        children: [
+          CommonCard(Column(
+            children: [
+              MessageRow(
+                label: 'minerAddr'.tr,
+                value: msgDetail.to,
+              ),
+              MessageRow(
+                label: 'newOwner'.tr,
+                value: msgDetail.args.toString(),
+              ),
+              MessageRow(
+                label: 'oldOwner'.tr,
+                value: msgDetail.from.toString(),
+              ),
+            ],
+          )),
+          SizedBox(
+            height: 7,
+          )
+        ],
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  Widget get createMinerWidget {
+    if (msgDetail.methodName == FilecoinMethod.createMiner &&
+        msgDetail.args is Map &&
+        msgDetail.returns is Map) {
+      return Column(
+        children: [
+          CommonCard(Column(
+            children: [
+              MessageRow(
+                label: 'minerAddr'.tr,
+                value: msgDetail.returns['IDAddress'],
+              ),
+              MessageRow(
+                label: 'owner'.tr,
+                value: msgDetail.args['Owner'],
+              ),
+              MessageRow(
+                label: 'worker'.tr,
+                value: msgDetail.args['Worker'],
+              ),
+            ],
+          )),
+          SizedBox(
+            height: 7,
+          )
+        ],
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  Widget get execWidget {
+    var miner = '';
+    if (methodName == FilecoinMethod.exec && msgDetail.returns is Map) {
+      miner = msgDetail.returns['IDAddress'];
+      return Column(
+        children: [
+          CommonCard(MessageRow(
+            label: 'multisig'.tr,
+            value: miner,
+          )),
+          SizedBox(
+            height: 7,
+          ),
+        ],
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  Widget get amountWidget {
+    var amount = msgDetail.value;
+    if (methodName == FilecoinMethod.transfer) {
+      return Column(
+        children: [
+          CommonCard(MessageRow(
+            label: 'amount'.tr,
+            value: formatFil(amount),
+          )),
+          SizedBox(
+            height: 7,
+          ),
+        ],
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  Widget get changeWorkerParam {
+    var args = msgDetail.args;
+    if (methodName == FilecoinMethod.changeWorker && args is Map) {
+      var newWorker = args['NewWorker'];
+      List conaddrs =
+          args['NewControlAddrs'] is List ? args['NewControlAddrs'] : [];
+
+      return Column(
+        children: [
+          CommonCard(Column(
+            children: [
+              MessageRow(
+                label: 'minerAddr'.tr,
+                value: msgDetail.to,
+              ),
+              MessageRow(
+                label: 'worker'.tr,
+                value: newWorker.toString(),
+              ),
+              MessageRow(
+                label: 'controller'.tr,
+                append: Column(
+                  children: List.generate(conaddrs.length, (index) {
+                    var addr = conaddrs[index];
+                    return Container(
+                      child: Row(
+                        children: [
+                          Expanded(
+                              child: CommonText(
+                            addr.toString(),
+                            weight: FontWeight.w500,
+                            align: TextAlign.end,
+                          ))
+                        ],
+                      ),
+                      padding: EdgeInsets.only(bottom: 7),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          )),
+          SizedBox(
+            height: 7,
+          )
+        ],
+      );
+    } else {
+      return Container();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    print(msgDetail.args);
     return CommonScaffold(
       title: 'detail'.tr,
       hasFooter: false,
@@ -62,24 +261,30 @@ class FilDetailPageState extends State<FilDetailPage> {
             SizedBox(
               height: 25,
             ),
-            CommonCard(MessageRow(
-              label: 'amount'.tr,
-              value: atto2Fil(msgDetail.value) + ' FIL',
-            )),
-            SizedBox(
-              height: 7,
-            ),
+            Visibility(
+                child: Column(
+                  children: [
+                    createMinerWidget,
+                    withdrawWidget,
+                    amountWidget,
+                    changeWorkerParam,
+                    execWidget,
+                    changeOwnerWidget,
+                  ],
+                ),
+                visible: mes.pending == 0),
             Visibility(
                 visible: mes.pending != 1,
                 child: CommonCard(MessageRow(
                   label: 'fee'.tr,
-                  value:
-                      formatFil(BigInt.parse(msgDetail.allGasFee).toString(),size: 5),
+                  value: formatFil(BigInt.parse(msgDetail.allGasFee).toString(),
+                      size: 5),
                 ))),
             SizedBox(
               height: 7,
             ),
-            CommonCard(Column(
+            Visibility(
+                child: CommonCard(Column(
               children: [
                 MessageRow(
                   label: 'from'.tr,
@@ -92,17 +297,17 @@ class FilDetailPageState extends State<FilDetailPage> {
                   value: msgDetail.to,
                 )
               ],
-            )),
+            )),visible: methodName!=FilecoinMethod.changeOwner,),
             SizedBox(
               height: 7,
             ),
             mes.pending != 1
                 ? ChainMeta(
                     cid: msgDetail.signedCid,
-                    height: msgDetail.height.toString(),
-                    params: ['Exec','CreateMiner'].contains(msgDetail.methodName)
-                        ? msgDetail.returns
-                        : msgDetail.args)
+                    height: msgDetail.height == null
+                        ? ''
+                        : msgDetail.height.toString(),
+                    params: null)
                 : CommonCard(MessageRow(
                     label: 'cid'.tr,
                     selectable: true,
@@ -154,6 +359,7 @@ class MessageStatusHeader extends StatelessWidget {
     );
   }
 }
+
 /// widget to show message field
 class MessageRow extends StatelessWidget {
   final bool selectable;
@@ -179,19 +385,21 @@ class MessageRow extends StatelessWidget {
               width: 52,
             ),
             Expanded(
-                child: GestureDetector(
-              onTap: () {
-                if (selectable) {
-                  copyText(value);
-                  showCustomToast('copySucc'.tr);
-                }
-              },
-              child: Text(
-                value,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                textAlign: this.align ?? TextAlign.end,
-              ),
-            ))
+                child: append ??
+                    GestureDetector(
+                      onTap: () {
+                        if (selectable) {
+                          copyText(value);
+                          showCustomToast('copySucc'.tr);
+                        }
+                      },
+                      child: Text(
+                        value,
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500),
+                        textAlign: this.align ?? TextAlign.end,
+                      ),
+                    ))
           ],
         ));
   }
@@ -202,7 +410,8 @@ class ChainMeta extends StatelessWidget {
   final String height;
   final dynamic params;
   void goFilScan() {
-    openInBrowser("$filscanWeb/tipset/message-detail?cid=$cid&utm_source=filwallet_app");
+    openInBrowser(
+        "$filscanWeb/tipset/message-detail?cid=$cid&utm_source=filwallet_app");
   }
 
   ChainMeta({this.cid, this.height, this.params});

@@ -8,7 +8,7 @@ class MultiDetailPage extends StatefulWidget {
 }
 
 class MultiDetailPageState extends State<MultiDetailPage> {
-  MultiSignWallet wallet = singleStoreController.multiWal;
+  MultiSignWallet wallet = $store.multiWal;
   @override
   Widget build(BuildContext context) {
     var addr = wallet.addrWithNet;

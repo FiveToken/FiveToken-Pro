@@ -1,9 +1,10 @@
 import 'package:fil/index.dart';
+import 'package:oktoast/oktoast.dart';
 
 /// get nonce of an address
-Future<int> getNonce(Wallet w) async {
+Future<int> getNonce(String addr) async {
   var rs = await fetch("filscan.BalanceNonceByAddress", [
-    {"address": w.addrWithNet},
+    {"address": addr},
   ]);
   if (rs == null) {
     return -1;
@@ -23,11 +24,10 @@ Future<int> getNonce(Wallet w) async {
 }
 
 /// get balance and nonce of an address
-Future<BalanceNonce> getBalance(Wallet w) async {
+Future<BalanceNonce> getBalance(String address) async {
   var rs = await fetch("filscan.BalanceNonceByAddress", [
-    {"address": w.address},
+    {"address": address},
   ]);
-  print(rs);
   var balanceNonce = BalanceNonce();
   if (rs == null) {
     return balanceNonce;
@@ -46,31 +46,6 @@ Future<BalanceNonce> getBalance(Wallet w) async {
   }
   return balanceNonce;
 }
-
-/// get balance and nonce of an address
-Future<WalletMeta> getWalletMeta(String address) async {
-  var rs = await fetch("filscan.BalanceNonceByAddress", [
-    {"address": address},
-  ]);
-  var defaultInfo = WalletMeta(balance: '0', nonce: -1);
-  if (rs == null) {
-    return defaultInfo;
-  }
-  var res = JsonRPCResponse.fromJson(rs.data);
-  if (res.error != null) {
-    var error = JsonRPCError.fromJson(res.error);
-    print(error.message);
-    return defaultInfo;
-  }
-  if (res.result != null) {
-    var result = res.result as Map<String, dynamic>;
-    var balance = Fil(attofil: result["balance"] as String).toString();
-    var nonce = result["nonce"] as int;
-    return WalletMeta(balance: balance, nonce: nonce);
-  }
-  return defaultInfo;
-}
-
 /// get actor id of an address
 Future<String> getAddressActor(String address) async {
   try {
@@ -93,5 +68,46 @@ Future<String> getAddressActor(String address) async {
     }
   } catch (e) {
     return '';
+  }
+}
+
+///get multi-sig account info by actor id
+Future<MultiWalletInfo> getMultiInfo(String id) async {
+  var empty = MultiWalletInfo();
+  try {
+    var result = await fetch("filscan.MsigAddressState", [id]);
+
+    if (result.data == null) {
+      return empty;
+    }
+    var response = JsonRPCResponse.fromJson(result.data);
+
+    if (response.error != null) {
+      return empty;
+    }
+    var res = response.result;
+    if (res != null && res['signers'] != null) {
+      if (res['signers'] is List) {
+        var info = MultiWalletInfo(
+            signerMap: {},
+            balance: res['balance'],
+            robustAddress: res['robust_address'],
+            approveRequired: res['approve_required']);
+        (res['signers'] as List).forEach((element) {
+          var m = element as Map<String, dynamic>;
+          m.entries.forEach((e) {
+            info.signerMap[e.value] = e.key;
+          });
+        });
+        return info;
+      } else {
+        return empty;
+      }
+    } else {
+      return empty;
+    }
+  } catch (e) {
+    dismissAllToast();
+    return empty;
   }
 }

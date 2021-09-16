@@ -7,10 +7,10 @@ export './pass/init.dart';
 export './pass/reset.dart';
 
 export './wallet/index.dart';
-export './main/index.dart';
 
 export './address/index.dart';
 export './init/index.dart';
 
 export './sign/index.dart';
 export './multi/index.dart';
+export './main/index.dart';

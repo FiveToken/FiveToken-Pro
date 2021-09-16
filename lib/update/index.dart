@@ -61,7 +61,7 @@ Future<ApkInfo> checkNeedUpdate() async {
 }
 
 void downLoadApk(String downloadUrl, String savePath,
-    {OnReceiveProgress onReceiveProgress, OnFinished onFinished}) {
+    {OnReceiveProgress onReceiveProgress, Noop onFinished}) {
   downloadFile(downloadUrl, savePath, onReceiveProgress: onReceiveProgress)
       .then((value) {
     onFinished();
@@ -131,7 +131,7 @@ void install(File file) async {
   Map<PermissionGroup, PermissionStatus> permissions =
       await PermissionHandler().requestPermissions([PermissionGroup.storage]);
   if (permissions[PermissionGroup.storage] == PermissionStatus.granted) {
-    InstallPlugin.installApk(file.path, 'io.fivetokenpro.fil').then((result) {
+    InstallPlugin.installApk(file.path, 'io.forcewallet.fil').then((result) {
       print('install apk $result');
     }).catchError((error) {
       print('install apk error: $error');

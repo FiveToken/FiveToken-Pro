@@ -28,6 +28,10 @@ public class SwiftFlotusPlugin: NSObject, FlutterPlugin {
       let arg = args["msg"] as! String
       let res = WlibMessageCid(arg)
       result(res)
+    case "genCid":
+      let arg = args["msg"] as! String
+      let res = WlibGenCid(arg)
+      result(res)
     case "secpPrivateToPublic":
       let arg = args["ck"] as! String
       let res = WlibSecpPrivateToPublic(arg)
@@ -62,6 +66,10 @@ public class SwiftFlotusPlugin: NSObject, FlutterPlugin {
       let miner = args["miner"] as! String
       let value = args["value"] as! String
       let res = WlibGenProposalForChangeWorkerAddress(miner,value)
+      result(res)
+    case "genConfirmUpdateWorkerKey":
+      let miner = args["miner"] as! String
+      let res = WlibGenConfirmUpdateWorkerKey(miner)
       result(res)
     case "genApprovalV3":
       let tx = args["tx"] as! String

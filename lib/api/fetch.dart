@@ -5,10 +5,10 @@ import 'package:oktoast/oktoast.dart';
 const API_MAIN = 'https://api.filscan.io:8700/';
 
 /// calibration rpc url
-const API_TEST = 'https://calibration.filscan.io:8800/';
+const API_TEST = 'https://calibration.filscan.io:8700/';
 var filscanWeb = Global.netPrefix == 'f'
-    ? "https://filscan.io"
-    : "https://calibration.filscan.io/#";
+    ? "https://m.filscan.io"
+    : "https://calibration.filscan.io/mobile";
 class ServerAddress {
   static String get main => API_MAIN;
   static String get test => API_TEST;
@@ -37,6 +37,6 @@ Future<Response> fetch(String method, List<dynamic> params,
     return res;
   } catch (e) {
     dismissAllToast();
-    return Response();
+    return Response(data: {});
   }
 }

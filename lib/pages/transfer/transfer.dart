@@ -2,8 +2,7 @@ import 'package:fil/index.dart';
 import 'package:fil/store/store.dart';
 import 'package:fil/widgets/index.dart';
 import 'package:flutter/cupertino.dart';
-import 'dart:async';
-import 'dart:math';
+
 /// transfer page
 class FilTransferNewPage extends StatefulWidget {
   @override
@@ -15,11 +14,10 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
   String balance;
   TextEditingController _amountCtl = TextEditingController();
   TextEditingController _addressCtl = TextEditingController();
-  StoreController controller = singleStoreController;
+  StoreController controller = $store;
   int nonce;
   FocusNode focusNode = FocusNode();
   FocusNode focusNode2 = FocusNode();
-  Timer timer;
   Gas chainGas;
   var nonceBoxInstance = Hive.box<Nonce>(nonceBox);
   @override
@@ -28,14 +26,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
     if (Get.arguments != null && Get.arguments['to'] != null) {
       _addressCtl.text = Get.arguments['to'];
     }
-    getGas();
-    _getNonce();
-    _addressCtl.addListener(() {
-      timer?.cancel();
-      timer = Timer(Duration(milliseconds: 300), () {
-        checkInputToGetGas();
-      });
-    });
+    FilecoinProvider.getNonceAndGas();
   }
 
   @override
@@ -52,106 +43,23 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
 
   @override
   void dispose() {
-    singleStoreController.setGas(Gas());
-    timer?.cancel();
+    $store.setGas(Gas());
     _amountCtl.dispose();
     _addressCtl.dispose();
     routeObserver.unsubscribe(this);
     super.dispose();
   }
 
-  bool get showSpeed {
-    var pendingList = OpenedBox.messageInsance.values.where((mes) =>
-        mes.pending == 1 && mes.from == singleStoreController.wal.addrWithNet);
-    return pendingList.isNotEmpty;
-  }
-  /// get suggest gas 
-  Future getGas() async {
-    var to = _addressCtl.text.trim();
-    var res = await getGasDetail(to: to);
-    if (res.feeCap != '0') {
-      controller.setGas(res);
-      setState(() {
-        this.chainGas = res;
-      });
-    }
-  }
   /// increase gas and resend a blocked message
-  void speedup(String ck) async {
-    var pendingList = OpenedBox.messageInsance.values
-        .where((mes) =>
-            mes.pending == 1 &&
-            mes.from == singleStoreController.wal.addrWithNet)
-        .toList();
-    pendingList.sort((a, b) {
-      if (a.nonce != null && b.nonce != null) {
-        return b.nonce.compareTo(a.nonce);
-      } else {
-        return -1;
-      }
-    });
-    var last = pendingList.last;
-    var from = last.from;
-    var n = last.nonce;
-    var key = '$from\_$n';
-    var cacheGas = OpenedBox.gasInsance.get(key);
-    if (cacheGas != null) {
-      var chainPremium = int.parse(controller.gas.value.premium);
-      /// increase GasPremium to replace the message in mpool
-      var caculatePremium = (int.parse(cacheGas.premium) * 1.3).truncate();
-      var realPremium = max(chainPremium, caculatePremium);
-      var msg = TMessage(
-          version: 0,
-          method: 0,
-          nonce: n,
-          from: from,
-          to: last.to,
-          params: "",
-          value: last.value,
-          gasFeeCap: controller.gas.value.feeCap,
-          gasLimit: controller.gas.value.gasLimit,
-          gasPremium: realPremium.toString());
-      String sign = '';
-      num signType;
-      var cid = await Flotus.messageCid(msg: jsonEncode(msg));
-      if (controller.wal.type == '1') {
-        signType = SignTypeSecp;
-        sign = await Flotus.secpSign(ck: ck, msg: cid);
-      } else {
-        signType = SignTypeBls;
-        sign = await Bls.cksign(num: "$ck $cid");
-      }
-      var sm = SignedMessage(msg, Signature(signType, sign));
-      String res = await pushSignedMsg(sm.toLotusSignedMessage());
-      if (res != '') {
-        controller.setGas(Gas());
-        var newCacheGas = CacheGas(
-            cid: res,
-            feeCap: controller.gas.value.feeCap,
-            gasLimit: controller.gas.value.gasLimit,
-            premium: controller.gas.value.premium);
-        OpenedBox.gasInsance.put('$from\_$n', newCacheGas);
-        Hive.box<StoreMessage>(messageBox).put(
-            res,
-            StoreMessage(
-                pending: 1,
-                from: from,
-                to: last.to,
-                value: last.value,
-                owner: from,
-                nonce: n,
-                signedCid: res,
-                blockTime:
-                    (DateTime.now().millisecondsSinceEpoch / 1000).truncate()));
-      } else {
-        showCustomError('sendFail'.tr);
-      }
-      if (mounted) {
-        Get.back();
-      }
+  void speedup(String private) async {
+    var res =
+        await FilecoinProvider.speedup(private: private, gas: $store.gas.value);
+    if (res != '') {
+      Get.back();
     }
   }
-  /// push message 
+
+  /// push message
   void _pushMsg(String ck) async {
     if (!Global.online) {
       showCustomError('errorNet'.tr);
@@ -159,20 +67,11 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
     }
     var from = controller.wal.addrWithNet;
     var to = _addressCtl.text.trim();
-    if (controller.gas.value.feeCap == '0') {
-      showCustomError('errorSetGas'.tr);
-    }
-    if (nonce == null || nonce == -1) {
-      showCustomError("errorGetNonce".tr);
-      return;
-    }
-    /// use bigger nonce when send multiple messages in a short time
-    var realNonce = max(nonce, nonceBoxInstance.get(from).value);
     var value = fil2Atto(_amountCtl.text.trim());
     var msg = TMessage(
         version: 0,
         method: 0,
-        nonce: realNonce,
+        nonce: $store.nonce,
         from: from,
         to: to,
         params: "",
@@ -180,47 +79,8 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
         gasFeeCap: controller.gas.value.feeCap,
         gasLimit: controller.gas.value.gasLimit,
         gasPremium: controller.gas.value.premium);
-    String sign = '';
-    num signType;
-    var cid = await Flotus.messageCid(msg: jsonEncode(msg));
-    if (controller.wal.type == '1') {
-      signType = SignTypeSecp;
-      sign = await Flotus.secpSign(ck: ck, msg: cid);
-    } else {
-      signType = SignTypeBls;
-      sign = await Bls.cksign(num: "$ck $cid");
-    }
-    var sm = SignedMessage(msg, Signature(signType, sign));
-    //showCustomLoading('sending'.tr);
-    print(jsonEncode(sm.toLotusSignedMessage()));
-    String res = await pushSignedMsg(sm.toLotusSignedMessage());
-    if (res != '') {
-      var cacheGas = CacheGas(
-          cid: res,
-          feeCap: controller.gas.value.feeCap,
-          gasLimit: controller.gas.value.gasLimit,
-          premium: controller.gas.value.premium);
-      OpenedBox.gasInsance.put('$from\_$realNonce', cacheGas);
-      controller.setGas(Gas());
-      Hive.box<StoreMessage>(messageBox).put(
-          res,
-          StoreMessage(
-              pending: 1,
-              from: from,
-              to: to,
-              value: value,
-              owner: from,
-              nonce: realNonce,
-              signedCid: res,
-              blockTime:
-                  (DateTime.now().millisecondsSinceEpoch / 1000).truncate()));
-      var oldNonce = nonceBoxInstance.get(from);
-      nonceBoxInstance.put(
-          from, Nonce(value: realNonce + 1, time: oldNonce.time));
-    } else {
-      showCustomError('sendFail'.tr);
-    }
-    if (mounted) {
+    var res = await FilecoinProvider.sendMessage(message: msg, private: ck);
+    if (res != '' && mounted) {
       Get.back();
     }
   }
@@ -250,48 +110,29 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
     }
     var trimAddress = toAddress.trim();
     if (trimAddress == "") {
-      showCustomError('enterAddr'.tr);
+      showCustomError('enterTo'.tr);
       return false;
     }
     if (!isValidAddress(trimAddress)) {
       showCustomError('errorAddr'.tr);
       return false;
     }
-    if (trimAddress == singleStoreController.wal.addr) {
+    if (trimAddress == $store.wal.addr) {
       showCustomError('errorFromAsTo'.tr);
       return false;
     }
 
     return true;
   }
-  /// get the nonce of the wallet
-  void _getNonce() async {
-    var wal = singleStoreController.wal;
-    var nonce = await getNonce(wal);
-    var address = wal.address;
-    var now = DateTime.now().millisecondsSinceEpoch;
-    if (nonce != -1) {
-      this.nonce = nonce;
-      if (!nonceBoxInstance.containsKey(address)) {
-        nonceBoxInstance.put(address, Nonce(time: now, value: nonce));
-      } else {
-        Nonce nonceInfo = nonceBoxInstance.get(address);
-        var interval = 5 * 60 * 1000;
-        if (now - nonceInfo.time > interval) {
-          nonceBoxInstance.put(address, Nonce(time: now, value: nonce));
-        }
-      }
-    }
-  }
 
   String get maxFee {
     return formatFil(controller.gas.value.attoFil);
   }
 
-  void checkInputToGetGas() {
-    var trimAddress = _addressCtl.text.trim();
-    if (trimAddress != '' && isValidAddress(trimAddress)) {
-      getGas();
+  void checkInputToGetGas(String v) {
+    v = v.trim();
+    if (v != '' && isValidAddress(v)) {
+      FilecoinProvider.getGas(to: v);
     }
   }
 
@@ -324,57 +165,55 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
           padding: EdgeInsets.only(right: 10),
         )
       ],
-      onPressed: () {
+      onPressed: () async {
         if (!checkInputValid()) {
           return;
         }
-        var pushNew = () {
-          showCustomModalBottomSheet(
-              shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
-              context: context,
-              builder: (BuildContext context) {
-                return ConstrainedBox(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.only(bottom: 30),
-                    child: ConfirmSheet(
-                      from: controller.wal.address,
-                      to: _addressCtl.text,
-                      gas: controller.maxFee,
-                      value: _amountCtl.text,
-                      onConfirm: (String ck) {
-                        _pushMsg(ck);
-                      },
+        var handle = () {
+          var pushNew = () {
+            showCustomModalBottomSheet(
+                shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
+                context: context,
+                builder: (BuildContext context) {
+                  return ConstrainedBox(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.only(bottom: 30),
+                      child: ConfirmSheet(
+                        from: controller.wal.address,
+                        to: _addressCtl.text,
+                        gas: controller.maxFee,
+                        value: _amountCtl.text,
+                        onConfirm: (String ck) {
+                          _pushMsg(ck);
+                        },
+                      ),
                     ),
-                  ),
-                  constraints: BoxConstraints(maxHeight: 800),
-                );
+                    constraints: BoxConstraints(maxHeight: 800),
+                  );
+                });
+          };
+          FilecoinProvider.checkSpeedUpOrMakeNew(
+              context: context,
+              onNew: pushNew,
+              onSpeedup: () async {
+                showPassDialog(context, (String pass) async {
+                  var wal = $store.wal;
+                  var ck =
+                      await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
+                  speedup(ck);
+                });
               });
         };
-        if (showSpeed) {
-          showCustomModalBottomSheet(
-              shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
-              context: context,
-              builder: (BuildContext context) {
-                return ConstrainedBox(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.only(bottom: 30),
-                    child: SpeedupSheet(
-                      onNew: pushNew,
-                      onSpeedUp: () async {
-                        showPassDialog(context, (String pass) async {
-                          var wal = singleStoreController.wal;
-                          var ck = await getPrivateKey(
-                              wal.addrWithNet, pass, wal.skKek);
-                          speedup(ck);
-                        });
-                      },
-                    ),
-                  ),
-                  constraints: BoxConstraints(maxHeight: 800),
-                );
-              });
+        if (!$store.canPush) {
+          var valid = await FilecoinProvider.getNonceAndGas(
+              to: _addressCtl.text.trim());
+          if (valid) {
+            handle();
+          } else {
+            showCustomError("errorSetGas".tr);
+          }
         } else {
-          pushNew();
+          handle();
         }
       },
       body: Padding(
@@ -385,6 +224,9 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
             Field(
               controller: _addressCtl,
               label: 'to'.tr,
+              onChanged: (v) {
+                checkInputToGetGas(v);
+              },
               extra: GestureDetector(
                 child: Padding(
                   child: Image(width: 20, image: AssetImage('images/book.png')),
@@ -402,7 +244,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
             Field(
               controller: _amountCtl,
               type: TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [PrecisionLimitFormatter(8)],
+              inputFormatters: [PrecisionLimitFormatter(18)],
               label: 'amount'.tr,
               append: Obx(() => CommonText(
                     formatFil(controller.wal.balance),
@@ -410,8 +252,8 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
                   )),
             ),
             Obx(() => SetGas(
-                  maxFee: singleStoreController.maxFee,
-                  gas: chainGas,
+                  maxFee: $store.maxFee,
+                  gas: $store.chainGas,
                 )),
           ],
         ),
@@ -586,7 +428,7 @@ class ConfirmSheet extends StatelessWidget {
                       onPressed: () {
                         Get.back();
                         showPassDialog(context, (String pass) async {
-                          var wal = singleStoreController.wal;
+                          var wal = $store.wal;
                           var ck = await getPrivateKey(
                               wal.addrWithNet, pass, wal.skKek);
                           onConfirm(ck);

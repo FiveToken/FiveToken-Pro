@@ -165,7 +165,7 @@ class SwiperItem extends StatelessWidget {
             decoration: BoxDecoration(
                 borderRadius: CustomRadius.b8,
                 color:
-                    wallet.addrWithNet == singleStoreController.wal.addrWithNet
+                    wallet.addrWithNet == $store.wal.addrWithNet
                         ? CustomColor.primary
                         : Color(0xff8297B0)),
           ),

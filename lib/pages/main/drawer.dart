@@ -6,8 +6,8 @@ class DrawerBody extends StatelessWidget {
   DrawerBody({this.onTap});
   @override
   Widget build(BuildContext context) {
-    var label = singleStoreController.wal.label;
-    var addr = singleStoreController.wal.addr;
+    var label = $store.wal.label;
+    var addr = $store.wal.addr;
     return Container(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,7 +67,7 @@ class DrawerBody extends StatelessWidget {
           DrawerItem(
             onTap: () {
               openInBrowser(
-                  'https://filscan.io/tipset/address-detail?address=$addr&utm_source=filwallet_app');
+                  '$filscanWeb/tipset/address-detail?address=$addr&utm_source=filwallet_app');
             },
             label: 'filscan'.tr,
             iconPath: 'browser.png',

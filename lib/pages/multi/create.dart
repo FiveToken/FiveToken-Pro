@@ -1,6 +1,7 @@
 import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
 import 'package:fil/widgets/dialog.dart';
+
 /// create a multi-sig wallet
 class MultiCreatePage extends StatefulWidget {
   @override
@@ -21,52 +22,12 @@ class MultiCreatePageState extends State<MultiCreatePage> {
   @override
   void initState() {
     super.initState();
-    getGas();
-    getWalletNonce();
-    signerCtrl.text = singleStoreController.wal.address;
-  }
-
-  Future getGas() async {
-    var res = await getGasDetail(to: Global.netPrefix + '01', method: 2);
-    if (res.feeCap != '0') {
-      singleStoreController.setGas(res);
-      setState(() {
-        this.chainGas = res;
-      });
-    }
-  }
-
-  void getWalletNonce() async {
-    var wal = singleStoreController.wal;
-    var nonce = await getNonce(wal);
-    var address = wal.address;
-    var now = DateTime.now().millisecondsSinceEpoch;
-    if (nonce != -1) {
-      this.nonce = nonce;
-      if (!nonceBoxInstance.containsKey(address)) {
-        nonceBoxInstance.put(address, Nonce(time: now, value: nonce));
-      } else {
-        Nonce nonceInfo = nonceBoxInstance.get(address);
-        var interval = 5 * 60 * 1000;
-        if (now - nonceInfo.time > interval) {
-          nonceBoxInstance.put(address, Nonce(time: now, value: nonce));
-        }
-      }
-    }
+    signerCtrl.text = $store.wal.address;
+    FilecoinProvider.getNonceAndGas(to: FilecoinAccount.f01, method: 2);
   }
 
   String get from {
-    return singleStoreController.wal.addrWithNet;
-  }
-
-  int get realNonce {
-    var cahcheNonce = nonceBoxInstance.get(from);
-    var storeNonce = 0;
-    if (cahcheNonce != null) {
-      storeNonce = cahcheNonce.value;
-    }
-    var n = max(nonce, storeNonce);
-    return n;
+    return $store.wal.addrWithNet;
   }
 
   List<String> get signerAddrs {
@@ -79,7 +40,7 @@ class MultiCreatePageState extends State<MultiCreatePage> {
   }
 
   Future<TMessage> genMsg() async {
-    var controller = singleStoreController;
+    var g = $store.gas.value;
     var value = '0';
     var threshold = int.parse(thresholdCtrl.text.trim());
     var params = {
@@ -87,68 +48,42 @@ class MultiCreatePageState extends State<MultiCreatePage> {
       'threshold': threshold,
       'unlock_duration': 0
     };
+
     /// serialize create params
     var p = await Flotus.genConstructorParamV3(jsonEncode(params));
     var decodeParams = jsonDecode(p);
     var msg = TMessage(
         version: 0,
         method: 2,
-        nonce: realNonce,
+        nonce: $store.nonce,
         from: from,
-        to: Global.netPrefix + '01',
+        to: FilecoinAccount.f01,
         params: decodeParams['param'],
         value: value,
-        gasFeeCap: controller.gas.value.feeCap,
-        gasLimit: controller.gas.value.gasLimit,
-        gasPremium: controller.gas.value.premium);
+        gasFeeCap: g.feeCap,
+        gasLimit: g.gasLimit,
+        gasPremium: g.premium);
     return msg;
   }
 
   void pushMessage(String pass) async {
-    var controller = singleStoreController;
     var threshold = int.parse(thresholdCtrl.text.trim());
     var msg = await genMsg();
-    String sign = '';
-    num signType;
-    var cid = await Flotus.messageCid(msg: jsonEncode(msg));
-    var wal = singleStoreController.wal;
-    var ck = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
-    if (controller.wal.type == '1') {
-      signType = SignTypeSecp;
-      sign = await Flotus.secpSign(ck: ck, msg: cid);
-    } else {
-      signType = SignTypeBls;
-      sign = await Bls.cksign(num: "$ck $cid");
-    }
-    var sm = SignedMessage(msg, Signature(signType, sign));
-    String res = await pushSignedMsg(sm.toLotusSignedMessage());
+    var wal = $store.wal;
+    var private = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
+    var res = await FilecoinProvider.sendMessage(
+        message: msg, private: private, methodName: FilecoinMethod.exec);
     if (res != '') {
-      controller.setGas(Gas());
-      var now = getSecondSinceEpoch();
-      OpenedBox.messageInsance.put(
-          res,
-          StoreMessage(
-              pending: 1,
-              from: from,
-              to: msg.to,
-              value: msg.value,
-              owner: from,
-              nonce: msg.nonce,
-              signedCid: res,
-              blockTime: getSecondSinceEpoch()));
       OpenedBox.multiInsance.put(
           res,
           MultiSignWallet(
               cid: res,
-              blockTime: now,
+              blockTime: getSecondSinceEpoch(),
               label: labelCtrl.text.trim(),
               threshold: threshold,
               signers: signerAddrs));
-      var oldNonce = nonceBoxInstance.get(from);
-      nonceBoxInstance.put(
-          from, Nonce(value: realNonce + 1, time: oldNonce.time));
+      Get.offAllNamed(mainPage);
     }
-    Get.offAllNamed(mainPage);
   }
 
   void handleConfirm() async {
@@ -182,24 +117,26 @@ class MultiCreatePageState extends State<MultiCreatePage> {
       showCustomError('errorSigner'.tr);
       return;
     }
-    if (singleStoreController.gas.value.feeCap == '0') {
-      await getGas();
-      if (singleStoreController.gas.value.feeCap == '0') {
-        showCustomError("error.wrongGas");
+    if (!$store.canPush) {
+      var valid = await FilecoinProvider.getNonceAndGas(
+          to: FilecoinAccount.f01, method: 2);
+      if (!valid) {
+        showCustomError('errorSetGas'.tr);
         return;
       }
     }
-    //var a = double.parse(_amountCtl.text.trim());
-    if (nonce == null || nonce == -1) {
-      showCustomError('errorGetNonce'.tr);
+    var balanceNum = BigInt.tryParse($store.wal.balance);
+    var feeNum = this.chainGas.feeNum;
+    if (balanceNum < feeNum) {
+      showCustomError('errorLowBalance'.tr);
       return;
     }
-    if (singleStoreController.wal.readonly == 1) {
+
+    if ($store.wal.readonly == 1) {
       var msg = await genMsg();
-      singleStoreController.setPushBackPage(mainPage);
+      $store.setPushBackPage(mainPage);
       var cid = await Flotus.genCid(msg: jsonEncode(msg));
       Get.toNamed(mesBodyPage, arguments: {'mes': msg});
-      
       OpenedBox.multiInsance.put(
           cid,
           MultiSignWallet(
@@ -251,7 +188,7 @@ class MultiCreatePageState extends State<MultiCreatePage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                CommonText(dotString(str: singleStoreController.wal.address)),
+                CommonText(dotString(str: $store.wal.address)),
                 CommonText('(${'myAddr'.tr})')
               ],
             ),
@@ -328,8 +265,8 @@ class MultiCreatePageState extends State<MultiCreatePage> {
             height: 15,
           ),
           Obx(() => SetGas(
-                maxFee: singleStoreController.maxFee,
-                gas: chainGas,
+                maxFee: $store.maxFee,
+                gas: $store.chainGas,
               )),
           SizedBox(
             height: 100,

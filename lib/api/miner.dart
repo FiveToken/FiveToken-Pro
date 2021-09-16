@@ -2,16 +2,20 @@ import 'package:fil/index.dart';
 
 /// get miner detail info
 Future<MinerMeta> getMinerInfo(String address) async {
+  var empty = MinerMeta();
   try {
     var result = await fetch(
       "filscan.ActorById",
       [address],
     );
+    if (result.data == null) {
+      return empty;
+    }
     var response = JsonRPCResponse.fromJson(result.data);
 
     if (response.error != null) {
       showCustomError(response.error['message']);
-      return MinerMeta();
+      return empty;
     } else {
       var res = response.result;
       if (res != null) {
@@ -35,18 +39,21 @@ Future<MinerMeta> getMinerInfo(String address) async {
             preCommitSectors: extra['recover_sector_count'],
             lock: extra['locked_funds'] ?? '0');
       } else {
-        return MinerMeta();
+        return empty;
       }
     }
   } catch (e) {
     print(e);
-    return MinerMeta();
+    return empty;
   }
 }
 
 /// get miner's workers and controllers
 Future<List<MinerAddress>> getMinerControllers(String addr) async {
   var result = await fetch('filscan.WalletStatisticalIndicators', [addr, '1d']);
+  if (result.data == null) {
+    throw Exception('get status fail');
+  }
   var response = JsonRPCResponse.fromJson(result.data);
   if (response.error != null) {
     throw Exception('get controllers failed');
@@ -54,20 +61,38 @@ Future<List<MinerAddress>> getMinerControllers(String addr) async {
     var res = response.result;
     if (res != null) {
       var list = res['address_balances'] ?? [];
-      var box = Hive.box<MonitorAddress>(monitorBox);
-      var addressList = (list as List).map((e) {
-        var address = MinerAddress.fromMap(e);
-        return address;
-      }).toList();
-      addressList.forEach((address) {
+      var box = OpenedBox.monitorInsance;
+      var addressList = (list as List)
+          .map((e) {
+            var address = MinerAddress.fromMap(e);
+            return address;
+          })
+          .where((v) => v.address != '')
+          .toList();
+      addressList.forEach((address) async {
         var cid = address.address;
+        var label =
+            '${address.type[0].toUpperCase()}${address.type.substring(1)}';
+        if (box.containsKey(cid)) {
+          label = box.get(cid).label;
+        }
+        if (address.type == 'owner') {
+          var l = box.values
+              .where((v) => v.miner == addr && v.type == 'owner')
+              .toList();
+          if (l.isNotEmpty) {
+            var owner = l[0];
+            label = owner.label;
+            await box.delete(owner.cid);
+          }
+        }
+
         box.put(
             cid,
             MonitorAddress(
                 cid: cid,
                 miner: addr,
-                label:
-                    '${address.type[0].toUpperCase()}${address.type.substring(1)}',
+                label: label,
                 threshold: '-1',
                 type: address.type));
       });
@@ -85,6 +110,9 @@ Future<MinerHistoricalStats> getMinerYestodayInfo(String address) async {
     '1d',
     1
   ]);
+  if (result.data == null) {
+    throw Exception('get status fail');
+  }
   var response = JsonRPCResponse.fromJson(result.data);
   if (response.error != null) {
     throw Exception('get status fail');
@@ -97,13 +125,17 @@ Future<MinerHistoricalStats> getMinerYestodayInfo(String address) async {
     }
   }
 }
-/// get miner's active workers 
+
+/// get miner's active workers
 Future<List<String>> getActiveMiners(String address) async {
   try {
     var result = await fetch(
       "filscan.ActorById",
       [address],
     );
+    if (result.data == null) {
+      return [];
+    }
     var response = JsonRPCResponse.fromJson(result.data);
     if (response.error != null) {
       showCustomError(response.error['message']);

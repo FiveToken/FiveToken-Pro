@@ -91,51 +91,48 @@ class WalletInitPage extends StatelessWidget {
                             })
                       ],
                     ),
-                    Visibility(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: EdgeInsets.fromLTRB(0, 20, 0, 12),
-                            child: CommonText(
-                              'readonlyW'.tr,
-                              color: Colors.white,
-                              size: 14,
-                            ),
+                    Visibility(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.fromLTRB(0, 20, 0, 12),
+                          child: CommonText(
+                            'readonlyW'.tr,
+                            color: Colors.white,
+                            size: 14,
                           ),
-                          TabCard(
-                            items: [
-                              CardItem(
-                                  label: 'importReadonly'.tr,
-                                  onTap: () {
-                                    Get.toNamed(readonlyPage);
-                                  })
-                            ],
+                        ),
+                        TabCard(
+                          items: [
+                            CardItem(
+                                label: 'importReadonly'.tr,
+                                onTap: () {
+                                  Get.toNamed(readonlyPage);
+                                })
+                          ],
+                        ),
+                        Container(
+                          padding: EdgeInsets.fromLTRB(0, 20, 0, 12),
+                          child: CommonText(
+                            'minerW'.tr,
+                            color: Colors.white,
+                            size: 14,
                           ),
-                          Container(
-                            padding: EdgeInsets.fromLTRB(0, 20, 0, 12),
-                            child: CommonText(
-                              'minerW'.tr,
-                              color: Colors.white,
-                              size: 14,
-                            ),
-                          ),
-                          TabCard(
-                            items: [
-                              CardItem(
-                                  label: 'importMiner'.tr,
-                                  onTap: () {
-                                    Get.toNamed(minerPage);
-                                  })
-                            ],
-                          ),
-                          SizedBox(
-                            height: 20,
-                          )
-                        ],
-                      ),
-                      visible: isOnline,
-                    )
+                        ),
+                        TabCard(
+                          items: [
+                            CardItem(
+                                label: 'importMiner'.tr,
+                                onTap: () {
+                                  Get.toNamed(minerPage);
+                                })
+                          ],
+                        ),
+                        SizedBox(
+                          height: 20,
+                        )
+                      ],
+                    ),visible: isOnline,)
                   ],
                 ),
               ),

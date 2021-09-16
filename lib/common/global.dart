@@ -13,9 +13,9 @@ const SignSecp = "secp";
 const SignBls = "bls";
 const SignTypeBls = 2;
 const SignTypeSecp = 1;
-const String NetPrefix = 't';
+const String NetPrefix = 'f';
 class Global {
-  static String version = "v2.0.1";
+  static String version = "v2.1.0";
 
   static bool get isRelease => bool.fromEnvironment("dart.vm.product");
 

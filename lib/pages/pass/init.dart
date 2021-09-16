@@ -54,7 +54,7 @@ class PassInitPageState extends State<PassInitPage> {
     wallet.ck = '';
     Global.store.setString('activeWalletAddress', addr);
     OpenedBox.addressInsance.put(addr, wallet);
-    singleStoreController.setWallet(wallet);
+    $store.setWallet(wallet);
     Get.offAllNamed(mainPage, arguments: {'create': mneCreate});
   }
 

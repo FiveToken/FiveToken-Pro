@@ -1,5 +1,4 @@
 import 'package:fil/index.dart';
-import './historicalStats.dart';
 
 class MinerField {
   String label;
@@ -105,9 +104,9 @@ class MetaBoard extends StatelessWidget {
                     style: TextStyle(color: Colors.white),
                     onPressed: () {
                       Get.toNamed(mesMakePage, arguments: {
-                        'type': MessageType.MinerWithdraw,
+                        'type': MessageType.MinerManage,
                         'from': owner,
-                        'to': singleStoreController.wal.address,
+                        'to': $store.wal.address,
                         'balannce': dataSource.balance
                       });
                     },
@@ -164,3 +163,4 @@ class MinerDisplayField extends StatelessWidget {
     );
   }
 }
+typedef String Formatter(dynamic value);

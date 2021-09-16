@@ -117,19 +117,6 @@ class Wallet {
   }
 }
 
-class WalletMeta {
-  int nonce;
-  String balance;
-  WalletMeta({this.nonce, this.balance});
-  WalletMeta.fromJson(Map json) {
-    balance = json['balance'];
-    nonce = json['nonce'];
-  }
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{'nonce': nonce, 'balance': balance};
-  }
-}
-
 @HiveType(typeId: 14)
 class MultiSignWallet {
   @HiveField(0)
@@ -225,7 +212,7 @@ class FilPrice {
   FilPrice({this.usd = 0.0, this.cny = 0.0});
   FilPrice.fromJson(Map<String, dynamic> json) {
     usd = json['usd'] + 0.0 as double;
-    cny = json['cny'] as double;
+    cny = json['cny'] + 0.0 as double;
   }
   double get rate {
     //var lang = Global.langCode;

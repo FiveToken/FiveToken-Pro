@@ -1,12 +1,13 @@
 import 'dart:io';
 import 'package:fil/index.dart';
 import 'package:oktoast/oktoast.dart';
+
 var mesMap = {
   't': 'http://192.168.1.189:5678/rpc/v0',
   'f': 'https://api.filwallet.ai:5679/rpc/v0'
 };
 
-/// push signed message to lotus 
+/// push signed message to lotus
 Future<String> pushSignedMsg(Map<String, dynamic> msg) async {
   var data = JsonRPCRequest(1, "Filecoin.MessagePush", [msg]);
   try {
@@ -19,7 +20,6 @@ Future<String> pushSignedMsg(Map<String, dynamic> msg) async {
     print(rs);
     var res = JsonRPCResponse.fromJson(rs.data);
     if (res.error != null) {
-      showCustomError(res.error['message']);
       Map<String, dynamic> params = {};
       var m = msg['Message'];
       params['from'] = m['From'];
@@ -28,7 +28,8 @@ Future<String> pushSignedMsg(Map<String, dynamic> msg) async {
       params['method'] = m['Method'];
       params['err_msg'] = res.error['message'];
       addError(params);
-      showCustomError(getErrorMessage(res.error['message']));
+      var mes=getErrorMessage(res.error['message']);
+      showCustomError(mes);
       return '';
     } else if (res.result != null && res.result['/'] != null) {
       showCustomToast('sended'.tr);
@@ -56,11 +57,11 @@ String getErrorMessage(String message) {
   } else if (message.contains('funds')) {
     return 'errorLowBalance'.tr;
   } else {
-    return 'pushFail'.tr;
+    return 'sendFail'.tr;
   }
 }
 
-/// collect error 
+/// collect error
 void addError(Map<String, dynamic> data) async {
   var response = await Dio().post('${apiMap[mode]}/error/addMsg', data: data);
   if (response.data['code'] == 0) {
@@ -69,7 +70,6 @@ void addError(Map<String, dynamic> data) async {
     print('add error fail');
   }
 }
-
 
 ///collect app run error
 void addAppError(String err) async {
@@ -98,7 +98,7 @@ void addRequestTime(String method, int time, String params) async {
   };
   var response = await Dio().post('${apiMap[mode]}/request/add', data: data);
   if (response.data['code'] == 0) {
-    print('add time success');
+    print('add time success method:$method');
   } else {
     print('add time fail');
   }
@@ -108,24 +108,26 @@ void addRequestTime(String method, int time, String params) async {
 ///  [address]  address use to search
 ///  [timePoint]  tipset timestamp
 ///  [direction]  'up': find messages before [timePoint] 'down': find messages after [timePoint]
-///  [count] num of the messages 
+///  [count] num of the messages
 ///  [method] message's method
 Future<List> getMessageList(
     {String address = '',
     num time,
-    String direction = 'up',
-    num count = 80}) async {
+    num count = 20}) async {
   time ??= (DateTime.now().millisecondsSinceEpoch / 1000).truncate() - 3600;
   try {
     var result = await fetch("filscan.MessageByAddressDirection", [
       {
         "address": Global.netPrefix + address.substring(1),
         "timePoint": time,
-        "direction": direction,
+        "direction": 'up',
         "count": count,
         "method": ""
       }
     ]);
+    if (result.data == null) {
+      return [];
+    }
     var response = JsonRPCResponse.fromJson(result.data);
     if (response.error != null) {
       return [];
@@ -148,9 +150,13 @@ Future<List> getMessageList(
 /// get the message detail infomation by signed cid
 Future<MessageDetail> getMessageDetail(StoreMessage mes) async {
   var result = await fetch('filscan.MessageDetails', [mes.signedCid]);
+  var empty = MessageDetail.fromJson(mes.toJson());
+  if (result.data == null) {
+    return empty;
+  }
   var response = JsonRPCResponse.fromJson(result.data);
   if (response.error != null) {
-    return MessageDetail.fromJson(mes.toJson());
+    return empty;
   }
   var res = response.result;
   if (res != null) {
@@ -158,40 +164,42 @@ Future<MessageDetail> getMessageDetail(StoreMessage mes) async {
     message.blockCid = res['blk_cids'] != null ? res['blk_cids'][0] : '';
     return message;
   } else {
-    return MessageDetail.fromJson(mes.toJson());
+    return empty;
   }
 }
 
-/// pass unserialized params to get a unsigned message 
+/// pass unserialized params to get a unsigned message
 ///  [map] message fields: from to and value
 ///  [params] raw params in json string
 Future<TMessage> buildMessage(Map<String, dynamic> map, String params) async {
-  var result =
-      await fetch("filscan.BuildMessage", [map, params, 0], loading: true);
+  var result = await fetch("filscan.BuildMessage", [map, params, 0]);
   var response = JsonRPCResponse.fromJson(result.data);
   if (response.error != null) {
     showCustomError(response.error['message']);
-    return TMessage();
+    throw Exception("make message fail");
   } else {
     var res = response.result;
     if (res != null) {
       return TMessage.fromJson(res);
     } else {
-      return TMessage();
+      throw Exception("make message fail");
     }
   }
 }
 
-/// get gas_limit,gas_premium and base_fee to predict gas 
+/// get gas_limit,gas_premium and base_fee to predict gas
 ///  [method]  'method' filed in message
 ///  [to] 'to' field in message
 Future<Gas> getGasDetail({num method = 0, String to}) async {
   if (to == null || to == '') {
-    to = Global.netPrefix + '099';
+    to = FilecoinAccount.f099;
   }
   var empty = Gas();
   var result = await fetch("filscan.BaseFeeAndGas", [to, method]);
   print(result);
+  if (result.data == null) {
+    return empty;
+  }
   var response = JsonRPCResponse.fromJson(result.data);
 
   if (response.error != null) {
@@ -231,12 +239,11 @@ Future<Gas> getGasDetail({num method = 0, String to}) async {
 ///  [address]  address use to search
 ///  [timePoint]  tipset timestamp
 ///  [direction]  'up': find messages before [timePoint] 'down': find messages after [timePoint]
-///  [count] num of the messages 
+///  [count] num of the messages
 ///  [method] 'Propose': message whose method name  is 'Propose' 'Approve': message whose method name  is 'Approve'
 Future<List> getMultiMessageList(
     {String address = '',
     num time,
-    String direction = 'up',
     String method = 'Propose',
     num count = 80}) async {
   time ??= (DateTime.now().millisecondsSinceEpoch / 1000).truncate();
@@ -244,11 +251,14 @@ Future<List> getMultiMessageList(
     {
       "address": Global.netPrefix + address.substring(1),
       "timePoint": time,
-      "direction": direction,
+      "direction": 'up',
       "count": count,
       "method": method
     }
   ]);
+  if (result.data == null) {
+    return [];
+  }
   var response = JsonRPCResponse.fromJson(result.data);
   if (response.error != null) {
     return [];
@@ -265,37 +275,4 @@ Future<List> getMultiMessageList(
   }
 }
 
-///get multi-sig account info by actor id
-Future<MultiWalletInfo> getMultiInfo(String id) async {
-  try {
-    var result = await fetch("filscan.MsigAddressState", [id]);
-    var response = JsonRPCResponse.fromJson(result.data);
-    if (response.error != null) {
-      return MultiWalletInfo();
-    }
-    var res = response.result;
-    if (res != null && res['signers'] != null) {
-      if (res['signers'] is List) {
-        var info = MultiWalletInfo(
-            signerMap: {},
-            balance: res['balance'],
-            robustAddress: res['robust_address'],
-            approveRequired: res['approve_required']);
-        (res['signers'] as List).forEach((element) {
-          var m = element as Map<String, dynamic>;
-          m.entries.forEach((e) {
-            info.signerMap[e.value] = e.key;
-          });
-        });
-        return info;
-      } else {
-        return MultiWalletInfo();
-      }
-    } else {
-      return MultiWalletInfo();
-    }
-  } catch (e) {
-    dismissAllToast();
-    return MultiWalletInfo();
-  }
-}
+

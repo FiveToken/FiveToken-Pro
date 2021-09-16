@@ -1,9 +1,8 @@
 export './jsonrpc.dart';
-export './message.dart';
+export 'cacheMessage.dart';
 export './wallet.dart';
 export './fil.dart';
-export './transfer.dart';
-export './net.dart';
+export 'message.dart';
 export './private.dart';
 export './gas.dart';
 export './method.dart';

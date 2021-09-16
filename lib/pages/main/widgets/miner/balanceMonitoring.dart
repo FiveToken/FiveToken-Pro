@@ -2,9 +2,6 @@ import 'package:fbutton/fbutton.dart';
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/miner.dart';
 import 'package:flutter/cupertino.dart';
-
-typedef void Func(String addr);
-
 class BalanceMonitoring extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -16,17 +13,16 @@ class BalanceMonitoringState extends State<BalanceMonitoring> {
   TextEditingController ctrl = TextEditingController();
   List<MinerAddress> list = [];
   StreamSubscription sub;
-  StreamSubscription sub2;
   var box = Hive.box<MonitorAddress>(monitorBox);
   Worker worker;
   String getTitleByTypeAndAddress(String address) {
-    return box.get(address).label ?? '-';
+    return box.get(address)?.label ?? '-';
   }
 
   void getAddressInfo() async {
     try {
       var res =
-          await getMinerControllers(singleStoreController.wal.addrWithNet);
+          await getMinerControllers($store.wal.addrWithNet);
       if (mounted) {
         setState(() {
           list = res;
@@ -38,14 +34,10 @@ class BalanceMonitoringState extends State<BalanceMonitoring> {
   @override
   void initState() {
     super.initState();
-    getAddressInfo();
-    worker = ever(singleStoreController.wallet, (Wallet wal) {
+    worker = ever($store.wallet, (Wallet wal) {
       getAddressInfo();
     });
-    sub = Global.eventBus.on<AppStateChangeEvent>().listen((event) {
-      getAddressInfo();
-    });
-    sub2 = Global.eventBus.on<AppStateChangeEvent>().listen((event) {
+    sub = Global.eventBus.on<RefreshEvent>().listen((event) {
       getAddressInfo();
     });
   }
@@ -55,7 +47,6 @@ class BalanceMonitoringState extends State<BalanceMonitoring> {
     super.dispose();
     worker.dispose();
     sub.cancel();
-    sub2.cancel();
   }
 
   void handleConfirm() {
@@ -135,7 +126,7 @@ class AddressItem extends StatelessWidget {
   final String title;
   final String type;
   final bool bordered;
-  final Func onEdit;
+  final SingleParamCallback<String> onEdit;
   final String gasFee;
   final TextEditingController controller = TextEditingController();
   AddressItem(

@@ -1,5 +1,7 @@
 import 'package:fil/index.dart';
 import 'package:fil/store/store.dart';
+import 'package:oktoast/oktoast.dart';
+
 /// import miner address
 class MinerPage extends StatefulWidget {
   @override
@@ -9,32 +11,44 @@ class MinerPage extends StatefulWidget {
 class MinerPageState extends State<MinerPage> {
   final TextEditingController addressCtrl = TextEditingController();
   final TextEditingController labelCtrl = TextEditingController();
-  void handleSubmit() {
+  void handleSubmit() async {
     var address = addressCtrl.text.trim();
-    var label = labelCtrl.text;
+    var label = labelCtrl.text.trim();
     if (address.substring(0, 2) != Global.netPrefix + '0' ||
         address.length > 10) {
-      showCustomToast('errorAddr'.tr);
+      showCustomError('errorAddr'.tr);
+      return;
+    }
+    if (label == '' || label.length > 20) {
+      showCustomError('enterName'.tr);
       return;
     }
 
     var exist = OpenedBox.addressInsance.containsKey(address);
     if (exist) {
-      showCustomToast('errorExist'.tr);
+      showCustomError('errorExist'.tr);
       return;
     }
-    Wallet activeWallet = Wallet(
-        ck: '',
-        address: address,
-        label: label,
-        count: 0,
-        readonly: 1,
-        walletType: 2,
-        type: address[1]);
-    OpenedBox.addressInsance.put(address, activeWallet);
-    singleStoreController.setWallet(activeWallet);
-    Global.store.setString('activeWalletAddress', address);
-    Get.offAllNamed(mainPage);
+    showCustomLoading('Loading');
+    var actor = await getAddressActor(address);
+    dismissAllToast();
+    if (actor == '') {
+      showCustomError('minerNotExist'.tr);
+    } else {
+      Wallet activeWallet = Wallet(
+          ck: '',
+          address: address,
+          label: label,
+          count: 0,
+          readonly: 1,
+          walletType: 2,
+          type: address[1]);
+      OpenedBox.addressInsance.put(address, activeWallet);
+      $store.setWallet(activeWallet);
+      Global.store.setString('activeWalletAddress', address);
+      addOperation('add_miner');
+      Get.offAllNamed(mainPage);
+    }
   }
 
   @override

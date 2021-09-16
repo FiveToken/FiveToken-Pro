@@ -42,7 +42,7 @@ class MainPageState extends State<MainPage> {
   }
 
   Widget get child {
-    if (singleStoreController.wal.walletType == 2) {
+    if ($store.wal.walletType == 2) {
       return MinerAddressStats();
     } else {
       if (Global.onlineMode) {
@@ -94,7 +94,7 @@ class MainPageState extends State<MainPage> {
                   ),
                   Expanded(child: WalletSelect(
                     onTap: (Wallet wallet) {
-                      singleStoreController.setWallet(wallet);
+                      $store.setWallet(wallet);
                       Global.store
                           .setString('activeWalletAddress', wallet.addrWithNet);
                       Get.back();
@@ -114,9 +114,8 @@ class MainPageState extends State<MainPage> {
             appBar: PreferredSize(
                 child: AppBar(
                   actions: [
-                    Obx(() => singleStoreController.wal.walletType != 2 &&
-                            Global.onlineMode
-                        ? singleStoreController.wal.readonly != 1
+                    Obx(() => $store.wal.walletType != 2 && Global.onlineMode
+                        ? $store.wal.readonly != 1
                             ? Padding(
                                 child: GestureDetector(
                                     onTap: handleScan,
@@ -131,16 +130,30 @@ class MainPageState extends State<MainPage> {
                             ? GestureDetector(
                                 behavior: HitTestBehavior.opaque,
                                 onTap: () {
-                                  Get.toNamed(mesMakePage, arguments: {
-                                    'type': MessageType.MinerWithdraw,
-                                    'from': '',
-                                    'to': singleStoreController.wal.address
-                                  });
+                                  showMethodSelector(
+                                      context: context,
+                                      title: 'opOption'.tr,
+                                      methods: [
+                                        '0',
+                                        '2',
+                                        '3',
+                                        '16',
+                                        '21',
+                                        '23'
+                                      ],
+                                      onTap: (method) {
+                                        Get.toNamed(mesMakePage, arguments: {
+                                          'type': MessageType.MinerManage,
+                                          'from': '',
+                                          'method': method,
+                                          'to': $store.wal.address
+                                        });
+                                      });
                                 },
                                 child: Padding(
                                   padding: EdgeInsets.only(right: 10),
                                   child: Center(
-                                    child: CommonText('withdraw'.tr),
+                                    child: CommonText('minerManage'.tr),
                                   ),
                                 ),
                               )
@@ -160,7 +173,7 @@ class MainPageState extends State<MainPage> {
                     },
                   ),
                   title: Obx(() => DropdownFButton(
-                        title: getTitle(singleStoreController.wal),
+                        title: getTitle($store.wal),
                         onTap: tapDropdown,
                       )),
                   centerTitle: true,
@@ -172,7 +185,7 @@ class MainPageState extends State<MainPage> {
               ),
             ),
             backgroundColor: Colors.white,
-            body: Obx(() => singleStoreController.wal.walletType == 2
+            body: Obx(() => $store.wal.walletType == 2
                 ? MinerAddressStats()
                 : Global.onlineMode
                     ? OnlineWallet()
@@ -204,6 +217,56 @@ class DropdownFButton extends StatelessWidget {
       corner: FCorner.all(10),
       strokeWidth: 1,
       strokeColor: Color(0xffcccccc),
+    );
+  }
+}
+class IconBtn extends StatelessWidget {
+  final Noop onTap;
+  final String path;
+  final Color color;
+  final double size;
+  IconBtn({this.onTap, this.path, this.color, this.size = 40});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      child: Container(
+        width: size,
+        height: size,
+        padding: EdgeInsets.all(size / 5),
+        margin: EdgeInsets.only(bottom: 5),
+        child: Image(image: AssetImage('images/$path')),
+        decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20), color: color),
+      ),
+      onTap: () {
+        if (onTap != null) {
+          onTap();
+        }
+      },
+    );
+  }
+}
+
+class NoData extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          height: (Get.height - 500) / 2,
+        ),
+        Image(width: 65, image: AssetImage('images/record.png')),
+        SizedBox(
+          height: 25,
+        ),
+        CommonText(
+          'noData'.tr,
+          color: CustomColor.grey,
+        ),
+        SizedBox(
+          height: 170,
+        ),
+      ],
     );
   }
 }

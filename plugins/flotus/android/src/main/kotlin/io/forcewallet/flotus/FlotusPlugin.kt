@@ -52,6 +52,11 @@ public class FlotusPlugin: FlutterPlugin, MethodCallHandler {
         val res = Wlib.messageCid(msg)
         result.success(res)
       }
+      call.method == "genCid" -> {
+        val msg = call.argument<String>("msg")
+        val res = Wlib.genCid(msg)
+        result.success(res)
+      }
       call.method == "secpPrivateToPublic" -> {
         var ck = call.argument<String>("ck")
         var res = Wlib.secpPrivateToPublic(ck)
@@ -91,6 +96,11 @@ public class FlotusPlugin: FlutterPlugin, MethodCallHandler {
         var miner = call.argument<String>("miner")
         var value = call.argument<String>("value")
         var res = Wlib.genProposalForChangeWorkerAddress(miner,value)
+        result.success(res)
+      }
+      call.method == "genConfirmUpdateWorkerKey" -> {
+        var miner = call.argument<String>("miner")
+        var res = Wlib.genConfirmUpdateWorkerKey(miner)
         result.success(res)
       }
       call.method == "genApprovalV3" -> {

@@ -581,7 +581,25 @@ FOUNDATION_EXPORT NSString* _Nonnull WlibGenAddress(NSString* _Nullable pk, NSSt
 
 FOUNDATION_EXPORT NSString* _Nonnull WlibGenApprovalV3(NSString* _Nullable tx);
 
+FOUNDATION_EXPORT NSString* _Nonnull WlibGenCid(NSString* _Nullable jsonstr);
 
+FOUNDATION_EXPORT NSString* _Nonnull WlibGenConfirmUpdateWorkerKey(NSString* _Nullable miner);
+
+/**
+ * GenConstructorParamV3 创建多签钱包，Spec Actor V3版本,从SpecActorV2版本开始延续
+传入的参数 json格式
+{
+ "signers": ["f3xaczqsnxryrhirf4ptfsjb72nv3ogr5uhzsl6qd7l2zahkiaqqkw4fyeim2msfsjdi4sirimpitkc27wgv6q"],
+ "threshold": 2,
+ "unlock_duration": 120
+}
+
+输出的结果 json格式
+{"param":"gtgqUwABVQAOZmlsLzMvbXVsdGlzaWdGhIACGHgA"}
+param 做base64编码
+如果有错误，则返回
+{"err": "some error here"}
+ */
 FOUNDATION_EXPORT NSString* _Nonnull WlibGenConstructorParamV3(NSString* _Nullable input);
 
 FOUNDATION_EXPORT NSString* _Nonnull WlibGenProposalForChangeOwnerV3(NSString* _Nullable self_, NSString* _Nullable miner, NSString* _Nullable value);

@@ -27,6 +27,11 @@ class Flotus {
     return cid;
   }
 
+  static Future<String> genCid({msg: String}) async {
+    final String cid = await _channel.invokeMethod('genCid', {'msg': msg});
+    return cid;
+  }
+
   static Future<String> secpPrivateToPublic({ck: String}) async {
     final String addr =
         await _channel.invokeMethod('secpPrivateToPublic', {'ck': ck});
@@ -72,6 +77,14 @@ class Flotus {
     final String addr = await _channel.invokeMethod(
         'genProposalForChangeWorkerAddress', {'miner': miner, 'value': params});
     return addr;
+  }
+
+  static Future<String> genConfirmUpdateWorkerKey(String miner) async {
+    final String params =
+        await _channel.invokeMethod('genConfirmUpdateWorkerKey', {
+      'miner': miner,
+    });
+    return params;
   }
 
   static Future<String> genApprovalV3(String tx) async {
