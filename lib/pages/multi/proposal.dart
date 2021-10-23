@@ -134,6 +134,9 @@ class MultiProposalPageState extends State<MultiProposalPage> {
       case '21':
         params = await Flotus.genConfirmUpdateWorkerKey(to);
         break;
+      case '21':
+        params = await Flotus.genConfirmUpdateWorkerKey(to);
+        break;
       case '23':
         params =
             await Flotus.genProposalForChangeOwnerV3(this.ownerId, to, value);

@@ -2,7 +2,6 @@ import 'package:fbutton/fbutton.dart';
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/miner.dart';
 import 'package:flutter/cupertino.dart';
-
 class BalanceMonitoring extends StatefulWidget {
   BalanceMonitoring();
   @override

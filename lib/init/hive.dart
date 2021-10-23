@@ -133,4 +133,12 @@ class OpenedBox {
     multiApproveInstance = Hive.box<MultiApproveMessage>(multiApproveBox);
     minerBalanceInstance = Hive.box<MinerSelfBalance>(minerBalanceBox);
   }
+  /// box to store miner meta info
+  static Box<MinerMeta> get minerMetaInstance {
+    return Hive.box<MinerMeta>(minerMetaBox);
+  }
+  /// box to store miner statistic info
+  static Box<MinerHistoricalStats> get minerStatisticInstance {
+    return Hive.box<MinerHistoricalStats>(minerStatisticBox);
+  }
 }

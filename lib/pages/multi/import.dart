@@ -1,6 +1,5 @@
 
 import 'package:fil/index.dart';
-
 /// import a multi-sig wallet of a signer
 class MultiImportPage extends StatefulWidget {
   @override
