@@ -16,7 +16,7 @@ class MarketPriceState extends State<MarketPrice> {
   void getPrice() async {
     var res = await getFilPrice();
     Global.price = res;
-    if (res.cny != 0) {
+    if (res.cny != 0&&mounted) {
       setState(() {
         this.price = res;
       });

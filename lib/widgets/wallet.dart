@@ -27,7 +27,7 @@ class WalletTypeState extends State<WalletType> {
           Container(
             child: Column(
               children: [
-                TabCard(
+                TapCard(
                   items: [
                     CardItem(
                         label: 'secp'.tr,
@@ -41,7 +41,7 @@ class WalletTypeState extends State<WalletType> {
                 SizedBox(
                   height: 15,
                 ),
-                TabCard(
+                TapCard(
                   items: [
                     CardItem(
                         label: 'bls'.tr,

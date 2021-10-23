@@ -12,7 +12,7 @@ class PassResetPageState extends State<PassResetPage> {
   final TextEditingController oldCtrl = TextEditingController();
   final TextEditingController newCtrl = TextEditingController();
   final TextEditingController newConfirmCtrl = TextEditingController();
-  var box = Hive.box<Wallet>(addressBox);
+  var box = OpenedBox.addressInsance;
   Future<bool> checkValid() async {
     var old = oldCtrl.text.trim();
     var newP = newCtrl.text.trim();

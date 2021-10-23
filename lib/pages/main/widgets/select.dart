@@ -39,7 +39,7 @@ class WalletSelectState extends State<WalletSelect> {
     }
     var all = [
       WalletTypeInfo(label: 'all'.tr, type: 'all'),
-      WalletTypeInfo(label: 'hd'.tr, type: 'hd'),
+      WalletTypeInfo(label: 'common'.tr, type: 'hd'),
       WalletTypeInfo(label: 'readonly'.tr, type: 'readonly'),
       WalletTypeInfo(label: 'miner'.tr, type: 'miner'),
     ];
@@ -48,7 +48,7 @@ class WalletSelectState extends State<WalletSelect> {
     }
     return [
       WalletTypeInfo(label: 'all'.tr, type: 'all'),
-      WalletTypeInfo(label: 'hd'.tr, type: 'hd'),
+      WalletTypeInfo(label: 'common'.tr, type: 'hd'),
       WalletTypeInfo(label: 'readonly'.tr, type: 'readonly'),
       WalletTypeInfo(label: 'miner'.tr, type: 'miner'),
     ];
@@ -56,7 +56,7 @@ class WalletSelectState extends State<WalletSelect> {
 
   List<TypedList> get list {
     var hdList = TypedList(
-        title: Global.onlineMode ? 'hdW'.tr : 'offlineW'.tr,
+        title: Global.onlineMode ? 'commonAccount'.tr : 'offlineW'.tr,
         type: 'hd',
         list: []);
     var readonlyList =

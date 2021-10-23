@@ -20,7 +20,6 @@ class DepositPageState extends State<DepositPage> {
   TextEditingController methodCtrl = TextEditingController();
   bool fromEnabled = true;
   num nonce;
-  var nonceBoxInstance = Hive.box<Nonce>(nonceBox);
   @override
   void initState() {
     super.initState();
@@ -58,8 +57,8 @@ class DepositPageState extends State<DepositPage> {
       return;
     }
     if (type == '1') {
-      var res = await buildMessage(
-          {'from': from, 'to': to, 'value': value, 'method': 0}, null);
+      var res = await Global.provider
+          .buildMessage({'from': from, 'to': to, 'value': value, 'method': 0});
       if (res.value != null) {
         unFocusOf(context);
         $store.setPushBackPage(mainPage);
@@ -68,7 +67,7 @@ class DepositPageState extends State<DepositPage> {
     } else {
       if (!$store.canPush) {
         showCustomLoading('Loading');
-        var valid = await FilecoinProvider.getNonceAndGas(to: from);
+        var valid = await Global.provider.getNonceAndGas(to: from);
         dismissAllToast();
         if (!valid) {
           showCustomError('errorSetGas'.tr);
@@ -91,16 +90,72 @@ class DepositPageState extends State<DepositPage> {
             gasPremium: g.premium);
 
         var private = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
-        var res = await FilecoinProvider.sendMessage(
-          message: msg,
-          private: private,
-        );
-        if (res != '') {
-          showCustomToast('tradeSucc'.tr);
-          Get.back();
+        try {
+          await Global.provider.sendMessage(
+              message: msg,
+              private: private,
+              callback: (res) {
+                Get.back();
+              });
+        } catch (e) {
+          print(e);
+          showCustomError(getErrorMessage(e.toString()));
         }
       }, from: wal);
     }
+  }
+
+  void showWallet() {
+    showCustomModalBottomSheet(
+        shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
+        context: context,
+        builder: (BuildContext context) {
+          return ConstrainedBox(
+              child: Column(
+                children: [
+                  Container(
+                    height: 35,
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                        borderRadius: BorderRadius.only(
+                            topRight: Radius.circular(8),
+                            topLeft: Radius.circular(8)),
+                        color: CustomColor.primary),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          child: Image(
+                            width: 20,
+                            image: AssetImage('images/close.png'),
+                          ),
+                          onTap: () {
+                            Get.back();
+                          },
+                        ),
+                        CommonText('selectWallet'.tr, color: Colors.white),
+                        SizedBox(
+                          width: 10,
+                        )
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                      child: WalletSelect(
+                    filterType: type != '1' ? 'hd' : 'readonly',
+                    onTap: (Wallet wallet) {
+                      var from = wallet.addrWithNet;
+                      Get.back();
+                      fromCtrl.text = from;
+                      if (type == '2') {
+                        Global.provider.getNonceAndGas(from: from);
+                      }
+                    },
+                  ))
+                ],
+              ),
+              constraints: BoxConstraints(maxHeight: 800));
+        });
   }
 
   @override
@@ -154,67 +209,12 @@ class DepositPageState extends State<DepositPage> {
               label: 'from'.tr,
               enabled: fromEnabled,
               extra: GestureDetector(
-                child: Padding(
-                  child: Image(width: 20, image: AssetImage('images/book.png')),
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                ),
-                onTap: () {
-                  showCustomModalBottomSheet(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: CustomRadius.top),
-                      context: context,
-                      builder: (BuildContext context) {
-                        return ConstrainedBox(
-                            child: Column(
-                              children: [
-                                Container(
-                                  height: 35,
-                                  padding: EdgeInsets.symmetric(horizontal: 12),
-                                  decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.only(
-                                          topRight: Radius.circular(8),
-                                          topLeft: Radius.circular(8)),
-                                      color: CustomColor.primary),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      GestureDetector(
-                                        child: Image(
-                                          width: 20,
-                                          image: AssetImage('images/close.png'),
-                                        ),
-                                        onTap: () {
-                                          Get.back();
-                                        },
-                                      ),
-                                      CommonText('selectWallet'.tr,
-                                          color: Colors.white),
-                                      SizedBox(
-                                        width: 10,
-                                      )
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                    child: WalletSelect(
-                                  filterType: type != '1' ? 'hd' : 'readonly',
-                                  onTap: (Wallet wallet) {
-                                    var from = wallet.addrWithNet;
-                                    Get.back();
-                                    fromCtrl.text = from;
-                                    if (type == '2') {
-                                      FilecoinProvider.getNonceAndGas(
-                                          from: from);
-                                    }
-                                  },
-                                ))
-                              ],
-                            ),
-                            constraints: BoxConstraints(maxHeight: 800));
-                      });
-                },
-              ),
+                  child: Padding(
+                    child:
+                        Image(width: 20, image: AssetImage('images/book.png')),
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  onTap: showWallet),
             ),
             Field(
               controller: toCtrl,

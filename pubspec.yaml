@@ -11,7 +11,7 @@ description: Filwallet for filecoin
 # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-version: 2.1.0+1631617708
+version: 2.2.0+1632988440
 
 environment:
   sdk: ">2.5.0 <3.0.0"
@@ -36,15 +36,15 @@ dependencies:
   crypto: 2.1.3
   encrypt: ^4.0.0
   flotus:
-    path: ./plugins/flotus
+    git: https://github.com/FiveToken/flotus.git
   bls:
-    path: ./plugins/bls
+    git: https://github.com/FiveToken/bls.git
   permission_handler: 3.0.1
   get:
   qr_flutter: ^3.1.0
   scan: ^0.0.7
   connectivity: ^2.0.2
-  pull_to_refresh: ^1.6.3
+  pull_to_refresh: 1.6.3
   image_picker: ^0.6.7+21
   fbutton: ^2.0.1
   package_info: ^0.4.3+2
@@ -58,11 +58,15 @@ dependencies:
   oktoast: ^2.3.2
   day: ^0.6.4
   flutter_swipe_action_cell: ^1.3.4
+  decimal: ^0.3.5
+  #flutter_local_notifications: ^3.0.3
 dev_dependencies:
   flutter_test:
     sdk: flutter
   hive_generator: ^0.8.2
   build_runner: ^1.10.11
+  mockito: ^4.1.4
+  http_mock_adapter: ^0.1.6
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

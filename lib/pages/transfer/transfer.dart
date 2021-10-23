@@ -19,14 +19,14 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
   FocusNode focusNode = FocusNode();
   FocusNode focusNode2 = FocusNode();
   Gas chainGas;
-  var nonceBoxInstance = Hive.box<Nonce>(nonceBox);
+  var nonceBoxInstance = OpenedBox.nonceInsance;
   @override
   void initState() {
     super.initState();
     if (Get.arguments != null && Get.arguments['to'] != null) {
       _addressCtl.text = Get.arguments['to'];
     }
-    FilecoinProvider.getNonceAndGas();
+    Global.provider.getNonceAndGas();
   }
 
   @override
@@ -52,15 +52,16 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
 
   /// increase gas and resend a blocked message
   void speedup(String private) async {
-    var res =
-        await FilecoinProvider.speedup(private: private, gas: $store.gas.value);
-    if (res != '') {
+    try {
+      await Global.provider.speedup(private: private, gas: $store.gas.value);
       Get.back();
+    } catch (e) {
+      showCustomError(e.toString());
     }
   }
 
   /// push message
-  void _pushMsg(String ck) async {
+  void _pushMsg(String ck, {bool increaseNonce = false}) async {
     if (!Global.online) {
       showCustomError('errorNet'.tr);
       return;
@@ -79,9 +80,18 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
         gasFeeCap: controller.gas.value.feeCap,
         gasLimit: controller.gas.value.gasLimit,
         gasPremium: controller.gas.value.premium);
-    var res = await FilecoinProvider.sendMessage(message: msg, private: ck);
-    if (res != '' && mounted) {
-      Get.back();
+
+    try {
+      await Global.provider.sendMessage(
+          message: msg,
+          increaseNonce: increaseNonce,
+          private: ck,
+          callback: (res) {
+            Get.back();
+          });
+    } catch (e) {
+      print(e);
+      showCustomError(getErrorMessage(e.toString()));
     }
   }
 
@@ -91,6 +101,19 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
     var trimAmount = amount.trim();
     var feeCap = controller.gas.value.feeCap;
     var gasLimit = controller.gas.value.gasLimit;
+    var trimAddress = toAddress.trim();
+    if (trimAddress == "") {
+      showCustomError('enterTo'.tr);
+      return false;
+    }
+    if (!isValidAddress(trimAddress)) {
+      showCustomError('errorAddr'.tr);
+      return false;
+    }
+    if (trimAddress == $store.wal.addr) {
+      showCustomError('errorFromAsTo'.tr);
+      return false;
+    }
     if (trimAmount == "" || !isDecimal(trimAmount)) {
       showCustomError('enterValidAmount'.tr);
       return false;
@@ -108,19 +131,6 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
       showCustomError('errorLowBalance'.tr);
       return false;
     }
-    var trimAddress = toAddress.trim();
-    if (trimAddress == "") {
-      showCustomError('enterTo'.tr);
-      return false;
-    }
-    if (!isValidAddress(trimAddress)) {
-      showCustomError('errorAddr'.tr);
-      return false;
-    }
-    if (trimAddress == $store.wal.addr) {
-      showCustomError('errorFromAsTo'.tr);
-      return false;
-    }
 
     return true;
   }
@@ -132,7 +142,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
   void checkInputToGetGas(String v) {
     v = v.trim();
     if (v != '' && isValidAddress(v)) {
-      FilecoinProvider.getGas(to: v);
+      Global.provider.getGas(to: v);
     }
   }
 
@@ -170,7 +180,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
           return;
         }
         var handle = () {
-          var pushNew = () {
+          var pushNew = (bool increaseNonce) {
             showCustomModalBottomSheet(
                 shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
                 context: context,
@@ -184,7 +194,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
                         gas: controller.maxFee,
                         value: _amountCtl.text,
                         onConfirm: (String ck) {
-                          _pushMsg(ck);
+                          _pushMsg(ck, increaseNonce: increaseNonce);
                         },
                       ),
                     ),
@@ -192,9 +202,12 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
                   );
                 });
           };
-          FilecoinProvider.checkSpeedUpOrMakeNew(
+          Global.provider.checkSpeedUpOrMakeNew(
               context: context,
-              onNew: pushNew,
+              onNew: (increaseNonce) {
+                pushNew(increaseNonce);
+              },
+              nonce: $store.nonce,
               onSpeedup: () async {
                 showPassDialog(context, (String pass) async {
                   var wal = $store.wal;
@@ -205,8 +218,8 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
               });
         };
         if (!$store.canPush) {
-          var valid = await FilecoinProvider.getNonceAndGas(
-              to: _addressCtl.text.trim());
+          var valid =
+              await Global.provider.getNonceAndGas(to: _addressCtl.text.trim());
           if (valid) {
             handle();
           } else {
@@ -235,7 +248,9 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
                 onTap: () {
                   Get.toNamed(addressSelectPage).then((value) {
                     if (value != null) {
-                      _addressCtl.text = (value as Wallet).address;
+                      var addr = (value as Wallet).address;
+                      _addressCtl.text = addr;
+                      checkInputToGetGas(addr);
                     }
                   });
                 },
@@ -283,7 +298,7 @@ class SpeedupSheet extends StatelessWidget {
                 SizedBox(
                   height: 15,
                 ),
-                TabCard(
+                TapCard(
                   items: [
                     CardItem(
                       label: 'speedup'.tr,
@@ -297,7 +312,7 @@ class SpeedupSheet extends StatelessWidget {
                 SizedBox(
                   height: 15,
                 ),
-                TabCard(
+                TapCard(
                   items: [
                     CardItem(
                       label: 'continueNew'.tr,

@@ -74,22 +74,22 @@ class MinerMeta {
   }
 
   MinerMeta.fromMap(Map<String, dynamic> map) {
-    this.balance = map['balance'];
-    this.lock = map['lock'];
-    this.pledge = map['pledge'];
-    this.available = map['available'];
-    this.qualityPower = map['qualityPower'];
+    this.balance = map['rewards'];
+    this.lock = map['lock'] ?? '0';
+    this.pledge = map['pledge'] ?? "0";
+    this.available = map['available'] ?? "0";
+    this.qualityPower = map['quality_adj_power'];
     this.rewards = map['rewards'];
     this.deposit = map['deposit'];
-    this.rawPower = map['rawPower'];
-    this.percent = map['percent'];
+    this.rawPower = map['power'];
+    this.percent = map['power_percent'];
     this.rank = map['rank'];
-    this.blockCount = map['blockCount'];
-    this.sectorSize = map['sectorSize'];
-    this.allSectors = map['allSectors'];
-    this.liveSectors = map['liveSectors'];
-    this.faultSectors = map['faultSectors'];
-    this.preCommitSectors = map['preCommitSectors'];
+    this.blockCount = map['block_count'];
+    this.sectorSize = map['sector_size'];
+    this.allSectors = map['sector_count'];
+    this.liveSectors = map['active_sector_count'];
+    this.faultSectors = map['fault_sector_count'];
+    this.preCommitSectors = map['recover_sector_count'];
   }
 }
 
@@ -105,22 +105,34 @@ class MinerAddress {
   int time;
   @HiveField(4)
   String yestodayGasFee;
+  @HiveField(5)
+  String miner;
+  @HiveField(6)
+  String label;
+  String get key => '$address$type';
   MinerAddress(
-      {this.address = '', this.type = '', this.balance = '0', this.time = 0});
+      {this.address = '',
+      this.type = '',
+      this.balance = '0',
+      this.time = 0,
+      this.label = '',
+      this.miner = '',
+      this.yestodayGasFee = '0'});
   MinerAddress.fromMap(Map map) {
     address = map['address'];
-    type = map['address_type'];
+    type = map['type'];
     balance = map['balance'];
     time = map['estimate_valid_time'];
-    yestodayGasFee = map['yesterdayGasFee'];
+    yestodayGasFee = map['yesterday_cost'];
   }
   Map<String, dynamic> toJson() {
     return {
       'address': address,
-      'address_type': type,
+      'type': type,
       'balance': balance,
       'estimate_valid_time': time,
-      'yestodayGasFee': yestodayGasFee
+      'yestodayGasFee': yestodayGasFee,
+      'label': label
     };
   }
 }
@@ -179,39 +191,31 @@ class MinerHistoricalStats {
   }
 }
 
-@HiveType(typeId: 12)
-class MinerStats {
-  @HiveField(0)
-  MinerHistoricalStats historicalStats;
-  @HiveField(1)
-  List<MinerAddress> addressList;
-  @HiveField(2)
-  String owner;
-  MinerStats({this.historicalStats, this.addressList, this.owner = ''})
-      : assert(historicalStats != null),
-        assert(addressList != null);
-  Map<String, dynamic> toJson() {
-    return {
-      'addressList': addressList,
-      'owner': owner,
-      'historicalStats': historicalStats.toJson()
-    };
-  }
-
-  MinerStats.fromMap(Map<String, dynamic> map) {
-    this.historicalStats = MinerHistoricalStats.fromMap(map['historicalStats']);
-    this.addressList = (map['addressList'] as List<dynamic>)
-        .map((e) => MinerAddress.fromMap(e))
-        .toList();
-    this.owner = map['owner'];
-  }
+class MinerBalance {
+  MinerSelfBalance self;
+  List<MinerAddress> relatedAddress;
+  MinerBalance({this.self, this.relatedAddress});
 }
 
-@HiveType(typeId: 13)
-class MinerInfo {
+@HiveType(typeId: 19)
+class MinerSelfBalance {
   @HiveField(0)
-  MinerMeta meta;
+  String total;
   @HiveField(1)
-  MinerStats stats;
-  MinerInfo({this.meta, this.stats});
+  String available;
+  @HiveField(2)
+  String locked;
+  @HiveField(3)
+  String pledge;
+  MinerSelfBalance(
+      {this.total = '0',
+      this.available = '0',
+      this.locked = '0',
+      this.pledge = '0'});
+  MinerSelfBalance.fromJson(Map<String, dynamic> json) {
+    total = json['total_balance'];
+    available = json['available_balance'];
+    locked = json['locked_funds'];
+    pledge = json['initial_pledge'];
+  }
 }

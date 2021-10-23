@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:fil/index.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:crypto/crypto.dart';
@@ -76,44 +77,6 @@ String dotString({String str = '', int headLen = 6, int tailLen = 6}) {
   return "$headStr...$tailStr";
 }
 
-/// convert a big float number in exponential form to int string
-String parseE(String str) {
-  final isE = RegExp(r"[eE][+-]\d+$");
-  if (!isE.hasMatch(str)) {
-    return str;
-  }
-  str = str.toLowerCase();
-  var parts = str.split('e');
-  var n = parts[0];
-  var p = parts[1];
-  var sign = p[0];
-  var len = int.parse(p.substring(1));
-  var r = "";
-  if (sign == '+') {
-    r = "1";
-    for (var i = 0; i < len; i++) {
-      r += "0";
-    }
-    n = n.replaceAll('.', '');
-    r = n + r.substring(n.length);
-  } else {
-    r = "0.";
-    for (var i = 0; i < len; i++) {
-      r += "0";
-    }
-    n = n.replaceFirst('0', '');
-    n = n.replaceFirst('.', '');
-    r = r.substring(0, r.length - 1) + n;
-  }
-  return r;
-}
-
-String toFixed(double input, int len) {
-  var r = input.toStringAsFixed(len).replaceFirst(RegExp(r"0+$"), "");
-  r = r.replaceFirst(RegExp(r"\.$"), "");
-  return parseE(r);
-}
-
 /// verify if [input] is a valid double number
 bool isDecimal(String input) {
   var r = RegExp(r"(^\d+(?:\.\d+)?([eE]-?\d+)?$|^\.\d+([eE]-?\d+)?$)");
@@ -132,12 +95,12 @@ bool isValidAddress(String input) {
   if (addr == '') {
     return false;
   }
-  var mainNet = addr[0];
-  if (mainNet != 't' && mainNet != 'f') {
+  var net = addr[0];
+  if (net != Global.netPrefix) {
     return false;
   }
   var protocol = addr[1];
-  if (!RegExp(r"^0|1|3$").hasMatch(protocol)) {
+  if (!RegExp(r"^0|1|2|3$").hasMatch(protocol)) {
     return false;
   }
   var raw = addr.substring(2);
@@ -177,7 +140,8 @@ String hex2str(String hexString) {
 }
 
 /// convert attoFil to different units
-String formatFil(String attoFil, {num size = 4, bool fixed = false}) {
+String formatFil(String attoFil,
+    {num size = 4, bool fixed = false, bool returnRaw = false}) {
   if (attoFil == '0') {
     return '0 FIL';
   }
@@ -196,6 +160,9 @@ String formatFil(String attoFil, {num size = 4, bool fixed = false}) {
     } else {
       var unit = BigInt.from(pow(10, 18));
       var res = v / unit;
+      if (returnRaw) {
+        return double.parse(res.toStringAsFixed(8)).toString() + ' FIL';
+      }
       return fixed
           ? '${res.toStringAsFixed(size)} FIL'
           : '${truncate(res, size: size)} FIL';
@@ -210,21 +177,7 @@ String fil2Atto(String fil) {
   if (fil == null || fil == '') {
     fil = '0';
   }
-  return (BigInt.from((double.parse(fil) * pow(10, 9))) *
-          BigInt.from(pow(10, 9)))
-      .toString();
-}
-
-/// convert attofil to fil
-String atto2Fil(String value, {num len = 6}) {
-  try {
-    if (value == null || value == '') {
-      value = '0';
-    }
-    return Fil(attofil: value).toFixed(len: len);
-  } catch (e) {
-    return '';
-  }
+  return (Decimal.parse(fil) * Decimal.fromInt(pow(10, 18))).toString();
 }
 
 /// convert bytes to different units
@@ -305,18 +258,6 @@ void nextTick(Noop callback) {
   });
 }
 
-String balanceFormatter(dynamic value) {
-  value = value as String;
-  if (value == '0') {
-    return '0';
-  }
-  return double.parse(value).toStringAsFixed(2) + ' FIL';
-}
-
-String getFilBalance(String str) {
-  return formatDouble(str, truncate: true, size: 2) + ' FIL';
-}
-
 String getMaxFee(Gas gas) {
   var feeCap = gas.feeCap;
   var gasLimit = gas.gasLimit;
@@ -326,7 +267,9 @@ String getMaxFee(Gas gas) {
 }
 
 String truncate(double value, {int size = 4}) {
-  return ((value * pow(10, size)).floor() / pow(10, size)).toString();
+  var unit = Decimal.fromInt(pow(10, size));
+  var d = Decimal.parse(value.toString()) * unit;
+  return (d.truncate() / unit).toString();
 }
 
 int getSecondSinceEpoch() {

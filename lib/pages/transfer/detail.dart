@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-import 'package:fil/store/store.dart';
+import 'package:fil/pages/other/webview.dart';
 import 'package:oktoast/oktoast.dart';
 
 /// display detail of a transaction
@@ -12,7 +12,6 @@ class FilDetailPageState extends State<FilDetailPage> {
   MessageDetail msgDetail =
       MessageDetail(value: '0', methodName: '', allGasFee: '0');
   StoreMessage mes = Get.arguments;
-  StoreController controller = Get.find();
   String amount;
   void getMessageDetailInfo() async {
     if (mes.pending == 1 || mes.exitCode == -1 || mes.exitCode == -2) {
@@ -28,31 +27,30 @@ class FilDetailPageState extends State<FilDetailPage> {
       return;
     }
     showCustomLoading('Loading');
-    var res = await getMessageDetail(mes);
+    var res = await Global.provider.getMessageDetail(mes.signedCid);
     dismissAllToast();
     if (res.height != null) {
       setState(() {
-        msgDetail = res;
-        if (res.methodName == FilecoinMethod.withdraw && res.args is Map) {
-          amount = res.args['AmountRequested'];
+        if (mes.multiMethod == '') {
+          msgDetail = res;
+          if (res.methodName == FilecoinMethod.withdraw && res.args is Map) {
+            amount = res.args['AmountRequested'];
+          }
+        } else {
+          msgDetail
+            ..from = mes.from
+            ..value = mes.value
+            ..methodName = FilecoinMethod.send
+            ..signedCid = mes.signedCid
+            ..height = res.height
+            ..allGasFee = res.allGasFee
+            ..to = mes.to;
         }
       });
     }
   }
 
   String get methodName => msgDetail.methodName;
-  String get toLabel {
-    if ([
-      FilecoinMethod.withdraw,
-      FilecoinMethod.changeWorker,
-      FilecoinMethod.changeOwner
-    ].contains(methodName)) {
-      return 'minerAddr'.tr;
-    } else {
-      return 'to'.tr;
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -60,8 +58,10 @@ class FilDetailPageState extends State<FilDetailPage> {
   }
 
   void goFilScan(MessageDetail m) {
-    openInBrowser(
-        "$filscanWeb/tipset/message-detail?cid=${m.signedCid}&utm_source=filwallet_app");
+    var url =
+        "$filscanWeb/tipset/message-detail?cid=${m.signedCid}&utm_source=filwallet_app";
+
+    goWebviewPage(url: url, title: 'detail'.tr);
   }
 
   Widget get withdrawWidget {
@@ -77,7 +77,7 @@ class FilDetailPageState extends State<FilDetailPage> {
               ),
               MessageRow(
                 label: 'withdrawNum'.tr,
-                value: formatFil(amount),
+                value: formatFil(amount, returnRaw: true),
               )
             ],
           )),
@@ -105,10 +105,10 @@ class FilDetailPageState extends State<FilDetailPage> {
                 label: 'newOwner'.tr,
                 value: msgDetail.args.toString(),
               ),
-              MessageRow(
-                label: 'oldOwner'.tr,
-                value: msgDetail.from.toString(),
-              ),
+              // MessageRow(
+              //   label: 'oldOwner'.tr,
+              //   value: msgDetail.from.toString(),
+              // ),
             ],
           )),
           SizedBox(
@@ -155,7 +155,9 @@ class FilDetailPageState extends State<FilDetailPage> {
 
   Widget get execWidget {
     var miner = '';
-    if (methodName == FilecoinMethod.exec && msgDetail.returns is Map) {
+    if (methodName == FilecoinMethod.exec &&
+        msgDetail.returns is Map &&
+        msgDetail.returns['IDAddress'] != null) {
       miner = msgDetail.returns['IDAddress'];
       return Column(
         children: [
@@ -175,12 +177,12 @@ class FilDetailPageState extends State<FilDetailPage> {
 
   Widget get amountWidget {
     var amount = msgDetail.value;
-    if (methodName == FilecoinMethod.transfer) {
+    if (methodName == FilecoinMethod.send) {
       return Column(
         children: [
           CommonCard(MessageRow(
             label: 'amount'.tr,
-            value: formatFil(amount),
+            value: formatFil(amount, returnRaw: true),
           )),
           SizedBox(
             height: 7,
@@ -284,20 +286,26 @@ class FilDetailPageState extends State<FilDetailPage> {
               height: 7,
             ),
             Visibility(
-                child: CommonCard(Column(
-              children: [
-                MessageRow(
-                  label: 'from'.tr,
-                  selectable: true,
-                  value: msgDetail.from,
-                ),
-                MessageRow(
-                  label: 'to'.tr,
-                  selectable: true,
-                  value: msgDetail.to,
-                )
-              ],
-            )),visible: methodName!=FilecoinMethod.changeOwner,),
+              child: CommonCard(Column(
+                children: [
+                  MessageRow(
+                    label: 'from'.tr,
+                    selectable: true,
+                    value: msgDetail.from,
+                  ),
+                  MessageRow(
+                    label: 'to'.tr,
+                    selectable: true,
+                    value: msgDetail.to,
+                  ),
+                  MessageRow(
+                    label: 'Nonce',
+                    value: mes.nonce.toString(),
+                  ),
+                ],
+              )),
+              visible: methodName != FilecoinMethod.changeOwner,
+            ),
             SizedBox(
               height: 7,
             ),
@@ -410,8 +418,9 @@ class ChainMeta extends StatelessWidget {
   final String height;
   final dynamic params;
   void goFilScan() {
-    openInBrowser(
-        "$filscanWeb/tipset/message-detail?cid=$cid&utm_source=filwallet_app");
+    var url =
+        "$filscanWeb/tipset/message-detail?cid=$cid&utm_source=filwallet_app";
+    goWebviewPage(url: url, title: 'detail'.tr);
   }
 
   ChainMeta({this.cid, this.height, this.params});

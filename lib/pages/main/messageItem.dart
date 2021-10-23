@@ -1,7 +1,6 @@
 import 'package:fil/index.dart';
 import 'package:flutter/cupertino.dart';
 
-
 class MessageItem extends StatelessWidget {
   final StoreMessage mes;
   MessageItem(this.mes);
@@ -23,12 +22,12 @@ class MessageItem extends StatelessWidget {
 
   String get addr {
     var pre = isWithdraw
-        ? 'To:'
+        ? 'to'.tr
         : isSend
-            ? 'To:'
-            : 'From:';
+            ? 'to'.tr
+            : 'from'.tr;
     var address = isSend ? mes.to : mes.from;
-    return '$pre ${dotString(str: address)}';
+    return '$pre: ${dotString(str: address)}';
   }
 
   String get value {
@@ -36,10 +35,11 @@ class MessageItem extends StatelessWidget {
     if (isWithdraw) {
       pre = '+';
     }
-    if (![FilecoinMethod.withdraw, FilecoinMethod.transfer].contains(mes.methodName)) {
-      pre='';
+    if (![FilecoinMethod.withdraw, FilecoinMethod.transfer]
+        .contains(mes.methodName)) {
+      pre = '';
     }
-    return '${pending || fail ? '' : pre}${formatFil(mes.value)}';
+    return '${pending || fail ? '' : pre}${formatFil(mes.value, returnRaw: true)}';
   }
 
   Widget get statusWidget {

@@ -3,6 +3,7 @@ import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/widgets/service.dart';
 import 'package:fil/widgets/dialog.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'messageItem.dart';
 
 class OnlineWallet extends StatefulWidget {
@@ -27,6 +28,7 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
   num currentNonce;
   StreamSubscription sub;
   Worker worker;
+  RefreshController rc;
   int selectType = 0;
   void getPrice() async {
     var res = await getFilPrice();
@@ -59,11 +61,8 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
       showChangeNameDialog();
     }
     messageList = getWalletSortedMessages();
-    nextTick(() {
-      fireEvent();
-    });
     sub = Global.eventBus.on<AppStateChangeEvent>().listen((event) {
-      fireEvent();
+      rc.requestRefresh();
     });
     worker = ever($store.wallet, (Wallet wal) {
       if (wal.walletType != 2) {
@@ -72,7 +71,7 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
           enablePullUp = false;
         });
         nextTick(() {
-          fireEvent();
+          rc.requestRefresh();
         });
       }
     });
@@ -82,10 +81,6 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
   void didChangeDependencies() {
     super.didChangeDependencies();
     routeObserver.subscribe(this, ModalRoute.of(context));
-  }
-
-  void fireEvent() {
-    Global.eventBus.fire(ShouldRefreshEvent(refreshKey: mainPage));
   }
 
   @override
@@ -179,13 +174,14 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
 
   Future<void> updateBalance() async {
     var wal = $store.wal;
-    var res = await getBalance($store.wal.addrWithNet);
-    if (res.nonce != -1) {}
-    if (res.balance != wal.balance) {
-      wal.balance = res.balance;
-      $store.changeWalletBalance(res.balance);
-      this.currentNonce = res.nonce;
-      OpenedBox.addressInsance.put(wal.address, wal);
+    try {
+      var balance = await Global.provider.getBalance($store.addr);
+      if (balance != wal.balance) {
+        $store.changeWalletBalance(balance);
+        OpenedBox.addressInsance.put(wal.address, wal);
+      }
+    } catch (e) {
+      print(e);
     }
   }
 
@@ -199,36 +195,27 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
   }
 
   Future getLatestMessage() async {
-    var resList = await getMessages(
-        time: getSecondSinceEpoch(), direction: 'down', count: 40);
+    var resList = await getMessages(direction: 'down');
+
     if (resList.isNotEmpty && mounted) {
-      var list=getWalletSortedMessages();
+      var list = getWalletSortedMessages();
       setState(() {
         messageList = list;
-        enablePullUp = resList.length >= 40;
+        enablePullUp = resList.length >= 20;
       });
     }
   }
 
   /// load messages before
   Future getMessagesBeforeLastCompletedMessage() async {
-    var list = messageList;
-    num time;
-    if (list.isNotEmpty) {
-      for (var i = list.length - 1; i > 0; i--) {
-        var current = list[i];
-        if (current.pending != 1 && current.blockTime != null) {
-          time = current.blockTime + 10;
-          break;
-        }
-      }
-    }
-    var lis = await getMessages(time: time, direction: 'up');
+    var completeList = messageList.where((mes) => mes.mid != '').toList();
+    var mid = completeList.last.mid;
+    var lis = await getMessages(direction: 'up', mid: mid);
     if (mounted) {
       if (lis.isNotEmpty) {
         setState(() {
           messageList = getWalletSortedMessages();
-          enablePullUp = lis.length >= 40;
+          enablePullUp = lis.length >= 20;
         });
       } else {
         setState(() {
@@ -240,47 +227,66 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
 
   List<StoreMessage> getWalletSortedMessages() {
     var list = <StoreMessage>[];
+    var resList = <StoreMessage>[];
     var address = $store.wal.address;
-    mesBox.values.forEach((element) {
-      var message = element;
-      if (message.from == address || message.to == address) {
-        list.add(message);
+    list = mesBox.values
+        .where((message) => message.from == address || message.to == address)
+        .toList();
+    var pendingList = <StoreMessage>[];
+    var completeList = <StoreMessage>[];
+    list.forEach((mes) {
+      if (mes.pending == 0) {
+        completeList.add(mes);
+      } else {
+        pendingList.add(mes);
       }
     });
-    list.sort((a, b) {
+    pendingList.sort((a, b) {
       if (a.blockTime != null && b.blockTime != null) {
         return b.blockTime.compareTo(a.blockTime);
       } else {
         return 1;
       }
     });
-
-    return list;
+    completeList.sort((a, b) {
+      if (a.blockTime != null && b.blockTime != null) {
+        return b.blockTime.compareTo(a.blockTime);
+      } else {
+        return 1;
+      }
+    });
+    resList..addAll(pendingList)..addAll(completeList);
+    return resList;
   }
 
   Future<List<StoreMessage>> getMessages(
-      {num time, String direction = 'up', num count = 40}) async {
+      {String direction = 'up', String mid = ''}) async {
     try {
-      var res = await getMessageList(
-          address: $store.wal.address, time: time, count: count);
-      if (res.isNotEmpty) {
-        var messages = res.map((e) {
+      var list = await Global.provider
+          .getMessageList(actor: $store.addr, mid: mid, direction: direction);
+      if (list.isNotEmpty) {
+        var maxNonce = 0;
+        var messages = list.map((e) {
           var mes = StoreMessage.fromJson(e);
           mes.pending = 0;
-          mes.owner = $store.wal.address;
+          mes.owner = $store.addr;
+          if (mes.from == $store.wal.addrWithNet &&
+              mes.nonce != null &&
+              maxNonce < mes.nonce) {
+            maxNonce = mes.nonce;
+          }
           return mes;
         }).toList();
 
         /// if the current nonce of the wallet is biggger than the nonce of the message,
         /// message was either packaged or discarded
         /// delete it from local db
-        var nonce = this.currentNonce;
         var pendingList = messageList.where((mes) => mes.pending == 1).toList();
-
         if (pendingList.isNotEmpty) {
           for (var k = 0; k < pendingList.length; k++) {
             var mes = pendingList[k];
-            if (nonce != null && mes.nonce < nonce) {
+            if (mes.nonce <= maxNonce && mes.owner == $store.addr) {
+              await OpenedBox.pushInsance.delete(mes.signedCid);
               await mesBox.delete(mes.signedCid);
             }
           }
@@ -300,7 +306,8 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
 
         /// if there is a pending message which send for create multi-sig wallet,
         /// get the detail info of the multi-sig wallet from this message
-        if (messages.where((mes) => mes.to == FilecoinAccount.f01).isNotEmpty) {
+        if (messages.where((mes) => mes.to == FilecoinAccount.f01).isNotEmpty &&
+            direction == 'down') {
           checkCreateMessages();
         }
         return messages.toList();
@@ -335,8 +342,8 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
         child: CommonText(
           <String>[
             'all'.tr,
-            'rec'.tr,
-            'send'.tr,
+            'in'.tr,
+            'out'.tr,
           ][type],
           size: 16,
           color: active ? CustomColor.primary : Colors.black,
@@ -385,8 +392,11 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
     return CustomRefreshWidget(
         onLoading: onLoading,
         enablePullUp: enablePullUp,
-        initRefresh: false,
+        initRefresh: true,
         refreshKey: mainPage,
+        onInit: (rc) {
+          this.rc = rc;
+        },
         child: CustomScrollView(
           slivers: [
             SliverPersistentHeader(
@@ -647,8 +657,9 @@ Future checkCreateMessages() async {
   if (l.isNotEmpty) {
     for (var i = 0; i < l.length; i++) {
       var wal = l[i];
-      var detail = await getMessageDetail(StoreMessage(signedCid: wal.cid));
-      if (detail.height != null) {
+
+      try {
+        var detail = await Global.provider.getMessageDetail(wal.cid);
         var code = detail.exitCode;
         var copy = MultiSignWallet(
             cid: wal.cid,
@@ -660,20 +671,25 @@ Future checkCreateMessages() async {
           copy.status = 1;
           var returns = detail.returns;
           if (returns != null && returns['IDAddress'] != null) {
-            var res = await getMultiInfo(returns['IDAddress']);
-            if (res.signerMap != null && res.signerMap.keys.isNotEmpty) {
-              box.delete(wal.cid);
-              copy.id = returns['IDAddress'];
-              copy.signerMap = res.signerMap;
-              copy.robustAddress = res.robustAddress;
-              box.put(returns['IDAddress'], copy);
+            try {
+              var res =
+                  await Global.provider.getMultiInfo(returns['IDAddress']);
+              if (res.signerMap != null && res.signerMap.keys.isNotEmpty) {
+                box.delete(wal.cid);
+                copy.id = returns['IDAddress'];
+                copy.signerMap = res.signerMap;
+                copy.robustAddress = res.robustAddress;
+                box.put(returns['IDAddress'], copy);
+              }
+            } catch (e) {
+              print(e);
             }
           }
         } else {
           wal.status = -1;
           box.put(wal.cid, wal);
         }
-      } else {
+      } catch (e) {
         var time = wal.blockTime;
         var now = getSecondSinceEpoch();
         if (now - time > 3600 * 2) {

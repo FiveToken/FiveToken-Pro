@@ -2,7 +2,9 @@ import 'package:fbutton/fbutton.dart';
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/miner.dart';
 import 'package:flutter/cupertino.dart';
+
 class BalanceMonitoring extends StatefulWidget {
+  BalanceMonitoring();
   @override
   State<StatefulWidget> createState() {
     return BalanceMonitoringState();
@@ -11,34 +13,35 @@ class BalanceMonitoring extends StatefulWidget {
 
 class BalanceMonitoringState extends State<BalanceMonitoring> {
   TextEditingController ctrl = TextEditingController();
+  var box = OpenedBox.minerAddressInstance;
   List<MinerAddress> list = [];
-  StreamSubscription sub;
-  var box = Hive.box<MonitorAddress>(monitorBox);
   Worker worker;
-  String getTitleByTypeAndAddress(String address) {
-    return box.get(address)?.label ?? '-';
-  }
-
-  void getAddressInfo() async {
-    try {
-      var res =
-          await getMinerControllers($store.wal.addrWithNet);
-      if (mounted) {
-        setState(() {
-          list = res;
-        });
-      }
-    } catch (e) {}
+  StreamSubscription sub;
+  String getTitleByTypeAndAddress(MinerAddress address) {
+    return address.label;
   }
 
   @override
   void initState() {
     super.initState();
+    var list = box.values.where((m) => m.miner == $store.addr).toList();
+    if (list.isNotEmpty) {
+      this.list = list;
+    }
+    getRelatedList($store.addr);
     worker = ever($store.wallet, (Wallet wal) {
-      getAddressInfo();
+      if (wal.walletType == 2) {
+        var list = box.values.where((m) => m.miner == wal.addr).toList();
+        if (list.isNotEmpty) {
+          setState(() {
+            this.list = list;
+          });
+        }
+        getRelatedList(wal.addr);
+      }
     });
     sub = Global.eventBus.on<RefreshEvent>().listen((event) {
-      getAddressInfo();
+      getRelatedList($store.addr);
     });
   }
 
@@ -47,6 +50,35 @@ class BalanceMonitoringState extends State<BalanceMonitoring> {
     super.dispose();
     worker.dispose();
     sub.cancel();
+  }
+
+  void getRelatedList(String addr) async {
+    try {
+      var res = await Global.provider.getMinerRelatedAddressBalance(addr);
+      Map<String, String> labelMap = {};
+      box.values.where((element) => element.miner == addr).forEach((e) {
+        labelMap[e.address + e.type] = e.label;
+      });
+      await box.deleteAll(labelMap.keys);
+      for (var i = 0; i < res.length; i++) {
+        var addr = res[i];
+        var key = addr.address + addr.type;
+        if (labelMap.containsKey(key)) {
+          var label = labelMap[key];
+          addr.label = label;
+        } else {
+          addr.label = addr.type;
+        }
+        box.put(key, addr);
+      }
+      if (mounted) {
+        setState(() {
+          list = res;
+        });
+      }
+    } catch (e) {
+      print(e);
+    }
   }
 
   void handleConfirm() {
@@ -59,8 +91,8 @@ class BalanceMonitoringState extends State<BalanceMonitoring> {
         var thresholdNum = double.parse(threshold);
         if (thresholdNum is double) {
           box.values.forEach((element) {
-            element.threshold = threshold;
-            box.put(element.cid, element);
+            // element.threshold = threshold;
+            box.put(element.address, element);
           });
           ctrl.text = '';
           Get.back();
@@ -74,7 +106,6 @@ class BalanceMonitoringState extends State<BalanceMonitoring> {
 
   @override
   Widget build(BuildContext context) {
-    //var list = list;
     var ownerIndex = list.indexWhere((element) => element.type == 'owner');
     if (ownerIndex >= 0) {
       var owner = list.removeAt(ownerIndex);
@@ -104,12 +135,11 @@ class BalanceMonitoringState extends State<BalanceMonitoring> {
         Column(
           children: list.map((v) {
             return AddressItem(
-              address: v.address,
-              balance: getFilBalance(v.balance),
-              title: getTitleByTypeAndAddress(v.address),
-              type: v.type,
-              gasFee: getFilBalance(v.yestodayGasFee),
-              onEdit: (String addr) {
+              source: v,
+              title: getTitleByTypeAndAddress(v),
+              onEdit: (String label) async {
+                v.label = label;
+                await box.put(v.address + v.type, v);
                 setState(() {});
               },
             );
@@ -121,47 +151,36 @@ class BalanceMonitoringState extends State<BalanceMonitoring> {
 }
 
 class AddressItem extends StatelessWidget {
-  final String address;
-  final String balance;
   final String title;
-  final String type;
-  final bool bordered;
   final SingleParamCallback<String> onEdit;
-  final String gasFee;
+  final MinerAddress source;
   final TextEditingController controller = TextEditingController();
-  AddressItem(
-      {@required this.address,
-      @required this.balance,
-      @required this.title,
-      @required this.type,
-      this.onEdit,
-      this.gasFee,
-      this.bordered = true});
-  void handleConfirm() {
+  AddressItem({
+    @required this.title,
+    @required this.source,
+    this.onEdit,
+  });
+  void handleConfirm() async {
     var label = controller.text;
     if (controller.text.trim() == '') {
       showCustomError('missField'.tr);
       return;
     } else {
-      var box = Hive.box<MonitorAddress>(monitorBox);
-      var addr = box.get(address);
-      addr.label = label;
-      box.put(address, addr);
       controller.text = '';
-      onEdit(address);
+      onEdit(label);
     }
     Get.back();
   }
 
+  String get type => source.type;
   @override
   Widget build(BuildContext context) {
     var isOwner = type == 'owner';
     return Container(
       padding: EdgeInsets.all(10),
       decoration: BoxDecoration(
-          border: Border(
-              bottom: BorderSide(
-                  color: Colors.grey[200], width: bordered ? 0.5 : 0))),
+          border:
+              Border(bottom: BorderSide(color: Colors.grey[200], width: .5))),
       child: Column(
         children: [
           Row(
@@ -228,7 +247,7 @@ class AddressItem extends StatelessWidget {
                   : SizedBox(),
               Spacer(),
               CommonText(
-                '${'monitorGas'.tr}: $gasFee',
+                '${'monitorGas'.tr}: ${formatFil(source.yestodayGasFee)}',
                 color: Color(0xff666666),
                 weight: FontWeight.w400,
                 size: 12,
@@ -241,8 +260,8 @@ class AddressItem extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(dotString(str: address)),
-              Text(balance),
+              Text(dotString(str: source.address)),
+              Text(formatFil(source.balance, size: 2)),
               SizedBox(
                 height: 20,
                 child: FButton(
@@ -252,10 +271,11 @@ class AddressItem extends StatelessWidget {
                     if (isOwner) {
                       Get.toNamed(mesMakePage, arguments: {
                         'type': MessageType.OwnerTransfer,
-                        'from': address
+                        'from': source.address
                       });
                     } else {
-                      Get.toNamed(mesDepositPage, arguments: {'to': address});
+                      Get.toNamed(mesDepositPage,
+                          arguments: {'to': source.address});
                     }
                   },
                   clickEffect: true,

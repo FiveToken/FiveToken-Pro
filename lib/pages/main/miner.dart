@@ -1,8 +1,10 @@
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/online.dart';
 import 'package:fil/pages/main/widgets/miner/balanceMonitoring.dart';
+import 'package:fil/pages/main/widgets/miner/powerBoard.dart';
 import 'package:fil/pages/main/widgets/price.dart';
-import 'dart:math';
+import 'package:fil/pages/other/webview.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 class RefreshEvent {}
 
@@ -14,10 +16,12 @@ class MinerAddressStats extends StatefulWidget {
 }
 
 class MinerAddressStatsState extends State<MinerAddressStats> {
-  MinerMeta info = MinerMeta();
+  MinerSelfBalance info = MinerSelfBalance();
   Worker worker;
-  var box = OpenedBox.minerMetaInstance;
+  var box = OpenedBox.minerBalanceInstance;
+  List<MinerAddress> relatedList = [];
   String get addr => $store.wal.addrWithNet;
+  RefreshController rc;
   @override
   void initState() {
     super.initState();
@@ -27,7 +31,7 @@ class MinerAddressStatsState extends State<MinerAddressStats> {
           info = box.get(addr);
           setState(() {});
         }
-        Global.eventBus.fire(ShouldRefreshEvent());
+        rc.requestRefresh();
       }
     });
     if (box.containsKey(addr)) {
@@ -36,22 +40,17 @@ class MinerAddressStatsState extends State<MinerAddressStats> {
   }
 
   Future getStatus(String addr) async {
-    var res = await getMinerInfo(addr);
-    if (res.sectorSize != 0) {
-      OpenedBox.minerMetaInstance.put(addr, res);
-      setState(() {
-        this.info = res;
-      });
-    }
-  }
-
-  String get marketPrice {
     try {
-      var v = double.parse(info.balance);
-      var atto = BigInt.from(v * pow(10, 18));
-      return getMarketPrice(atto.toString(), 7);
+      var balance = await Global.provider.getMinerBalanceInfo(addr);
+      OpenedBox.minerBalanceInstance.put(addr, balance);
+      if (mounted) {
+        setState(() {
+          this.info = balance;
+          // this.relatedList = res.relatedAddress;
+        });
+      }
     } catch (e) {
-      return '--';
+      print(e);
     }
   }
 
@@ -71,6 +70,9 @@ class MinerAddressStatsState extends State<MinerAddressStats> {
     return CustomRefreshWidget(
         enablePullUp: false,
         initRefresh: true,
+        onInit: (rc) {
+          this.rc = rc;
+        },
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(12, 0, 12, 40),
           child: Column(
@@ -88,7 +90,10 @@ class MinerAddressStatsState extends State<MinerAddressStats> {
                 height: 10,
               ),
               CommonText(
-                formatDouble(info.balance, size: 4, truncate: true) + 'FIL',
+                formatFil(
+                  info.total,
+                  size: 4,
+                ),
                 size: 30,
                 weight: FontWeight.w800,
               ),
@@ -96,10 +101,9 @@ class MinerAddressStatsState extends State<MinerAddressStats> {
                 height: 12,
               ),
               MarketPrice(
-                atto: false,
-                balance: info.balance,
+                atto: true,
+                balance: info.total,
               ),
-              // CommonText(marketPrice),
               SizedBox(
                 height: 18,
               ),
@@ -110,28 +114,25 @@ class MinerAddressStatsState extends State<MinerAddressStats> {
               MinerBoard(Row(
                 children: [
                   Expanded(
-                      child: minerMeta(
-                          'metaAvailable'.tr, getFilBalance(info.available))),
+                      child: minerMeta('metaAvailable'.tr,
+                          formatFil(info.available, size: 2))),
                   Expanded(
                       child: minerMeta(
-                          'metaPledge'.tr, getFilBalance(info.pledge))),
+                          'metaPledge'.tr, formatFil(info.pledge, size: 2))),
                   Expanded(
                       child: minerMeta(
-                          'metaLock'.tr,
-                          getFilBalance(
-                            info.lock,
-                          ),
+                          'metaLock'.tr, formatFil(info.locked, size: 2),
                           bordered: false)),
                 ],
               )),
               SizedBox(
                 height: 12,
               ),
-              PowerBoard(info),
+              PowerBoard(),
               SizedBox(
                 height: 12,
               ),
-              YestodayBoard(),
+              YesterdayBoard(),
               SizedBox(
                 height: 12,
               ),
@@ -182,111 +183,14 @@ class MinerBoard extends StatelessWidget {
   }
 }
 
-class PowerBoard extends StatelessWidget {
-  final MinerMeta meta;
-  PowerBoard(this.meta);
-  String get powerPercent {
-    try {
-      var v = double.parse(meta.percent);
-      return '${(100 * v).toStringAsFixed(2)}%';
-    } catch (e) {
-      return '';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MinerBoard(Column(
-      children: [
-        Row(
-          children: [
-            IconStats,
-            SizedBox(
-              width: 5,
-            ),
-            CommonText(
-              'metaQuality'.tr,
-              color: CustomColor.primary,
-              weight: FontWeight.bold,
-            )
-          ],
-        ),
-        SizedBox(
-          height: 12,
-        ),
-        Layout.rowBetween([
-          CommonText(
-            unitConversion(meta.qualityPower, 2),
-            weight: FontWeight.bold,
-          ),
-          CommonText('${'metaPercent'.tr}: $powerPercent'),
-          CommonText('${'metaRank'.tr}: ${meta.rank}'),
-        ]),
-        Divider(),
-        MinerStatusRow(
-          label: 'metaRaw'.tr,
-          value: unitConversion(meta.rawPower, 2),
-        ),
-        MinerStatusRow(
-          label: 'metaBlocks'.tr,
-          value: meta.blockCount.toString(),
-        ),
-        MinerStatusRow(
-          label: 'metaRewards'.tr,
-          value: getFilBalance(meta.rewards),
-        ),
-        MinerStatusRow(
-          label: 'metaSectorSize'.tr,
-          value: unitConversion(meta.sectorSize.toString(), 0),
-        ),
-        Container(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CommonText.main('metaSectorStatus'.tr),
-              SizedBox(
-                width: 100,
-              ),
-              Expanded(
-                  child: RichText(
-                textAlign: TextAlign.end,
-                text: TextSpan(
-                    style: DefaultTextStyle.of(context).style,
-                    children: [
-                      TextSpan(
-                          text: '${meta.allSectors} ${'allSector'.tr} ',
-                          style: TextStyle(fontSize: 13)),
-                      TextSpan(
-                          text: '${meta.liveSectors} ${'validSector'.tr} ',
-                          style: TextStyle(
-                              color: CustomColor.primary, fontSize: 13)),
-                      TextSpan(
-                          text: '${meta.faultSectors} ${'faultSector'.tr} ',
-                          style:
-                              TextStyle(color: CustomColor.red, fontSize: 13)),
-                      TextSpan(
-                          text:
-                              '${meta.preCommitSectors} ${'precommitSector'.tr}',
-                          style:
-                              TextStyle(color: Color(0xffE8CC5C), fontSize: 13))
-                    ]),
-              ))
-            ],
-          ),
-        ),
-      ],
-    ));
-  }
-}
-
-class YestodayBoard extends StatefulWidget {
+class YesterdayBoard extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
-    return YestodayBoardState();
+    return YesterdayBoardState();
   }
 }
 
-class YestodayBoardState extends State<YestodayBoard> {
+class YesterdayBoardState extends State<YesterdayBoard> {
   MinerHistoricalStats stats = MinerHistoricalStats();
   String get address => $store.wal.addrWithNet;
   Worker worker;
@@ -304,10 +208,10 @@ class YestodayBoardState extends State<YestodayBoard> {
           stats = box.get(address);
         });
       }
-      getYestodayInfo(wal.addrWithNet);
+      getYesterdayInfo(wal.addrWithNet);
     });
     sub = Global.eventBus.on<RefreshEvent>().listen((event) {
-      getYestodayInfo(address);
+      getYesterdayInfo(address);
     });
   }
 
@@ -318,9 +222,9 @@ class YestodayBoardState extends State<YestodayBoard> {
     sub.cancel();
   }
 
-  void getYestodayInfo(String addr) async {
+  void getYesterdayInfo(String addr) async {
     try {
-      var res = await getMinerYestodayInfo(addr);
+      var res = await Global.provider.getMinerYesterdayInfo(addr);
       box.put(addr, res);
       if (mounted) {
         setState(() {
@@ -374,11 +278,11 @@ class YestodayBoardState extends State<YestodayBoard> {
         ),
         MinerStatusRow(
           label: 'yesGas'.tr,
-          value: formatFil(stats.gasFee),
+          value: formatFil(stats.gasFee, returnRaw: true),
         ),
         MinerStatusRow(
           label: 'yesBlock'.tr,
-          value: formatFil(stats.total),
+          value: formatFil(stats.total, size: 2),
         ),
         MinerStatusRow(
           label: 'yesLucky'.tr,
@@ -395,8 +299,9 @@ class YestodayBoardState extends State<YestodayBoard> {
         Divider(),
         GestureDetector(
           onTap: () {
-            openInBrowser(
-                '$filscanWeb/address/miner?address=$address&utm_source=filwallet_app');
+            var url =
+                '$filscanWeb/address/miner?address=$address&utm_source=filwallet_app';
+            goWebviewPage(url: url, title: 'detail'.tr);
           },
           child: Container(
             child: CommonText('more'.tr),
@@ -404,24 +309,5 @@ class YestodayBoardState extends State<YestodayBoard> {
         )
       ],
     ));
-  }
-}
-
-class MinerStatusRow extends StatelessWidget {
-  final String label;
-  final String value;
-  MinerStatusRow({
-    this.label,
-    this.value,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 3),
-      child: Layout.rowBetween([
-        CommonText.main(label),
-        CommonText(value),
-      ]),
-    );
   }
 }

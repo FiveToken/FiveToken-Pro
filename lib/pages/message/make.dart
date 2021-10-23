@@ -17,7 +17,6 @@ class MesMakePageState extends State<MesMakePage> {
   bool valueEnabled = true;
   final TextEditingController ownerCtrl = TextEditingController();
   String method = '0';
-  var box = Hive.box<StoreUnsignedMessage>(unsignedMessageBox);
   bool showFrom = true;
   Wallet wallet = $store.wal;
   TextEditingController worker = TextEditingController();
@@ -28,6 +27,7 @@ class MesMakePageState extends State<MesMakePage> {
   BigInt fromBalance = BigInt.zero;
   BigInt minerBalance = BigInt.zero;
   bool showTips = false;
+  int fromNonce = -1;
   void addController() {
     setState(() {
       controllers.add(TextEditingController());
@@ -66,7 +66,7 @@ class MesMakePageState extends State<MesMakePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TabCard(
+                      TapCard(
                         items: [
                           CardItem(
                             label: 'speedup'.tr,
@@ -80,7 +80,7 @@ class MesMakePageState extends State<MesMakePage> {
                       SizedBox(
                         height: 15,
                       ),
-                      TabCard(
+                      TapCard(
                         items: [
                           CardItem(
                             label: 'makeNew'.tr,
@@ -117,12 +117,15 @@ class MesMakePageState extends State<MesMakePage> {
     var value = valueCtrl.text.trim();
     var params = '';
     var prefix = 'from'.tr;
-
     if (!['0', '16'].contains(method)) {
       value = '0';
     }
     if (from == '') {
       showCustomError('enterFrom'.tr);
+      return;
+    }
+    if (!isValidAddress(from)) {
+      showCustomError('errFromAddr'.tr);
       return;
     }
     if (to == '' && method != '2') {
@@ -151,14 +154,29 @@ class MesMakePageState extends State<MesMakePage> {
     }
     showCustomLoading('Loading');
     if (fromBalance == BigInt.zero) {
-      await getFromBalance(from);
+      try {
+        await getFromBalance(from);
+      } catch (e) {
+        showCustomError('getFromBalanceFail'.tr);
+        return;
+      }
       if (fromBalance == BigInt.zero) {
         showCustomError(prefix + 'errorLowBalance'.tr);
         return;
       }
     }
+    if (method == '0' && fromBalance < BigInt.parse(requestValue)) {
+      showCustomError(prefix + 'errorLowBalance'.tr);
+      return;
+    }
+
     if (method == '16' && minerBalance == BigInt.zero) {
-      await getMinerBalance(to);
+      try {
+        await getMinerBalance(to);
+      } catch (e) {
+        showCustomError('getMinerBalanceFail'.tr);
+        return;
+      }
     }
     if (method == '16' && minerBalance < BigInt.tryParse(requestValue)) {
       showCustomError('errorLowBalance'.tr);
@@ -171,12 +189,12 @@ class MesMakePageState extends State<MesMakePage> {
         return;
       }
       if (newOwner[1] != '0') {
-        var ownerId = await getAddressActor(newOwner);
-        if (ownerId == '') {
+        try {
+          var ownerId = await Global.provider.getActorId(newOwner);
+          newOwner = ownerId;
+        } catch (e) {
           showCustomError('searchOwnerFail'.tr);
           return;
-        } else {
-          newOwner = ownerId;
         }
       }
       params = '\"$newOwner\"';
@@ -191,8 +209,10 @@ class MesMakePageState extends State<MesMakePage> {
         showCustomError('workerBls'.tr);
         return;
       }
-      var actor = await getAddressActor(w);
-      if (actor == '') {
+
+      try {
+        await Global.provider.getActorId(w);
+      } catch (e) {
         showCustomError('invalidWorker'.tr);
         return;
       }
@@ -212,8 +232,9 @@ class MesMakePageState extends State<MesMakePage> {
         return;
       }
       if (newWorker[1] != '0') {
-        var actor = await getAddressActor(newWorker);
-        if (actor == '') {
+        try {
+          await Global.provider.getActorId(newWorker);
+        } catch (e) {
           showCustomError('notActiveWorker'.tr);
           return;
         }
@@ -231,12 +252,16 @@ class MesMakePageState extends State<MesMakePage> {
       });
     }
     try {
-      var res = await buildMessage({
+      var res = await Global.provider.buildMessage({
         'from': from,
         'to': to,
         'value': fil2Atto(value),
-        'method': int.parse(method)
-      }, params == '' ? null : params);
+        'method': int.parse(method),
+        'params': params == '' ? null : params
+      });
+      if (method == '16') {
+        res.args = params;
+      }
       var gas = Gas(
           feeCap: res.gasFeeCap,
           gasLimit: res.gasLimit,
@@ -249,6 +274,7 @@ class MesMakePageState extends State<MesMakePage> {
       dismissAllToast();
       return res;
     } catch (e) {
+      showCustomError('makeFail'.tr);
       print(e);
     }
   }
@@ -258,20 +284,20 @@ class MesMakePageState extends State<MesMakePage> {
     return OpenedBox.pushInsance.values.where((mes) {
       var source = $store.wal.addrWithNet;
       if (wal.walletType == 2) {
-        var list = OpenedBox.monitorInsance.values
+        var list = OpenedBox.minerAddressInstance.values
             .where(
                 (addr) => addr.miner == wal.addrWithNet && addr.type == 'owner')
             .toList();
         if (list.isNotEmpty) {
-          source = list[0].cid;
+          source = list[0].address;
         }
       }
-      return mes.from == source;
+      return mes.from == source && mes.nonce == fromNonce;
     }).toList();
   }
 
   void speedUp() {
-    var msg = FilecoinProvider.getIncreaseGasMessage();
+    var msg = Global.provider.getIncreaseGasMessage(nonce: fromNonce);
     $store.setPushBackPage(mainPage);
     Get.toNamed(mesBodyPage, arguments: {
       'mes': msg,
@@ -279,15 +305,14 @@ class MesMakePageState extends State<MesMakePage> {
   }
 
   void makeNew() async {
-    var list = getPushList();
-    var nonce = list[0].message.message.nonce;
-    if (list.length != 1) {
-      list.forEach((mes) {
-        if (mes.nonce > nonce) {
-          nonce = mes.nonce;
-        }
-      });
-    }
+    var list = OpenedBox.pushInsance.values
+        .where((mes) => mes.from == fromCtrl.text.trim());
+    var nonce = fromNonce;
+    list.forEach((mes) {
+      if (mes.nonce != null && mes.nonce > nonce) {
+        nonce = mes.nonce;
+      }
+    });
     var res = await makeMessage();
     if (res is TMessage) {
       res.nonce = nonce + 1;
@@ -312,19 +337,19 @@ class MesMakePageState extends State<MesMakePage> {
           break;
         case MessageType.MinerManage:
           //fromCtrl.text = Get.arguments['from'];
-          var list = OpenedBox.monitorInsance.values
+          var list = OpenedBox.minerAddressInstance.values
               .where((addr) =>
                   addr.type == 'owner' && addr.miner == $store.wal.addrWithNet)
               .toList();
           if (list.isNotEmpty) {
-            var owner = list[0].cid;
+            var owner = list[0].address;
             if (owner.trim()[1] == '2') {
               preventNext = true;
               nextTick(() {
                 showCustomError('ownerIsMulti'.tr);
               });
             }
-            fromCtrl.text = list[0].cid;
+            fromCtrl.text = list[0].address;
           }
           toCtrl.text = Get.arguments['to'];
           // valueCtrl.text = '0';
@@ -342,7 +367,11 @@ class MesMakePageState extends State<MesMakePage> {
         fromCtrl.text = wallet.addrWithNet;
       }
       if (fromCtrl.text != '') {
-        getFromBalance(fromCtrl.text);
+        var addr = fromCtrl.text;
+        getFromBalance(addr);
+        if (addr[1] == '0') {
+          this.getFromType(addr);
+        }
       }
     }
   }
@@ -358,18 +387,35 @@ class MesMakePageState extends State<MesMakePage> {
   }
 
   Future getFromBalance(String addr) async {
-    var res = await getBalance(fromCtrl.text);
-    if (res.balance != '0') {
+    var res = await Global.provider.getBalanceNonce(fromCtrl.text);
+    try {
       var balance = BigInt.tryParse(res.balance);
       fromBalance = balance ?? BigInt.zero;
+      fromNonce = res.nonce;
+    } catch (e) {
+      print(e);
+      rethrow;
+    }
+  }
+
+  void getFromType(String addr) async {
+    try {
+      var res = await Global.provider.getAddressType(addr);
+      if (res == FilecoinAddressType.multisig) {
+        this.preventNext = true;
+      }
+    } catch (e) {
+      print(e);
     }
   }
 
   Future getMinerBalance(String addr) async {
-    var meta = await getMinerInfo(addr);
-    if (meta.balance != '0') {
-      var balance = BigInt.tryParse(fil2Atto(meta.available));
-      minerBalance = balance ?? BigInt.zero;
+    try {
+      var res = await Global.provider.getBalance(addr);
+      minerBalance = BigInt.tryParse(res) ?? BigInt.zero;
+    } catch (e) {
+      print(e);
+      rethrow;
     }
   }
 
@@ -422,6 +468,14 @@ class MesMakePageState extends State<MesMakePage> {
                         child: Field(
                           label: 'from'.tr,
                           controller: fromCtrl,
+                          onChanged: (addr) {
+                            if (isValidAddress(addr)) {
+                              getFromBalance(addr);
+                              if (addr[1] == '0') {
+                                this.getFromType(addr);
+                              }
+                            }
+                          },
                           extra: GestureDetector(
                             child: Padding(
                               child: Image(
@@ -433,6 +487,13 @@ class MesMakePageState extends State<MesMakePage> {
                               Get.toNamed(addressSelectPage).then((value) {
                                 if (value != null) {
                                   fromCtrl.text = (value as Wallet).address;
+                                  if (isValidAddress(fromCtrl.text)) {
+                                    var addr = fromCtrl.text;
+                                    getFromBalance(addr);
+                                    if (addr[1] == '0') {
+                                      this.getFromType(addr);
+                                    }
+                                  }
                                 }
                               });
                             },
@@ -507,6 +568,13 @@ class MesMakePageState extends State<MesMakePage> {
                     Visibility(
                       child: Tips(['minerManageTip'.tr]),
                       visible: showTips,
+                    ),
+                    SizedBox(
+                      height: 12,
+                    ),
+                    DocButton(
+                      method: method,
+                      page: mesMakePage,
                     )
                   ],
                 )
@@ -552,10 +620,6 @@ class AdvancedSet extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Container(
-          //   child: CommonText.main(label),
-          //   padding: EdgeInsets.symmetric(vertical: 12),
-          // ),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 18),
             decoration: BoxDecoration(
@@ -563,7 +627,7 @@ class AdvancedSet extends StatelessWidget {
             child: Row(
               children: [
                 CommonText(
-                  MethodMap().getMethodDes(method),
+                  MethodMap.getMethodNameByNum(method) ?? '',
                   size: 14,
                   color: Colors.white,
                 ),

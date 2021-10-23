@@ -16,6 +16,7 @@ class StoreController extends GetxController {
     return wallet.value;
   }
 
+  String get addr => wal.addrWithNet;
   MultiSignWallet get multiWal {
     return multiWallet.value;
   }

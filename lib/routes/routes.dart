@@ -17,9 +17,7 @@ class GetTranstionPage {}
 List<GetPage> list = [];
 List<GetPage> initRoutes() {
   var list = <GetPage>[];
-  var main = GetPage(name: mainPage, page: () => MainPage());
   list
-    ..add(main)
     ..addAll(getSettingRoutes())
     ..addAll(getMessageRoutes())
     ..addAll(getOtherRoutes())

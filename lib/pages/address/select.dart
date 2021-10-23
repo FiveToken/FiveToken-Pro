@@ -8,7 +8,7 @@ class AddressBookSelectPage extends StatefulWidget {
 }
 
 class AddressBookSelectPageState extends State<AddressBookSelectPage> {
-  var box = Hive.box<Wallet>(addressBookBox);
+  var box = OpenedBox.addressBookInsance;
   List<Wallet> list = [];
   void setList() {
     setState(() {

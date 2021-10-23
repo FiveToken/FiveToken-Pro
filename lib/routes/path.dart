@@ -19,7 +19,6 @@ const String createEntrancePage='/create/entrance';
 const String webviewPage = "/webview";
 const String introPage = "/intro";
 const String scanPage = '/scan';
-const String errorPage='/error';
 const String setPage = '/set';
 const String langPage = '/lang';
 const String discoveryPage='/discovery';

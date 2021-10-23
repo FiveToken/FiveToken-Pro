@@ -11,7 +11,7 @@ class AddressBookAddPageState extends State<AddressBookAddPage> {
   TextEditingController addrCtrl = TextEditingController();
   TextEditingController nameCtrl = TextEditingController();
   Wallet wallet;
-  var box = Hive.box<Wallet>(addressBookBox);
+  var box = OpenedBox.addressBookInsance;
   int mode = 0;
   @override
   void initState() {

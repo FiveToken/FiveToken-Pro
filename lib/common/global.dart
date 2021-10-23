@@ -2,33 +2,27 @@ import 'package:event_bus/event_bus.dart';
 import 'package:fil/index.dart';
 import 'package:dio/dio.dart';
 
-const StoreKeyHash = "hash";
 const StoreKeyActiveWallet = "act-wallet";
 const StoreKeyLanguage = "language";
-
-const InfoKeyWebUrl = "webUrl";
-const InfoKeyWebTitle = "webTitle";
-
 const SignSecp = "secp";
 const SignBls = "bls";
 const SignTypeBls = 2;
 const SignTypeSecp = 1;
 const String NetPrefix = 'f';
+
+
+var filscanWeb = Global.netPrefix == 'f'
+    ? "https://m.filscan.io"
+    : "https://calibration.filscan.io/mobile";
 class Global {
-  static String version = "v2.1.0";
+  static String version = "v2.2.0";
 
   static bool get isRelease => bool.fromEnvironment("dart.vm.product");
 
   static SharedPreferences store;
 
   static Wallet activeWallet;
-
-
-  static Dio dio;
   static EventBus eventBus = EventBus();
-
-  static Map<String, dynamic> info = {};
-
   static String selectWalletType = '1';
   static String uuid;
   static bool online = false;
@@ -42,5 +36,7 @@ class Global {
   static String mode;
   static Wallet cacheWallet;
   static FilPrice price;
-  static bool onlineMode=false;
+  static bool onlineMode = false;
+  static Dio defaultClient = Dio();
+  static FilecoinProvider provider = FilecoinProvider();
 }

@@ -13,6 +13,7 @@ class CustomRefreshWidget extends StatefulWidget {
   final FreshCallback onRefresh;
   final FreshCallback onLoading;
   final String refreshKey;
+  final SingleParamCallback<RefreshController> onInit;
   CustomRefreshWidget(
       {@required this.child,
       this.enablePullUp = true,
@@ -21,6 +22,7 @@ class CustomRefreshWidget extends StatefulWidget {
       this.initRefresh = false,
       this.onLoading,
       this.refreshKey,
+      this.onInit,
       @required this.onRefresh});
   @override
   State<StatefulWidget> createState() {
@@ -43,11 +45,9 @@ class CustomRefreshWidgetState extends State<CustomRefreshWidget> {
         controller.requestRefresh();
       });
     }
-    Global.eventBus.on<ShouldRefreshEvent>().listen((event) {
-      if (event.refreshKey == widget.refreshKey) {
-        controller.requestRefresh();
-      }
-    });
+    if (widget.onInit != null) {
+      widget.onInit(controller);
+    }
   }
 
   void _onRefresh() async {

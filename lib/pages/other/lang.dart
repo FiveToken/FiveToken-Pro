@@ -25,7 +25,7 @@ class LangPageState extends State<LangPage> {
       body: Padding(
         child: Column(
           children: [
-            TabCard(
+            TapCard(
               items: [
                 CardItem(
                   label: 'English',

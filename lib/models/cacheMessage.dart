@@ -57,12 +57,12 @@ class MessageDetail {
         this.baseFeeBurn = json['base_fee_burn'],
         this.overEstimationBurn = json['over_estimation_burn'],
         this.blockTime = json['block_time'],
-        this.height = json['height'],
-        this.signedCid = json['signed_cid'],
+        this.height = json['block_epoch'],
+        this.signedCid = json['cid'],
         this.exitCode = json['exit_code'],
-        this.allGasFee = json['all_gas_fee'],
-        this.returns = json['returns'],
-        this.args = json['args'];
+        this.allGasFee = json['gas_fee'] ?? '0',
+        this.returns = jsonDecode(json['return_json'] ?? '{}'),
+        this.args = jsonDecode(json['params_json'] ?? '{}');
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       "to": this.to,
@@ -101,6 +101,11 @@ class StoreMessage {
   num nonce;
   @HiveField(12)
   String methodName;
+  @HiveField(13)
+  String mid;
+  @HiveField(14)
+  String multiMethod;
+
   StoreMessage(
       {this.from = '',
       this.to = '',
@@ -114,19 +119,22 @@ class StoreMessage {
       this.multiParams,
       this.nonce,
       this.exitCode,
+      this.multiMethod = '',
       this.methodName = ''});
   StoreMessage.fromJson(Map<dynamic, dynamic> json)
-      : this.signedCid = json['signed_cid'],
+      : this.signedCid = json['cid'],
         this.to = json['to'],
         this.from = json['from'],
         this.value = json['value'],
         this.blockTime = json['block_time'],
         this.exitCode = json['exit_code'] ?? 0,
         this.owner = json['owner'],
-        this.args = jsonEncode(json['args']),
+        this.args = json['params_json'],
         this.pending = json['pending'],
         this.methodName = json['method_name'],
-        this.nonce = json['nonce'];
+        this.nonce = json['nonce'],
+        this.mid = json['mid'],
+        this.multiMethod = json['mock'] ?? "";
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'signed_cid': this.signedCid,
@@ -139,7 +147,8 @@ class StoreMessage {
       'owner': this.owner,
       'args': this.args,
       'nonce': this.nonce,
-      'multiParams': this.multiParams
+      'multiParams': this.multiParams,
+      'mid': mid
     };
   }
 }
@@ -215,6 +224,7 @@ class StoreMultiMessage {
         this.msigRequired = json['msig_required'],
         this.msigSuccess = json['msig_success'],
         this.methodName = json['method_name'],
+        this.nonce = json['nonce'],
         this.msigTo = json['msig_to'];
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -228,5 +238,148 @@ class StoreMultiMessage {
       'owner': this.owner,
       'msig_value': msigValue
     };
+  }
+}
+
+@HiveType(typeId: 17)
+class CacheMultiMessage {
+  @HiveField(0)
+  String cid;
+  @HiveField(1)
+  num blockTime;
+  @HiveField(2)
+  String from;
+  @HiveField(3)
+  String to;
+  @HiveField(4)
+  String status;
+  @HiveField(5)
+  String fee;
+  @HiveField(6)
+  String params;
+  @HiveField(7)
+  String method;
+  @HiveField(8)
+  String innerParams;
+  @HiveField(9)
+  int nonce;
+  @HiveField(10)
+  String owner;
+  @HiveField(11)
+  String mid;
+  @HiveField(12)
+  int pending;
+  @HiveField(13)
+  int exitCode;
+  @HiveField(14)
+  int txId;
+  @HiveField(15)
+  int type;
+  @HiveField(16)
+  String value;
+  @HiveField(17)
+  List<MultiApproveMessage> approves;
+  CacheMultiMessage(
+      {this.cid = '',
+      this.blockTime = 0,
+      this.from = '',
+      this.to = '',
+      this.status = '',
+      this.fee = '0',
+      this.method = '',
+      this.innerParams = '',
+      this.nonce = 0,
+      this.owner = '',
+      this.params = '{}',
+      this.mid = '',
+      this.pending = 1,
+      this.txId = 0,
+      this.value = '0',
+      this.approves = const [],
+      this.type = 0, // 0 propose 1 send
+      this.exitCode = 0});
+  CacheMultiMessage.fromJson(Map<dynamic, dynamic> json) {
+    this.cid = json['cid'] ?? '';
+    this.blockTime = json['block_time'] ?? 0;
+    this.to = json['to'] ?? "";
+    this.from = json['from'] ?? '';
+    this.status = json['status'] ?? '';
+    this.fee = json['gas_fee'] ?? '0';
+    this.params = json['params_json'];
+    this.method = json['params_method'] ?? '';
+    this.innerParams = json['params_params'];
+    this.owner = json['owner'] ?? '';
+    this.nonce = json['nonce'] ?? 0;
+    this.mid = json['mid'] ?? '';
+    this.txId = json['params_txnid'] ?? 0;
+    this.exitCode = json['exit_code'] ?? 0;
+    this.value = json['value'] ?? '0';
+    if (json['approves'] != null && json['approves'] is List) {
+      this.approves = (json['approves'] as List)
+          .map((app) => MultiApproveMessage.fromJson(app))
+          .toList();
+    } else {
+      this.approves = [];
+    }
+  }
+
+  Map<String, dynamic> get decodeParams {
+    try {
+      var p = jsonDecode(params);
+      return p;
+    } catch (e) {
+      return {'To': '', 'Value': '0'};
+    }
+  }
+
+  dynamic get decodeInnerParams {
+    try {
+      var p = jsonDecode(innerParams);
+      return p;
+    } catch (e) {
+      return innerParams;
+    }
+  }
+
+  bool get completed => pending == 0;
+}
+
+@HiveType(typeId: 18)
+class MultiApproveMessage {
+  @HiveField(0)
+  String from;
+  @HiveField(1)
+  String fee;
+  @HiveField(2)
+  num time;
+  @HiveField(3)
+  int nonce;
+  @HiveField(4)
+  int exitCode;
+  @HiveField(5)
+  int pending;
+  @HiveField(6)
+  String proposeCid;
+  @HiveField(7)
+  String cid;
+  @HiveField(8)
+  int txId;
+  MultiApproveMessage(
+      {this.from = '',
+      this.fee = '0',
+      this.time = 0,
+      this.nonce = 0,
+      this.exitCode = 0,
+      this.proposeCid = '',
+      this.cid = '',
+      this.txId = 0,
+      this.pending = 1});
+  MultiApproveMessage.fromJson(Map<String, dynamic> json) {
+    this.from = json['from'];
+    this.fee = json['gas_fee'];
+    this.time = json['block_time'];
+    this.nonce = json['nonce'];
+    this.cid = json['cid'];
+    this.exitCode = json['exit_code'];
   }
 }

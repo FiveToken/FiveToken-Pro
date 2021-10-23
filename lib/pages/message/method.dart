@@ -2,15 +2,15 @@ import 'package:fil/index.dart';
 
 /// select a method
 class MethodMap {
+  static Map<String, String> get _methodMap => {
+        '0': 'transfer'.tr,
+        '2': 'createMiner'.tr,
+        '3': 'changeWorker'.tr,
+        '16': 'withdraw'.tr,
+        '21': 'confirmUpdateWorkerKey'.tr,
+        '23': 'changeOwner'.tr
+      };
   String getMethodDes(String method, {String to}) {
-    var _methodMap = {
-      '0': 'transfer'.tr,
-      '2': 'createMiner'.tr,
-      '3': 'changeWorker'.tr,
-      '16': 'withdraw'.tr,
-      '21': 'confirmUpdateWorkerKey'.tr,
-      '23': 'changeOwner'.tr
-    };
     var des = _methodMap[method];
     if (to != null) {
       if (method == '2') {
@@ -32,6 +32,10 @@ class MethodMap {
     }
 
     return "${'method'.tr} $method${des != null ? ':$des' : ''}";
+  }
+
+  static String getMethodNameByNum(String method) {
+    return _methodMap.containsKey(method) ? _methodMap[method] : method;
   }
 }
 
@@ -55,7 +59,14 @@ class MethodSelectPageState extends State<MethodSelectPage> {
   }
 
   List<String> get _methods {
-    return ['0', '2', '3', '16', '21', '23'];
+    return [
+      '0',
+      '16',
+      '23',
+      '3',
+      '21',
+      '2',
+    ];
   }
 
   @override
@@ -173,10 +184,12 @@ class MethodSelectItem extends StatelessWidget {
   final bool active;
   final Noop onTap;
   final bool custom;
+  final bool hasIcon;
   MethodSelectItem(
       {@required this.method,
       @required this.active,
       @required this.onTap,
+      this.hasIcon = true,
       this.custom = false});
   bool get caculateActive {
     return !custom && active;
@@ -194,17 +207,29 @@ class MethodSelectItem extends StatelessWidget {
             color: caculateActive ? CustomColor.primary : Colors.white),
         child: Row(
           children: [
-            Icon(
-              Icons.check_circle_outline,
-              color: caculateActive ? Colors.white : Colors.transparent,
-            ),
-            SizedBox(
-              width: 10,
+            Visibility(
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    color: caculateActive ? Colors.white : Colors.transparent,
+                  ),
+                  SizedBox(
+                    width: 10,
+                  ),
+                ],
+              ),
+              visible: hasIcon,
             ),
             CommonText(
-              MethodMap().getMethodDes(method),
+              MethodMap.getMethodNameByNum(method),
               color: caculateActive ? Colors.white : Colors.black,
-            )
+            ),
+            Spacer(),
+            CommonText(
+              'ID: $method',
+              color: caculateActive ? Colors.white : Colors.black,
+            ),
           ],
         ),
       ),
@@ -235,6 +260,7 @@ void showMethodSelector(
                   children: methods
                       .map((method) => MethodSelectItem(
                           method: method,
+                          hasIcon: false,
                           active: false,
                           onTap: () {
                             Get.back();

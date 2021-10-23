@@ -19,7 +19,7 @@ class CreateEntrancePage extends StatelessWidget {
               SizedBox(
                 height: 12,
               ),
-              TabCard(
+              TapCard(
                 items: [
                   CardItem(
                       label: 'createWallet'.tr,
@@ -31,7 +31,7 @@ class CreateEntrancePage extends StatelessWidget {
               SizedBox(
                 height: 12,
               ),
-              TabCard(
+              TapCard(
                 items: [
                   CardItem(
                       label: 'pkImport'.tr,
@@ -56,7 +56,7 @@ class CreateEntrancePage extends StatelessWidget {
                         size: 14,
                       ),
                     ),
-                    TabCard(
+                    TapCard(
                       items: [
                         CardItem(
                             label: 'importReadonly'.tr,
@@ -72,7 +72,7 @@ class CreateEntrancePage extends StatelessWidget {
                         size: 14,
                       ),
                     ),
-                    TabCard(
+                    TapCard(
                       items: [
                         CardItem(
                             label: 'importMiner'.tr,

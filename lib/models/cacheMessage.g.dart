@@ -29,14 +29,15 @@ class StoreMessageAdapter extends TypeAdapter<StoreMessage> {
       multiParams: fields[10] as String,
       nonce: fields[11] as num,
       exitCode: fields[6] as num,
+      multiMethod: fields[14] as String,
       methodName: fields[12] as String,
-    );
+    )..mid = fields[13] as String;
   }
 
   @override
   void write(BinaryWriter writer, StoreMessage obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.from)
       ..writeByte(1)
@@ -62,7 +63,11 @@ class StoreMessageAdapter extends TypeAdapter<StoreMessage> {
       ..writeByte(11)
       ..write(obj.nonce)
       ..writeByte(12)
-      ..write(obj.methodName);
+      ..write(obj.methodName)
+      ..writeByte(13)
+      ..write(obj.mid)
+      ..writeByte(14)
+      ..write(obj.multiMethod);
   }
 
   @override
@@ -157,6 +162,149 @@ class StoreMultiMessageAdapter extends TypeAdapter<StoreMultiMessage> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is StoreMultiMessageAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class CacheMultiMessageAdapter extends TypeAdapter<CacheMultiMessage> {
+  @override
+  final int typeId = 17;
+
+  @override
+  CacheMultiMessage read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return CacheMultiMessage(
+      cid: fields[0] as String,
+      blockTime: fields[1] as num,
+      from: fields[2] as String,
+      to: fields[3] as String,
+      status: fields[4] as String,
+      fee: fields[5] as String,
+      method: fields[7] as String,
+      innerParams: fields[8] as String,
+      nonce: fields[9] as int,
+      owner: fields[10] as String,
+      params: fields[6] as String,
+      mid: fields[11] as String,
+      pending: fields[12] as int,
+      txId: fields[14] as int,
+      value: fields[16] as String,
+      approves: (fields[17] as List)?.cast<MultiApproveMessage>(),
+      type: fields[15] as int,
+      exitCode: fields[13] as int,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, CacheMultiMessage obj) {
+    writer
+      ..writeByte(18)
+      ..writeByte(0)
+      ..write(obj.cid)
+      ..writeByte(1)
+      ..write(obj.blockTime)
+      ..writeByte(2)
+      ..write(obj.from)
+      ..writeByte(3)
+      ..write(obj.to)
+      ..writeByte(4)
+      ..write(obj.status)
+      ..writeByte(5)
+      ..write(obj.fee)
+      ..writeByte(6)
+      ..write(obj.params)
+      ..writeByte(7)
+      ..write(obj.method)
+      ..writeByte(8)
+      ..write(obj.innerParams)
+      ..writeByte(9)
+      ..write(obj.nonce)
+      ..writeByte(10)
+      ..write(obj.owner)
+      ..writeByte(11)
+      ..write(obj.mid)
+      ..writeByte(12)
+      ..write(obj.pending)
+      ..writeByte(13)
+      ..write(obj.exitCode)
+      ..writeByte(14)
+      ..write(obj.txId)
+      ..writeByte(15)
+      ..write(obj.type)
+      ..writeByte(16)
+      ..write(obj.value)
+      ..writeByte(17)
+      ..write(obj.approves);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CacheMultiMessageAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class MultiApproveMessageAdapter extends TypeAdapter<MultiApproveMessage> {
+  @override
+  final int typeId = 18;
+
+  @override
+  MultiApproveMessage read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return MultiApproveMessage(
+      from: fields[0] as String,
+      fee: fields[1] as String,
+      time: fields[2] as num,
+      nonce: fields[3] as int,
+      exitCode: fields[4] as int,
+      proposeCid: fields[6] as String,
+      cid: fields[7] as String,
+      txId: fields[8] as int,
+      pending: fields[5] as int,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, MultiApproveMessage obj) {
+    writer
+      ..writeByte(9)
+      ..writeByte(0)
+      ..write(obj.from)
+      ..writeByte(1)
+      ..write(obj.fee)
+      ..writeByte(2)
+      ..write(obj.time)
+      ..writeByte(3)
+      ..write(obj.nonce)
+      ..writeByte(4)
+      ..write(obj.exitCode)
+      ..writeByte(5)
+      ..write(obj.pending)
+      ..writeByte(6)
+      ..write(obj.proposeCid)
+      ..writeByte(7)
+      ..write(obj.cid)
+      ..writeByte(8)
+      ..write(obj.txId);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MultiApproveMessageAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

@@ -85,6 +85,12 @@ class TMessage {
     }
   }
 
+  BigInt get maxFee {
+    var capNum = BigInt.tryParse(gasFeeCap) ?? BigInt.zero;
+    var limit = BigInt.from(gasLimit);
+    return capNum * limit;
+  }
+
   Map<String, dynamic> toLotusMessage() {
     return <String, dynamic>{
       "Version": this.version,

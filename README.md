@@ -46,6 +46,10 @@ After install the dependencies above, clone this project and enter the root dire
 
 We support Filecoin mainnet and calibration network. If you want to run this app in different network, you can find the file at `lib->common->global.dart` and edit the value of variable NetPrefix. The value of mainnet is 'f' and calibration is 't'.
 
+## Run Unit Test
+
+`flutter test`
+
 ## How to build
 
 ### Android
@@ -66,3 +70,8 @@ Check [FiveToken Documentation](https://docs.fivetoken.io/userguide/proapp.html)
 
 [MIT](https://github.com/FiveToken/FiveToken-Pro/blob/master/LICENSE)
 
+## Links
+
+[Project structure](./doc/code-tree.txt)
+
+[Design documents](./doc/impl.md)

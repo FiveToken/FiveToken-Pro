@@ -38,7 +38,7 @@ class WalletModePage extends StatelessWidget {
                     height: 12,
                   ),
                   CommonText(
-                    'FiveToken',
+                    'FiveToken Pro',
                     color: Colors.white,
                     size: 20,
                     weight: FontWeight.w800,
@@ -59,7 +59,7 @@ class WalletModePage extends StatelessWidget {
                       size: 14,
                     ),
                   ),
-                  TabCard(
+                  TapCard(
                     items: [
                       CardItem(
                           label: 'onlineMode'.tr,
@@ -71,7 +71,7 @@ class WalletModePage extends StatelessWidget {
                   SizedBox(
                     height: 15,
                   ),
-                  TabCard(
+                  TapCard(
                     items: [
                       CardItem(
                           label: 'offlineMode'.tr,
@@ -84,6 +84,10 @@ class WalletModePage extends StatelessWidget {
               ),
             ),
             Spacer(),
+            DocButton(page: initModePage,color: Colors.white,),
+            SizedBox(
+              height: 10,
+            ),
             CommonText(
               Global.version,
               color: Colors.white,

@@ -9,16 +9,17 @@ class FilecoinAccount {
 
 class FilecoinMethod {
   static String get transfer => 'transfer';
-  static String get send => 'send';
+  static String get send => 'Send';
   static String get exec => 'Exec';
   static String get withdraw => 'WithdrawBalance';
   static String get createMiner => 'CreateMiner';
   static String get changeWorker => 'ChangeWorkerAddress';
   static String get changeOwner => 'ChangeOwnerAddress';
+  static String get approve => 'Approve';
+  static String get propose => 'Propose';
   static String get confirmUpdateWorkerKey => 'ConfirmUpdateWorkerKey';
   static List<String> get validMethods => [
-        'transfer',
-        'send',
+        'Send',
         'Exec',
         'WithdrawBalance',
         'CreateMiner',
@@ -26,8 +27,38 @@ class FilecoinMethod {
         'ChangeWorkerAddress',
         'ChangeOwnerAddress'
       ];
-      static List<String> get idAddressMethods => [
+  static List<String> get idAddressMethods => [
         'Exec',
         'CreateMiner',
       ];
+  static String getMethodNameByMessage(TMessage message) {
+    var to = message.to;
+    switch (message.method) {
+      case 0:
+        return send;
+      case 2:
+        return to == FilecoinAccount.f01 ? exec : propose;
+      case 3:
+        return changeOwner;
+      case 16:
+        return withdraw;
+      case 21:
+        return confirmUpdateWorkerKey;
+      case 23:
+        return changeWorker;
+      default:
+        return send;
+    }
+  }
+}
+
+class FilecoinAddressType {
+  static String account = 'account';
+  static String miner = 'storage_miner';
+  static String multisig = 'multisig';
+}
+
+class MultiMessageStatus {
+  static String applied = 'applied';
+  static String pending = 'pending';
 }

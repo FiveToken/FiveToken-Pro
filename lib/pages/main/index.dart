@@ -35,7 +35,7 @@ class MainPageState extends State<MainPage> {
         if (readonly) {
           return 'readonlyW'.tr;
         } else {
-          return 'hdW'.tr;
+          return 'commonAccount'.tr;
         }
       }
     }
@@ -94,11 +94,13 @@ class MainPageState extends State<MainPage> {
                   ),
                   Expanded(child: WalletSelect(
                     onTap: (Wallet wallet) {
-                      $store.setWallet(wallet);
-                      Global.store
-                          .setString('activeWalletAddress', wallet.addrWithNet);
+                      if (wallet.addr != $store.addr) {
+                        $store.setWallet(wallet);
+                        Global.store.setString(
+                            'activeWalletAddress', wallet.addrWithNet);
+                        setState(() {});
+                      }
                       Get.back();
-                      setState(() {});
                     },
                   ))
                 ],
@@ -134,12 +136,10 @@ class MainPageState extends State<MainPage> {
                                       context: context,
                                       title: 'opOption'.tr,
                                       methods: [
-                                        '0',
-                                        '2',
-                                        '3',
                                         '16',
+                                        '23',
+                                        '3',
                                         '21',
-                                        '23'
                                       ],
                                       onTap: (method) {
                                         Get.toNamed(mesMakePage, arguments: {
@@ -220,6 +220,7 @@ class DropdownFButton extends StatelessWidget {
     );
   }
 }
+
 class IconBtn extends StatelessWidget {
   final Noop onTap;
   final String path;

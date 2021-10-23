@@ -40,8 +40,9 @@ Future<Uint8List> genKek(String addr, String pass, {int size = 32}) async {
 Uint8List decodePrivate(String pk) {
   return base64Decode(pk);
 }
+
 /// Bitwise XOR
-String xor(Uint8List first, Uint8List second, {int size = 32}) {
+String xor(List<int> first, List<int> second, {int size = 32}) {
   var list = <int>[];
   for (var i = 0; i < first.length; i++) {
     var ele = first[i];
@@ -66,7 +67,7 @@ Future<bool> validatePrivateKey(
 
 /// decrypt the private key by address, password and skkek
 ///  [addr] wallet address
-///  [pass] password for encryption 
+///  [pass] password for encryption
 ///  [skKek] a string related to address, password and private key, store in database
 Future<String> getPrivateKey(
   String addr,

@@ -7,7 +7,6 @@ List<GetPage> getMultiRoutes() {
   var create = GetPage(name: multiCreatePage, page: () => MultiCreatePage());
   var detail = GetPage(name: multiDetailPage, page: () => MultiDetailPage());
   var proposal = GetPage(name: multiProposalPage, page: () => MultiProposalPage());
-  var approval = GetPage(name: multiApprovalPage, page: () => MultiApprovalPage());
   var proposalDetail =
       GetPage(name: multiProposalDetailPage, page: () => MultiProposalDetailPage());
   list
@@ -16,7 +15,6 @@ List<GetPage> getMultiRoutes() {
     ..add(create)
     ..add(detail)
     ..add(proposal)
-    ..add(approval)
     ..add(proposalDetail);
   return list;
 }

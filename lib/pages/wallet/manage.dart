@@ -89,7 +89,7 @@ class WalletManagePageState extends State<WalletManagePage> {
             SizedBox(
               height: 15,
             ),
-            TabCard(
+            TapCard(
               items: [
                 CardItem(
                   label: 'walletAddr'.tr,
@@ -103,7 +103,7 @@ class WalletManagePageState extends State<WalletManagePage> {
             SizedBox(
               height: 15,
             ),
-            TabCard(
+            TapCard(
               items: [
                 CardItem(
                   label: 'walletName'.tr,
@@ -173,7 +173,9 @@ class WalletManagePageState extends State<WalletManagePage> {
                                         wallet.label = newLabel;
                                         OpenedBox.addressInsance
                                             .put(addr, wallet);
-                                        $store.changeWalletName(newLabel);
+                                        if (wallet.addr == $store.addr) {
+                                          $store.changeWalletName(newLabel);
+                                        }
                                         setState(() {});
                                         Get.back();
                                         showCustomToast('changeNameSucc'.tr);
@@ -205,13 +207,13 @@ class WalletManagePageState extends State<WalletManagePage> {
                     SizedBox(
                       height: 15,
                     ),
-                    TabCard(
+                    TapCard(
                       items: items,
                     ),
                     SizedBox(
                       height: 15,
                     ),
-                    TabCard(
+                    TapCard(
                       items: [
                         CardItem(
                           label: 'changePass'.tr,

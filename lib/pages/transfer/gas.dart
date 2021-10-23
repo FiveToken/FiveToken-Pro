@@ -221,10 +221,11 @@ class FilGasPageState extends State<FilGasPage> {
                   index = 1;
                   try {
                     var n = int.parse(chainGas.feeCap);
-                    var feeCap = (0.9 * n).truncate().toString();
+                    var feeCapNum=(0.9 * n).truncate();
+                    var feeCap = feeCapNum.toString();
                     var g = Gas(
                         level: 1,
-                        premium: chainGas.premium,
+                        premium: (feeCapNum-100).toString(),
                         feeCap: feeCap,
                         gasLimit: chainGas.gasLimit);
                     $store.setGas(g);

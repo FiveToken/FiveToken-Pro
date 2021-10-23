@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:oktoast/oktoast.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import './routes/routes.dart';
+
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 class App extends StatefulWidget {
@@ -19,28 +20,11 @@ class App extends StatefulWidget {
 }
 
 class AppState extends State<App> with WidgetsBindingObserver {
-  AppState() {
-    var dio = Dio();
-    dio.options.baseUrl = ServerAddress.use;
-    dio.options.connectTimeout = 20000;
-    dio.interceptors
-        .add(InterceptorsWrapper(onRequest: (RequestOptions options) async {
-      options.validateStatus = (status) {
-        return status < 1000;
-      };
-
-      return options;
-    }, onResponse: (Response response) async {
-      return response;
-    }));
-    Global.dio = dio;
-  }
   Timer timer;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    freshList();
     initDevice();
     migrateAddress();
     timer = Timer.periodic(Duration(seconds: 5), (timer) {
@@ -54,45 +38,39 @@ class AppState extends State<App> with WidgetsBindingObserver {
     timer.cancel();
   }
 
-  void freshList() {
-    var invalidList = OpenedBox.messageInsance.values.where((mes) {
-      var invalidMethod =
-          !FilecoinMethod.validMethods.contains(mes.methodName ?? '');
-      if (mes.blockTime != null) {
-        return invalidMethod ||
-            getSecondSinceEpoch() - mes.blockTime > 3600 * 24 * 30;
-      } else {
-        return invalidMethod;
-      }
-    }).map((mes) => mes.signedCid);
-    OpenedBox.messageInsance.deleteAll(invalidList);
-  }
-
   void deletePushList() async {
+    var now = getSecondSinceEpoch();
     var wal = $store.wal;
     var source = wal.addrWithNet;
     var list = OpenedBox.pushInsance.values.where((mes) {
       if (wal.walletType != 2) {
         return mes.from == $store.wal.addrWithNet;
       } else {
-        var list = OpenedBox.monitorInsance.values
+        var list = OpenedBox.minerAddressInstance.values
             .where(
                 (addr) => addr.miner == wal.addrWithNet && addr.type == 'owner')
             .toList();
         if (list.isNotEmpty) {
-          source = list[0].cid;
+          source = list[0].address;
         }
         return mes.from == source;
       }
+    }).where((mes) {
+      var t = int.tryParse(mes.time);
+      if (t != null && now - t > 30) {
+        return true;
+      } else {
+        return false;
+      }
     });
     if (list.isNotEmpty) {
-      var nonce = await getNonce(source);
+      var nonce = await Global.provider.getNonce(source);
       if (nonce != -1) {
         var now = getSecondSinceEpoch();
         List<String> keys = [];
         list.forEach((mes) {
           var time = int.tryParse(mes.time) ?? 0;
-          if (mes.nonce < nonce || now - time > 3600 * 2) {
+          if (mes.nonce == null || now - time > 3600 * 2 || mes.nonce < nonce) {
             keys.add(mes.cid);
           }
         });
@@ -121,8 +99,6 @@ class AppState extends State<App> with WidgetsBindingObserver {
       OpenedBox.addressInsance.deleteAll(list.map((wal) => wal.addrWithNet));
     }
   }
-
-
   void initDevice() async {
     await initDeviceInfo();
     await listenNetwork();

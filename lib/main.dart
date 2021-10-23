@@ -8,15 +8,16 @@ void main() async {
   Get.put(StoreController());
   await initHive();
   var initialRoute = await initSharedPreferences();
-  runZonedGuarded<Future<void>>(() async {
-    runApp(App(initialRoute));
-  }, (Object error, StackTrace stack) {
-    addAppError(error.toString());
-    addAppError(stack.toString());
-  });
-  FlutterError.onError=(error)async{
-    addAppError(error.toString());
-  };
+  runApp(App(initialRoute));
+  // runZonedGuarded<Future<void>>(() async {
+  //   runApp(App(initialRoute));
+  // }, (Object error, StackTrace stack) {
+  //   addAppError(error.toString());
+  //   addAppError(stack.toString());
+  // });
+  // FlutterError.onError=(error)async{
+  //   addAppError(error.toString());
+  // };
   SystemUiOverlayStyle style =
       SystemUiOverlayStyle(statusBarIconBrightness: Brightness.light);
   SystemChrome.setSystemUIOverlayStyle(style);

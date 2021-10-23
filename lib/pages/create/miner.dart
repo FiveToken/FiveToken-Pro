@@ -29,12 +29,14 @@ class MinerPageState extends State<MinerPage> {
       showCustomError('errorExist'.tr);
       return;
     }
-    showCustomLoading('Loading');
-    var actor = await getAddressActor(address);
-    dismissAllToast();
-    if (actor == '') {
-      showCustomError('minerNotExist'.tr);
-    } else {
+    try {
+      showCustomLoading('Loading');
+      var type = await Global.provider.getAddressType(address);
+      dismissAllToast();
+      if (type != FilecoinAddressType.miner) {
+        showCustomError('minerNotExist'.tr);
+        return;
+      }
       Wallet activeWallet = Wallet(
           ck: '',
           address: address,
@@ -44,9 +46,12 @@ class MinerPageState extends State<MinerPage> {
           walletType: 2,
           type: address[1]);
       OpenedBox.addressInsance.put(address, activeWallet);
-      $store.setWallet(activeWallet);
       Global.store.setString('activeWalletAddress', address);
+      $store.setWallet(activeWallet);
       Get.offAllNamed(mainPage);
+    } catch (e) {
+      showCustomError('minerNotExist'.tr);
+      return;
     }
   }
 

@@ -20,6 +20,44 @@ class MesBodyPageState extends State<MesBodyPage> {
     // });
   }
 
+  void showDetail() {
+    showCustomModalBottomSheet(
+        shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
+        context: context,
+        builder: (BuildContext context) {
+          return Container(
+            height: 500,
+            child: Column(
+              children: [
+                CommonTitle(
+                  'detail'.tr,
+                  showDelete: true,
+                ),
+                Expanded(
+                    child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: 20),
+                  child: GestureDetector(
+                    child: Container(
+                      margin: EdgeInsets.all(20),
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[200]),
+                          borderRadius: CustomRadius.b6),
+                      child: CommonText(JsonEncoder.withIndent(' ')
+                          .convert(message.toJson())),
+                    ),
+                    onTap: () {
+                      copyText(jsonEncode(message.toJson()));
+                      showCustomToast('copySucc'.tr);
+                    },
+                  ),
+                ))
+              ],
+            ),
+          );
+        });
+  }
+
   @override
   Widget build(BuildContext context) {
     return CommonScaffold(
@@ -57,51 +95,9 @@ class MesBodyPageState extends State<MesBodyPage> {
                 ),
               ),
               DisplayMessage(
-                footerText: 'viewDetail'.tr,
-                message: message,
-                onTap: () {
-                  //show(context);
-                  showCustomModalBottomSheet(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: CustomRadius.top),
-                      context: context,
-                      builder: (BuildContext context) {
-                        return Container(
-                          height: 500,
-                          child: Column(
-                            children: [
-                              CommonTitle(
-                                'detail'.tr,
-                                showDelete: true,
-                              ),
-                              Expanded(
-                                  child: SingleChildScrollView(
-                                padding: EdgeInsets.only(bottom: 20),
-                                child: GestureDetector(
-                                  child: Container(
-                                    margin: EdgeInsets.all(20),
-                                    padding: EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                        border:
-                                            Border.all(color: Colors.grey[200]),
-                                        borderRadius: CustomRadius.b6),
-                                    child: CommonText(
-                                        JsonEncoder.withIndent(' ')
-                                            .convert(message.toLotusMessage())),
-                                  ),
-                                  onTap: () {
-                                    copyText(
-                                        jsonEncode(message.toLotusMessage()));
-                                    showCustomToast('copySucc'.tr);
-                                  },
-                                ),
-                              ))
-                            ],
-                          ),
-                        );
-                      });
-                },
-              ),
+                  footerText: 'viewDetail'.tr,
+                  message: message,
+                  onTap: showDetail),
             ]),
           )),
           SizedBox(

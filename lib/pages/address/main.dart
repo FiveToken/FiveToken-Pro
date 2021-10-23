@@ -9,7 +9,7 @@ class AddressBookIndexPage extends StatefulWidget {
 }
 
 class AddressBookIndexPageState extends State<AddressBookIndexPage> {
-  var box = Hive.box<Wallet>(addressBookBox);
+  var box = OpenedBox.addressBookInsance;
   List<Wallet> list = [];
   void setList() {
     setState(() {

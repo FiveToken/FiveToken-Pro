@@ -33,7 +33,7 @@ class OfflineWallet extends StatelessWidget {
           padding: EdgeInsets.symmetric(
             horizontal: 20
           ),
-        )
+        ),
       ],
     );
   }

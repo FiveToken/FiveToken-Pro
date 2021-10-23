@@ -28,18 +28,6 @@ class MesPushPageState extends State<MesPushPage> {
           signedCid: cid,
           blockTime: now);
       if ([0, 2, 3, 16, 21, 23].contains(mes.method)) {
-        var multiMes = StoreMultiMessage(
-          pending: 1,
-          from: from,
-          to: to,
-          value: '0',
-          owner: from,
-          blockTime: now,
-          msigTo: '',
-          msigValue: '0',
-          signedCid: cid,
-          type: 'proposal',
-        );
         if ([0, 16, 21, 23].contains(mes.method)) {
           var methodName = <String, String>{
             '0': FilecoinMethod.transfer,
@@ -52,25 +40,18 @@ class MesPushPageState extends State<MesPushPage> {
         }
         if (mes.method == 2) {
           if (mes.to == FilecoinAccount.f04) {
-            m.methodName =  FilecoinMethod.createMiner;
+            m.methodName = FilecoinMethod.createMiner;
           }
           if (mes.to == FilecoinAccount.f01) {
             m.methodName = FilecoinMethod.exec;
           }
-          if (OpenedBox.multiInsance.containsKey(mes.to)) {
-            OpenedBox.multiMesInsance.put(cid, multiMes);
-          } else {
+          if (!OpenedBox.multiInsance.containsKey(mes.to)) {
             OpenedBox.messageInsance.put(cid, m);
           }
         }
-        if (mes.method == 3) {
-          multiMes.type = 'approval';
-          if (OpenedBox.multiInsance.containsKey(mes.to)) {
-            OpenedBox.multiMesInsance.put(cid, multiMes);
-          } else {
-            m.methodName = FilecoinMethod.changeWorker;
-            OpenedBox.messageInsance.put(cid, m);
-          }
+        if (mes.method == 3 && !OpenedBox.multiInsance.containsKey(mes.to)) {
+          m.methodName = FilecoinMethod.changeWorker;
+          OpenedBox.messageInsance.put(cid, m);
         }
       }
     }
@@ -80,22 +61,22 @@ class MesPushPageState extends State<MesPushPage> {
     if (message == null) {
       return;
     }
-    if (checkGas && gas != null && gas.feeCap != '0') {
-      try {
-        /// compare gas fee
-        /// if fee used in message was too small, display a dialog
-        var mes = message.message;
-        var nowMaxFee = double.parse(gas.feeCap) * gas.gasLimit;
-        var maxFee = double.parse(mes.gasFeeCap) * mes.gasLimit;
-        if (nowMaxFee > 1.2 * maxFee) {
-          showGasDialog();
-          return;
-        }
-      } catch (e) {}
-    }
+    // if (checkGas && gas != null && gas.feeCap != '0') {
+    //   try {
+    //     /// compare gas fee
+    //     /// if fee used in message was too small, display a dialog
+    //     var mes = message.message;
+    //     var nowMaxFee = double.parse(gas.feeCap) * gas.gasLimit;
+    //     var maxFee = double.parse(mes.gasFeeCap) * mes.gasLimit;
+    //     if (nowMaxFee > 1.2 * maxFee) {
+    //       showGasDialog();
+    //       return;
+    //     }
+    //   } catch (e) {}
+    // }
     try {
-      var res = await pushSignedMsg(message.toLotusSignedMessage());
-      if (res != '') {
+      await Global.provider.sendSignedMessage(message.toLotusSignedMessage(),
+          callback: (res) {
         var now = DateTime.now().millisecondsSinceEpoch;
         var mes = message.message;
         checkToStoreMessage(mes, res);
@@ -115,9 +96,10 @@ class MesPushPageState extends State<MesPushPage> {
         }
         Navigator.of(context)
             .popUntil((route) => route.settings.name == backPage);
-      }
+      });
     } catch (e) {
       print(e);
+      showCustomError(getErrorMessage(e.toString()));
     }
   }
 
@@ -129,7 +111,7 @@ class MesPushPageState extends State<MesPushPage> {
           var result = jsonDecode(scanResult);
           SignedMessage message = SignedMessage.fromJson(result);
           if (message.message.valid) {
-            getGas(message.message);
+            // getGas(message.message);
             setState(() {
               this.message = message;
               this.showDisplay = true;
@@ -143,10 +125,20 @@ class MesPushPageState extends State<MesPushPage> {
   }
 
   Future getGas(TMessage mes) async {
-    var res = await getGasDetail(to: mes.to, method: mes.method);
-    if (res.feeCap != '0') {
-      this.gas = res;
+    try {
+      var gas = await Global.provider.getGasDetail(
+          to: mes.to, methodName: FilecoinMethod.getMethodNameByMessage(mes));
+      this.gas = gas;
+    } catch (e) {
+      print(e);
     }
+  }
+
+  void showDetail(SignedMessage message) {
+    setState(() {
+      this.message = message;
+      this.showDisplay = true;
+    });
   }
 
   void showGasDialog() {
@@ -215,7 +207,7 @@ class MesPushPageState extends State<MesPushPage> {
   Widget build(BuildContext context) {
     return CommonScaffold(
       title: 'third'.tr,
-      footerText: 'send'.tr,
+      footerText: 'push'.tr,
       onPressed: () {
         if (!showDisplay) {
           return;
@@ -255,16 +247,24 @@ class MesPushPageState extends State<MesPushPage> {
                                   Expanded(
                                       child: SingleChildScrollView(
                                     padding: EdgeInsets.only(bottom: 20),
-                                    child: Container(
-                                      margin: EdgeInsets.all(20),
-                                      padding: EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                          border: Border.all(
-                                              color: Colors.grey[200]),
-                                          borderRadius: CustomRadius.b6),
-                                      child: CommonText(
-                                          JsonEncoder.withIndent(' ').convert(
-                                              message.toLotusSignedMessage())),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        copyText(jsonEncode(
+                                            message.toLotusSignedMessage()));
+                                        showCustomToast('copySucc'.tr);
+                                      },
+                                      child: Container(
+                                        margin: EdgeInsets.all(20),
+                                        padding: EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                            border: Border.all(
+                                                color: Colors.grey[200]),
+                                            borderRadius: CustomRadius.b6),
+                                        child: CommonText(
+                                            JsonEncoder.withIndent(' ').convert(
+                                                message
+                                                    .toLotusSignedMessage())),
+                                      ),
                                     ),
                                   ))
                                 ],
@@ -302,7 +302,7 @@ class MesPushPageState extends State<MesPushPage> {
                             var res = jsonDecode(result);
                             SignedMessage message = SignedMessage.fromJson(res);
                             if (message.message.valid) {
-                              getGas(message.message);
+                              // getGas(message.message);
                               setState(() {
                                 this.message = message;
                                 this.showDisplay = true;
@@ -326,7 +326,16 @@ class MesPushPageState extends State<MesPushPage> {
                         ),
                       )
                     ],
-                  )
+                  ),
+            SizedBox(
+              height: 12,
+            ),
+            Visibility(
+              child: DocButton(
+                page: mesPushPage,
+              ),
+              visible: !showDisplay,
+            )
           ]),
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20)),
     );

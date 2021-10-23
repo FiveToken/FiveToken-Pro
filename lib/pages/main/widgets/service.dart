@@ -27,7 +27,7 @@ void tapSign(List<MultiSignWallet> multiList) {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TabCard(
+                      TapCard(
                         items: [
                           CardItem(
                             label: 'createMulti'.tr,
@@ -41,7 +41,7 @@ void tapSign(List<MultiSignWallet> multiList) {
                       SizedBox(
                         height: 15,
                       ),
-                      TabCard(
+                      TapCard(
                         items: [
                           CardItem(
                             label: 'importMulti'.tr,
@@ -110,7 +110,6 @@ class HdService extends StatelessWidget {
             IconBtn(
               onTap: () {
                 Get.toNamed(walletCodePage);
-                // Get.toNamed(signIndexPage);
               },
               path: 'send.png',
               color: CustomColor.primary,

@@ -2,7 +2,8 @@ import 'package:day/day.dart';
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/index.dart';
 import 'package:fil/pages/main/online.dart';
-import 'package:fil/pages/multi/widgets/multiMessageList.dart';
+import 'package:fil/pages/multi/widgets/multiMessageItem.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 /// display balance and messages of the multi-sig wallet
 class MultiMainPage extends StatefulWidget {
@@ -15,29 +16,25 @@ class MultiMainPage extends StatefulWidget {
 class MultiMainPageState extends State<MultiMainPage> with RouteAware {
   MultiSignWallet get wallet => $store.multiWal;
   var box = OpenedBox.multiInsance;
-  var mesBox = OpenedBox.multiMesInsance;
-  List<StoreMultiMessage> messageList = [];
-  // GlobalKey<MultiMessageListState> key = GlobalKey();
-  Map<String, List<StoreMultiMessage>> mesMap = {};
+  var mesBox = OpenedBox.multiProposeInstance;
+  List<CacheMultiMessage> messageList = [];
+  Map<String, List<CacheMultiMessage>> mesMap = {};
   Worker worker;
   StreamSubscription sub;
   int signerNonce;
   bool enablePullUp = false;
+  RefreshController rc;
+  int selectType = 0;
   void getBalance() async {
-    var info = await getMultiInfo(wallet.id);
-    if (info.signerMap != null) {
+    try {
+      var info = await Global.provider.getMultiInfo(wallet.id);
       if (wallet.balance != info.balance) {
         wallet.balance = info.balance;
         box.put(wallet.id, wallet);
         $store.changeMultiWalletBalance(wallet.balance);
       }
-    }
-  }
-
-  Future getSignerNonce() async {
-    var nonce = await getNonce($store.wal.addrWithNet);
-    if (nonce != -1) {
-      this.signerNonce = nonce;
+    } catch (e) {
+      print(e);
     }
   }
 
@@ -51,19 +48,12 @@ class MultiMainPageState extends State<MultiMainPage> with RouteAware {
         enablePullUp = false;
       });
       nextTick(() {
-        fireEvent();
+        rc.requestRefresh();
       });
     });
-    nextTick(() {
-      fireEvent();
-    });
     sub = Global.eventBus.on<AppStateChangeEvent>().listen((event) {
-      fireEvent();
+      rc.requestRefresh();
     });
-  }
-
-  void fireEvent() {
-    Global.eventBus.fire(ShouldRefreshEvent(refreshKey: multiMainPage));
   }
 
   @override
@@ -90,124 +80,135 @@ class MultiMainPageState extends State<MultiMainPage> with RouteAware {
 
   Future onRefresh() async {
     getBalance();
-    await getLatestMessage();
+    await getLatestMessages();
   }
 
-  Future<List<StoreMultiMessage>> getMessagesByType(
-      {String type = 'proposal', num time, String direction}) {
-    return getMessages(
-        count: 40,
-        direction: direction,
-        time: time,
-        method: type == 'proposal' ? 'Propose' : 'Approve');
-  }
+  Future getLatestMessages() async {
+    var resList = await getMessages(
+      direction: 'down',
+    );
 
-  Future getLatestMessage() async {
-    var now = getSecondSinceEpoch();
-    var future1 = () => getMessagesByType(time: now, direction: 'down');
-    var future2 =
-        () => getMessagesByType(type: 'approval', time: now, direction: 'down');
-    Future.wait([future1(), future2()]).then((resList) async {
-      var propsals = resList[0];
-      var approvals = resList[1];
-      if (propsals.isNotEmpty || approvals.isNotEmpty) {
-        var pendingList = messageList.where((mes) => mes.pending == 1);
-        if (pendingList.isNotEmpty) {
-          await getSignerNonce();
-          if (signerNonce != null) {
-            var keys = pendingList
-                .where((mes) => mes.nonce < signerNonce)
-                .map((mes) => mes.signedCid);
-            await mesBox.deleteAll(keys);
-          }
-        }
-        if (propsals.isNotEmpty) {
-          var completeKeys = messageList
-              .where((mes) => mes.pending == 0 && mes.type == 'proposal')
-              .map((mes) => mes.signedCid);
-          await mesBox.deleteAll(completeKeys);
-          await putList(propsals);
-        }
-        if (approvals.isNotEmpty) {
-          var completeKeys = messageList
-              .where((mes) => mes.pending == 0 && mes.type == 'approval')
-              .map((mes) => mes.signedCid);
-          await mesBox.deleteAll(completeKeys);
-          await putList(approvals);
-        }
-        if (mounted) {
-          var list = getWalletSortedMessages();
-          setState(() {
-            messageList = list;
-            enablePullUp = approvals.length >= 40 || propsals.length > 40;
-          });
-        }
-      }
-    });
-  }
-
-  Future putList(List<StoreMultiMessage> messages) async {
-    for (var mes in messages) {
-      var cid = mes.signedCid;
-      if (mes.exitCode != -1) {
-        await mesBox.put(cid, mes);
-      }
+    if (resList.isNotEmpty && mounted) {
+      var list = getWalletSortedMessages();
+      setState(() {
+        messageList = list;
+        enablePullUp = resList.length >= 20;
+      });
     }
-  }
-
-  num getTime(List<StoreMultiMessage> list) {
-    num time = getSecondSinceEpoch();
-    if (list.isNotEmpty) {
-      for (var i = list.length - 1; i > 0; i--) {
-        var current = list[i];
-        if (current.pending != 1 && current.blockTime != null) {
-          time = current.blockTime + 10;
-          break;
-        }
-      }
-    }
-    return time;
   }
 
   Future getMessagesBeforeLastCompletedMessage() async {
-    var proposalList =
-        messageList.where((mes) => mes.type == 'proposal').toList();
-    var approvalList =
-        messageList.where((mes) => mes.type == 'approval').toList();
-    var future1 =
-        () => getMessagesByType(time: getTime(proposalList), direction: 'up');
-    var future2 = () => getMessagesByType(
-        type: 'approval', time: getTime(approvalList), direction: 'up');
-    Future.wait([future1(), future2()]).then((resList) async {
-      var propsals = resList[0];
-      var approvals = resList[1];
-      if (propsals.isNotEmpty || approvals.isNotEmpty) {
-        await Future.wait([putList(propsals), putList(approvals)]);
+    var completeList = messageList.where((mes) => mes.mid != '').toList();
+    var mid = completeList.last.mid;
+    var lis = await getMessages(mid: mid);
+    if (mounted) {
+      if (lis.isNotEmpty) {
         setState(() {
           messageList = getWalletSortedMessages();
-          enablePullUp = propsals.length >= 40 || approvals.length >= 40;
+          enablePullUp = lis.length >= 20;
+        });
+      } else {
+        setState(() {
+          enablePullUp = false;
         });
       }
-    });
+    }
   }
 
-  Future<List<StoreMultiMessage>> getMessages(
-      {num time,
-      String direction = 'up',
-      num count = 40,
-      String method = 'Propose'}) async {
-    try {
-      var type = method == 'Propose' ? 'proposal' : 'approval';
-      var res = await getMultiMessageList(
-          address: wallet.id, time: time, count: count, method: method);
-      if (res.isNotEmpty) {
-        var messages = res.map((e) {
-          var mes = StoreMultiMessage.fromJson(e);
-          mes.pending = 0;
-          mes.type = type;
-          return mes;
+  Widget genMethodSelectItem({Noop onTap, bool active, int type = 0}) {
+    return GestureDetector(
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+            border: Border(
+                bottom: BorderSide(
+                    color: active ? CustomColor.primary : Colors.transparent,
+                    width: 2))),
+        padding: EdgeInsets.only(bottom: 8),
+        child: CommonText(
+          <String>[
+            'propose'.tr,
+            'receive'.tr,
+          ][type],
+          size: 16,
+          color: active ? CustomColor.primary : Colors.black,
+          weight: active ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      onTap: () {
+        setState(() {
+          selectType = type;
+          messageList = getWalletSortedMessages(type: type);
         });
+        getLatestMessages();
+      },
+    );
+  }
 
+  Future<List<CacheMultiMessage>> getMessages(
+      {String direction = 'up', String mid = ''}) async {
+    try {
+      var handle = selectType == 0
+          ? Global.provider.getMultiMessageList
+          : Global.provider.getMultiReceiveMessages;
+      var list = await handle(actor: wallet.id, direction: direction, mid: mid);
+      if (list.isNotEmpty) {
+        var maxNonce = 0;
+        var messages = list.map((e) {
+          var mes = CacheMultiMessage.fromJson(e);
+          mes.pending = 0;
+          mes.owner = $store.addr;
+          mes.type = selectType;
+          if (mes.nonce != null &&
+              mes.nonce > maxNonce &&
+              mes.from == $store.addr) {
+            maxNonce = mes.nonce;
+          }
+          return mes;
+        }).toList();
+
+        var pendingList = messageList.where((mes) => mes.pending == 1).toList();
+        if (pendingList.isNotEmpty) {
+          for (var k = 0; k < pendingList.length; k++) {
+            var mes = pendingList[k];
+            if (mes.nonce <= maxNonce && mes.owner == $store.addr) {
+              await mesBox.delete(mes.cid);
+            }
+          }
+        }
+        if (direction == 'down') {
+          var completeKeys = messageList
+              .where((mes) => mes.pending == 0)
+              .map((mes) => mes.cid);
+          await mesBox.deleteAll(completeKeys);
+        }
+        for (var i = 0; i < messages.length; i++) {
+          var m = messages[i];
+          var approves = OpenedBox.multiApproveInstance.values
+              .where((apr) => apr.proposeCid == m.cid)
+              .toList();
+          if (m.approves.isNotEmpty && approves.isNotEmpty) {
+            List<String> deleteKeys = [];
+            m.approves.forEach((apr) {
+              var from = apr.from;
+              var relatedApproves =
+                  approves.where((ap) => ap.from == from).toList();
+              relatedApproves.forEach((ap) async {
+                if (apr.nonce != null && ap.nonce != null) {
+                  if (apr.nonce >= ap.nonce) {
+                    deleteKeys.add(ap.cid);
+                  }
+                } else {
+                  deleteKeys.add(ap.cid);
+                }
+              });
+            });
+            if (deleteKeys.isNotEmpty) {
+              await OpenedBox.multiApproveInstance.deleteAll(deleteKeys);
+            }
+          }
+          OpenedBox.multiProposeInstance.put(m.cid, m);
+        }
         return messages.toList();
       } else {
         return [];
@@ -218,25 +219,44 @@ class MultiMainPageState extends State<MultiMainPage> with RouteAware {
     }
   }
 
-  List<StoreMultiMessage> getWalletSortedMessages() {
-    var list = <StoreMultiMessage>[];
+  List<CacheMultiMessage> getWalletSortedMessages({int type}) {
+    if (type == null) {
+      type = selectType;
+    }
+    var list = <CacheMultiMessage>[];
+    var resList = <CacheMultiMessage>[];
     var address = wallet.id;
     var robustAddress = wallet.robustAddress;
-    mesBox.values.forEach((element) {
-      //var type = isProposal ? 'proposal' : 'approval';
-      var message = element;
-      if (message.to == address || message.to == robustAddress) {
-        list.add(message);
+    list = mesBox.values
+        .where((message) =>
+            (message.to == address || message.to == robustAddress) &&
+            message.type == type)
+        .toList();
+    var pendingList = <CacheMultiMessage>[];
+    var completeList = <CacheMultiMessage>[];
+    list.forEach((mes) {
+      if (mes.pending == 0) {
+        completeList.add(mes);
+      } else {
+        pendingList.add(mes);
       }
     });
-    list.sort((a, b) {
-      if (a.blockTime != null && b.blockTime != null) {
+    pendingList.sort((a, b) {
+      if (a.nonce != null && b.nonce != null) {
         return b.blockTime.compareTo(a.blockTime);
       } else {
-        return -1;
+        return 1;
       }
     });
-    return list;
+    completeList.sort((a, b) {
+      if (a.nonce != null && b.nonce != null) {
+        return b.blockTime.compareTo(a.blockTime);
+      } else {
+        return 1;
+      }
+    });
+    resList..addAll(pendingList)..addAll(completeList);
+    return resList;
   }
 
   @override
@@ -287,14 +307,17 @@ class MultiMainPageState extends State<MultiMainPage> with RouteAware {
         enablePullUp: enablePullUp,
         refreshKey: multiMainPage,
         onLoading: getMessagesBeforeLastCompletedMessage,
-        initRefresh: false,
+        onInit: (rc) {
+          this.rc = rc;
+        },
+        initRefresh: true,
         child: CustomScrollView(
           slivers: [
             SliverPersistentHeader(
               pinned: true,
               delegate: SliverDelegate(
-                  minHeight: 270,
-                  maxHeight: 270,
+                  minHeight: 280,
+                  maxHeight: 280,
                   child: Container(
                       child: Column(
                         children: [
@@ -353,6 +376,7 @@ class MultiMainPageState extends State<MultiMainPage> with RouteAware {
                           Obx(() => CommonText(
                                 formatFil(
                                   $store.multiWal.balance,
+                                  size: 6
                                 ),
                                 size: 30,
                                 weight: FontWeight.w800,
@@ -372,6 +396,15 @@ class MultiMainPageState extends State<MultiMainPage> with RouteAware {
                             height: 18,
                           ),
                           MultiWalletService(),
+                          Spacer(),
+                          Row(
+                            children: List.generate([0, 1].length, (index) {
+                              return Expanded(
+                                  child: genMethodSelectItem(
+                                      type: index,
+                                      active: index == selectType));
+                            }).toList(),
+                          )
                         ],
                       ),
                       color: Colors.white)),
@@ -406,7 +439,10 @@ class MultiMainPageState extends State<MultiMainPage> with RouteAware {
                         Column(
                           children: List.generate(l.length, (i) {
                             var message = l[i];
-                            return MultiMessageItem(message);
+                            return MultiMessageItem(
+                              mes: message,
+                              threshold: wallet.threshold,
+                            );
                           }),
                         )
                       ],
@@ -554,7 +590,13 @@ class MultiWalletService extends StatelessWidget {
                 showMethodSelector(
                     title: 'proposalType'.tr,
                     context: context,
-                    methods: ['0', '3', '16', '21', '23'],
+                    methods: [
+                      '0',
+                      '16',
+                      '23',
+                      '3',
+                      '21',
+                    ],
                     onTap: (method) {
                       Get.toNamed(multiProposalPage,
                           arguments: {'method': method});
@@ -570,25 +612,25 @@ class MultiWalletService extends StatelessWidget {
             )
           ],
         ),
-        SizedBox(
-          width: 30,
-        ),
-        Column(
-          children: [
-            IconBtn(
-              color: Color(0xff5C8BCB),
-              onTap: () {
-                Get.toNamed(multiApprovalPage);
-              },
-              path: 'approval.png',
-            ),
-            CommonText(
-              'approve'.tr,
-              color: Color(0xffB4B5B7),
-              size: 10,
-            )
-          ],
-        ),
+        // SizedBox(
+        //   width: 30,
+        // ),
+        // Column(
+        //   children: [
+        //     IconBtn(
+        //       color: Color(0xff5C8BCB),
+        //       onTap: () {
+        //         Get.toNamed(multiApprovalPage);
+        //       },
+        //       path: 'approval.png',
+        //     ),
+        //     CommonText(
+        //       'approve'.tr,
+        //       color: Color(0xffB4B5B7),
+        //       size: 10,
+        //     )
+        //   ],
+        // ),
       ],
     );
   }

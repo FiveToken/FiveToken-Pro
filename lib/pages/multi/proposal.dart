@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
 import 'package:fil/widgets/dialog.dart';
@@ -25,6 +26,7 @@ class MultiProposalPageState extends State<MultiProposalPage> {
   String ownerId;
   BigInt signerBalance;
   BigInt minerBalance = BigInt.zero;
+  String innerParams;
   bool get isChangeOwner {
     return methodId == '23';
   }
@@ -53,13 +55,56 @@ class MultiProposalPageState extends State<MultiProposalPage> {
   @override
   void initState() {
     super.initState();
-    FilecoinProvider.getNonceAndGas(to: wallet.id, method: 2);
+    Global.provider
+        .getNonceAndGas(to: wallet.id, method: 2, methodName: 'Propose');
     signerBalance = BigInt.tryParse($store.wal.balance);
-    methodId = Get.arguments['method'] as String;
-    if (methodId == '3' || methodId == '21' || methodId == '23') {
-      valueCtrl.text = '0';
+    if (Get.arguments['params'] is Map) {
+      var params = Get.arguments['params'] as Map;
+      var innerParams = Get.arguments['innerParams'];
+      var method = params['Method'].toString();
+      methodId = method;
+
+      if (methodId == '0') {
+        var v = Decimal.parse(params['Value']);
+        var n = v / Decimal.fromInt(pow(10, 18));
+        valueCtrl.text = n.toString();
+        toCtrl.text = params['To'];
+      } else {
+        toCtrl.text = params['To'];
+        if (methodId == '3') {
+          var newWorker = innerParams['NewWorker'];
+          var newCtrls = innerParams['NewControlAddrs'];
+          if (newWorker is String && newCtrls is List) {
+            worker.text = newWorker;
+            controllers = List.generate(newCtrls.length,
+                (index) => TextEditingController(text: newCtrls[index]));
+          }
+        } else if (methodId == '16') {
+          var v = Decimal.parse(innerParams['AmountRequested']);
+          var n = v / Decimal.fromInt(pow(10, 18));
+          valueCtrl.text = n.toString();
+        } else if (methodId == '23') {
+          ownerCtrl.text = innerParams;
+        }
+      }
+    } else {
+      methodId = Get.arguments['method'] as String;
+      if (methodId == '3' || methodId == '21' || methodId == '23') {
+        valueCtrl.text = '0';
+      }
+      if (methodId == '16') {
+        checkToShowMiners();
+      }
     }
   }
+
+  String get methodName => <String, String>{
+        '0': FilecoinMethod.send,
+        '3': FilecoinMethod.changeWorker,
+        '16': FilecoinMethod.withdraw,
+        '21': FilecoinMethod.confirmUpdateWorkerKey,
+        '23': FilecoinMethod.changeOwner,
+      }[methodId];
 
   /// serialize params
   Future<String> getParamsByMethod(String to, String value) async {
@@ -76,9 +121,15 @@ class MultiProposalPageState extends State<MultiProposalPage> {
               "new_control_addrs":
                   controllers.map((ctrl) => ctrl.text.trim()).toList()
             }));
+        this.innerParams = jsonEncode({
+          'NewWorker': worker.text,
+          'NewControlAddrs':
+              controllers.map((ctrl) => ctrl.text.trim()).toList()
+        });
         break;
       case '16':
         params = await Flotus.genProposalForWithdrawBalanceV3(to, value);
+        innerParams = jsonEncode({"AmountRequested": value});
         break;
       case '21':
         params = await Flotus.genConfirmUpdateWorkerKey(to);
@@ -86,6 +137,7 @@ class MultiProposalPageState extends State<MultiProposalPage> {
       case '23':
         params =
             await Flotus.genProposalForChangeOwnerV3(this.ownerId, to, value);
+        this.innerParams = this.ownerId;
         break;
       default:
     }
@@ -111,8 +163,8 @@ class MultiProposalPageState extends State<MultiProposalPage> {
     }
     if (!$store.canPush) {
       showCustomLoading('Loading');
-      var valid =
-          await FilecoinProvider.getNonceAndGas(to: wallet.id, method: 2);
+      var valid = await Global.provider
+          .getNonceAndGas(to: wallet.id, method: 2, methodName: 'Propose');
       dismissAllToast();
       if (!valid) {
         showCustomError('errorSetGas'.tr);
@@ -149,13 +201,13 @@ class MultiProposalPageState extends State<MultiProposalPage> {
       }
       if (newOwner[1] != '0') {
         showCustomLoading('Loading');
-        var ownerId = await getAddressActor(newOwner);
-        dismissAllToast();
-        if (ownerId == '') {
+        try {
+          var ownerId = await Global.provider.getActorId(newOwner);
+          dismissAllToast();
+          this.ownerId = ownerId;
+        } catch (e) {
           showCustomError('searchOwnerFail'.tr);
           return;
-        } else {
-          this.ownerId = ownerId;
         }
       } else {
         this.ownerId = newOwner;
@@ -170,9 +222,10 @@ class MultiProposalPageState extends State<MultiProposalPage> {
       }
       if (newWorker[1] != '0') {
         showCustomLoading('Loading');
-        var actor = await getAddressActor(newWorker);
-        dismissAllToast();
-        if (actor == '') {
+        try {
+          await Global.provider.getActorId(newWorker);
+          dismissAllToast();
+        } catch (e) {
           showCustomError('notActiveWorker'.tr);
           return;
         }
@@ -190,11 +243,12 @@ class MultiProposalPageState extends State<MultiProposalPage> {
       $store.setPushBackPage(multiMainPage);
       Get.toNamed(mesBodyPage, arguments: {'mes': msg});
     } else {
-      FilecoinProvider.checkSpeedUpOrMakeNew(
+      Global.provider.checkSpeedUpOrMakeNew(
           context: context,
-          onNew: () {
+          nonce: $store.nonce,
+          onNew: (increaseNonce) {
             showPassDialog(context, (String pass) {
-              pushMessage(pass);
+              pushMessage(pass, increaseNonce: increaseNonce);
             });
           },
           onSpeedup: () {
@@ -202,10 +256,15 @@ class MultiProposalPageState extends State<MultiProposalPage> {
               var wal = $store.wal;
               var private =
                   await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
-              var res = await FilecoinProvider.speedup(
-                  private: private, gas: $store.chainGas);
-              if (res != '') {
+              try {
+                await Global.provider.speedup(
+                    private: private,
+                    gas: $store.chainGas,
+                    multiId: wallet.id,
+                    methodName: FilecoinMethod.propose);
                 Get.back();
+              } catch (e) {
+                print(e);
               }
             });
           });
@@ -213,10 +272,11 @@ class MultiProposalPageState extends State<MultiProposalPage> {
   }
 
   Future getMinerBalance(String addr) async {
-    var meta = await getMinerInfo(addr);
-    if (meta.balance != '0') {
-      var balance = BigInt.tryParse(fil2Atto(meta.available));
-      minerBalance = balance ?? BigInt.zero;
+    try {
+      var res = await Global.provider.getBalance(addr);
+      minerBalance = BigInt.tryParse(res) ?? BigInt.zero;
+    } catch (e) {
+      print(e);
     }
   }
 
@@ -250,73 +310,89 @@ class MultiProposalPageState extends State<MultiProposalPage> {
     return msg;
   }
 
-  void pushMessage(String pass) async {
+  void pushMessage(String pass, {bool increaseNonce}) async {
     var msg = await genMsg();
     var wal = $store.wal;
     var private = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
-    var res = await FilecoinProvider.sendMessage(
-        message: msg,
-        private: private,
-        multiId: wallet.id,
-        multiTo: to,
-        multiValue: fil2Atto(value));
-    if (res != '') {
-      Get.back();
-    }
-  }
-
-  void speedup(String pass) async {
-    var wal = $store.wal;
-    var private = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
-    var res =
-        await FilecoinProvider.speedup(private: private, gas: $store.gas.value);
-    if (res != '') {
-      Get.back();
+    try {
+      var multiMessage = CacheMultiMessage(
+          from: msg.from,
+          to: msg.to,
+          pending: 1,
+          owner: msg.from,
+          nonce: msg.nonce,
+          method: methodName,
+          innerParams: innerParams,
+          params: jsonEncode(
+              {"To": to, "Value": fil2Atto(value), "Method": 3, "Params": ''}),
+          fee: msg.maxFee.toString());
+      await Global.provider.sendMessage(
+          message: msg,
+          private: private,
+          multiId: wallet.id,
+          multiTo: to,
+          increaseNonce: increaseNonce,
+          multiMessage: multiMessage,
+          callback: (res) {
+            multiMessage.cid = res;
+            multiMessage.blockTime = getSecondSinceEpoch();
+            OpenedBox.multiProposeInstance.put(res, multiMessage);
+            Navigator.popUntil(
+                context, (route) => route.settings.name == multiMainPage);
+          });
+    } catch (e) {
+      print(e);
+      showCustomError(getErrorMessage(e.toString()));
     }
   }
 
   /// if the select method is 16, auto display the worker of the owner
   void checkToShowMiners() async {
-    var res = await getActiveMiners(wallet.id);
-    if (res.isNotEmpty) {
-      showCustomModalBottomSheet(
-          shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
-          context: context,
-          builder: (BuildContext context) {
-            return ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: 800),
-              child: Column(
-                children: [
-                  CommonTitle('selectMiner'.tr, showDelete: true),
-                  Expanded(
-                      child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-                    child: Column(
-                      children: List.generate(res.length, (index) {
-                        return GestureDetector(
-                          onTap: () {
-                            Get.back();
-                            toCtrl.text = res[index];
-                          },
-                          child: Container(
-                            alignment: Alignment.centerLeft,
-                            padding: EdgeInsets.symmetric(
-                                vertical: 20, horizontal: 12),
-                            margin: EdgeInsets.only(bottom: 15),
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                                color: CustomColor.primary,
-                                borderRadius: CustomRadius.b6),
-                            child: CommonText.white(res[index]),
-                          ),
-                        );
-                      }),
-                    ),
-                  ))
-                ],
-              ),
-            );
-          });
+    try {
+      var res = await Global.provider.getActiveMiners(wallet.id);
+      if (res.isNotEmpty) {
+        showCustomModalBottomSheet(
+            shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
+            context: context,
+            builder: (BuildContext context) {
+              return ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: 800),
+                child: Column(
+                  children: [
+                    CommonTitle('selectMiner'.tr, showDelete: true),
+                    Expanded(
+                        child: SingleChildScrollView(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+                      child: Column(
+                        children: List.generate(res.length, (index) {
+                          return GestureDetector(
+                            onTap: () {
+                              Get.back();
+                              toCtrl.text = res[index];
+                            },
+                            child: Container(
+                              alignment: Alignment.centerLeft,
+                              padding: EdgeInsets.symmetric(
+                                  vertical: 20, horizontal: 12),
+                              margin: EdgeInsets.only(bottom: 15),
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                  color: CustomColor.primary,
+                                  borderRadius: CustomRadius.b6),
+                              child: CommonText.white(res[index]),
+                            ),
+                          );
+                        }),
+                      ),
+                    ))
+                  ],
+                ),
+              );
+            });
+      }
+    } catch (e) {
+      print(e);
     }
   }
 
@@ -414,6 +490,10 @@ class MultiProposalPageState extends State<MultiProposalPage> {
                   maxFee: $store.maxFee,
                   gas: $store.chainGas,
                 )),
+            SizedBox(height: 20),
+            DocButton(
+              page: multiProposalPage,
+            )
           ],
         ),
       ),
