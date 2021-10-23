@@ -1,0 +1,156 @@
+├─lib --------------------------------- // code documents
+│ ├─api 
+│ │ ├─third.dart ---------------------- // third party
+│ ├─app.dart -------------------------- // global APP configuration
+│ ├─chain ----------------------------- // chain-related
+│ │ ├─constant.dart ------------------- // constant of chain
+│ │ └─provider.dart ------------------- // provider of block chain
+│ ├─common ---------------------------- // common function 
+│ │ ├─back.dart ----------------------- // return to the desktop(android)
+│ │ ├─formatter.dart ------------------ // format the inputted content
+│ │ ├─global.dart --------------------- // global constants
+│ │ ├─index.dart 
+│ │ ├─navigation.dart ----------------- // route observer
+│ │ ├─private.dart -------------------- // private key encryption
+│ │ ├─time.dart ----------------------- // time formats
+│ │ ├─toast.dart ---------------------- // toast
+│ │ └─utils.dart ---------------------- // common utility functions
+│ ├─event 
+│ │ └─index.dart ---------------------- // global events definition
+│ ├─i10n 
+│ │ └─localization.dart --------------- // intl
+│ ├─index.dart 
+│ ├─init ------------------------------ // initialization
+│ │ ├─device.dart --------------------- // intialize device information
+│ │ ├─hive.dart ----------------------- // intialize database
+│ │ └─prefer.dart --------------------- // intialize route homepage
+│ ├─lang ------------------------------ // language
+│ │ ├─en.dart ------------------------- // English
+│ │ ├─index.dart 
+│ │ └─zh.dart ------------------------- // Chinese
+│ ├─main.dart ------------------------- // main
+│ ├─models 
+│ │ ├─cacheMessage.dart --------------- // cache message model
+│ │ ├─gas.dart ------------------------ // gas model
+│ │ ├─jsonrpc.dart -------------------- // jsonrpc model
+│ │ ├─message.dart -------------------- // message model
+│ │ ├─method.dart --------------------- // method model
+│ │ ├─miner.dart ---------------------- // miner model
+│ │ ├─nonce.dart ---------------------- // nonce model
+│ │ ├─private.dart -------------------- // private model
+│ │ ├─wallet.dart --------------------- // wallet model
+│ ├─pages -----------------------------
+│ │ ├─address ------------------------- // address book
+│ │ │ ├─add.dart ---------------------- // add address
+│ │ │ ├─index.dart 
+│ │ │ ├─main.dart --------------------- // list of address
+│ │ │ ├─select.dart ------------------- // select address
+│ │ │ └─wallet.dart ------------------- // select wallet address
+│ │ ├─create -------------------------- // create wallet 
+│ │ │ ├─entrance.dart ----------------- // entrance
+│ │ │ ├─importMne.dart ---------------- // import mne
+│ │ │ ├─importPrivateKey.dart --------- // import private key
+│ │ │ ├─index.dart 
+│ │ │ ├─miner.dart -------------------- // import miner
+│ │ │ ├─mne.dart ---------------------- // create mne
+│ │ │ ├─mneCheck.dart ----------------- // check mne
+│ │ │ ├─readonly.dart ----------------- // import readonly
+│ │ │ └─warn.dart --------------------- // tips
+│ │ ├─index.dart 
+│ │ ├─init ---------------------------- // initilization
+│ │ │ ├─index.dart 
+│ │ │ ├─lang.dart --------------------- // select language
+│ │ │ ├─mode.dart --------------------- // select run mode
+│ │ │ └─wallet.dart ------------------- // create or import
+│ │ ├─main 
+│ │ │ ├─drawer.dart ------------------- // drawer
+│ │ │ ├─index.dart -------------------- // home page
+│ │ │ ├─messageItem.dart -------------- // message row
+│ │ │ ├─miner.dart -------------------- // miner 
+│ │ │ ├─offline.dart ------------------ // offline wallet 
+│ │ │ ├─online.dart ------------------ // online walet
+│ │ │ └─widgets 
+│ │ │   ├─miner 
+│ │ │   │ ├─balanceMonitoring.dart ---- // balance
+│ │ │   │ └─powerBoard.dart ----------------- // power
+│ │ │   ├─price.dart ------------------ // price of fil
+│ │ │   ├─select.dart ----------------- // switch address
+│ │ │   └─service.dart ---------------- // tap button
+│ │ ├─message ------------------------- // message
+│ │ │ ├─body.dart --------------------- // unsigned message
+│ │ │ ├─deposit.dart ------------------ // deposit
+│ │ │ ├─index.dart 
+│ │ │ ├─make.dart --------------------- // build message
+│ │ │ ├─method.dart ------------------- // message method
+│ │ │ └─push.dart --------------------- // push message
+│ │ ├─multi --------------------------- // multi-sign
+│ │ │ ├─approval.dart ----------------- // approve
+│ │ │ ├─create.dart ------------------- // create
+│ │ │ ├─detail.dart ------------------- // detail of multi-sign wallet
+│ │ │ ├─import.dart ------------------- // import multi-sign wallet
+│ │ │ ├─index.dart 
+│ │ │ ├─main.dart --------------------- // multi-sign home page
+│ │ │ ├─proposal.dart ----------------- // propose 
+│ │ │ ├─proposalDetail.dart ----------- // propose detail
+│ │ │ └─widgets 
+│ │ │   └─multiMessageItem.dart 
+│ │ ├─other --------------------------- // others
+│ │ │ ├─about.dart -------------------- // about
+│ │ │ ├─discovery.dart ---------------- // discovery
+│ │ │ ├─index.dart 
+│ │ │ ├─lang.dart --------------------- // select language
+│ │ │ ├─scan.dart --------------------- // scan qrcode
+│ │ │ └─setting.dart ------------------ // setting
+│ │ ├─pass ---------------------------- // password
+│ │ │ ├─init.dart --------------------- // set up the password
+│ │ │ └─reset.dart -------------------- // change the password
+│ │ ├─sign ---------------------------- // sign
+│ │ │ ├─index.dart 
+│ │ │ ├─sign.dart --------------------- // sign message
+│ │ │ ├─signBody.dart ----------------- // unsigned message
+│ │ │ ├─signed.dart ------------------- // signed message
+│ │ │ └─unsigned.dart ----------------- // set nonce
+│ │ ├─transfer ------------------------ // transfer
+│ │ │ ├─detail.dart ------------------- // detail of message
+│ │ │ ├─gas.dart ---------------------- // set gas
+│ │ │ ├─index.dart 
+│ │ │ └─transfer.dart ----------------- // transfer
+│ │ └─wallet 
+│ │   ├─code.dart --------------------- // qrcode
+│ │   ├─index.dart 
+│ │   ├─list.dart --------------------- // list of address
+│ │   ├─manage.dart ------------------- // manage wallet
+│ │   ├─mne.dart ---------------------- // export mne
+│ │   └─private.dart ------------------ // export private key
+│ ├─routes ---------------------------- // routes
+│ │ ├─address.dart -------------------- // address book
+│ │ ├─create.dart --------------------- // create 
+│ │ ├─init.dart ----------------------- // initialization
+│ │ ├─message.dart -------------------- // message
+│ │ ├─multi.dart ---------------------- // multi-sign
+│ │ ├─other.dart ---------------------- // scan,setting 
+│ │ ├─pass.dart ----------------------- // password
+│ │ ├─path.dart ----------------------- // route path
+│ │ ├─routes.dart --------------------- // root route
+│ │ ├─sign.dart ----------------------- // sign
+│ │ ├─transfer.dart ------------------- // transfer
+│ │ └─wallet.dart --------------------- // wallet
+│ ├─store 
+│ │ └─store.dart ---------------------- // global store of app
+│ └─widgets --------------------------- // global widgets
+│   ├─bottomSheet.dart ---------------- // bottom sheet
+│   ├─button.dart ----------------------- // button of documents
+│   ├─card.dart ----------------------- // card
+│   ├─dialog.dart --------------------- // dialog
+│   ├─field.dart ---------------------- // input
+│   ├─fresh.dart ---------------------- // refresh widget
+│   ├─icon.dart ----------------------- // icon
+│   ├─index.dart 
+│   ├─layout.dart --------------------- // layout
+│   ├─pass.dart ----------------------- // password dialog
+│   ├─qr.dart ------------------------- // qrcode
+│   ├─scaffold.dart ------------------- // scaffold
+│   ├─style.dart ---------------------- // style
+│   ├─text.dart ----------------------- // text
+│   └─wallet.dart --------------------- // select wallet
+└─pubspec.yaml ------------------------ // dependencies
