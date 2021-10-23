@@ -53,9 +53,11 @@ packages:
   bls:
     dependency: "direct main"
     description:
-      path: "plugins/bls"
-      relative: true
-    source: path
+      path: "."
+      ref: HEAD
+      resolved-ref: b91b2ee1faab8f676923c81e58b62c465aeb8ad8
+      url: "https://github.com/FiveToken/bls.git"
+    source: git
     version: "0.0.1"
   boolean_selector:
     dependency: transitive
@@ -326,9 +328,11 @@ packages:
   flotus:
     dependency: "direct main"
     description:
-      path: "plugins/flotus"
-      relative: true
-    source: path
+      path: "."
+      ref: HEAD
+      resolved-ref: f74fcc0f82fa38eefebbdce747d9645d33e75911
+      url: "https://github.com/FiveToken/flotus.git"
+    source: git
     version: "0.0.1"
   flutter:
     dependency: "direct main"
