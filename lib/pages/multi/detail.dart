@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-
+/// display signers and threshold of the multi-sig wallet
 class MultiDetailPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -8,7 +8,7 @@ class MultiDetailPage extends StatefulWidget {
 }
 
 class MultiDetailPageState extends State<MultiDetailPage> {
-  MultiSignWallet wallet = singleStoreController.multiWal;
+  MultiSignWallet wallet = $store.multiWal;
   @override
   Widget build(BuildContext context) {
     var addr = wallet.addrWithNet;

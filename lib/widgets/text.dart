@@ -55,5 +55,5 @@ class CommonText extends StatelessWidget {
 
 class BoldText extends CommonText {
   BoldText(String text, {double size, Color color})
-      : super(text, weight: FontWeight.w600, size: size, color: color);
+      : super(text, weight: FontWeight.w500, size: size, color: color);
 }

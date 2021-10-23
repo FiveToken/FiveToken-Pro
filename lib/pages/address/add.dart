@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-
+/// add address to local db or edit a address that was exist
 class AddressBookAddPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -11,7 +11,7 @@ class AddressBookAddPageState extends State<AddressBookAddPage> {
   TextEditingController addrCtrl = TextEditingController();
   TextEditingController nameCtrl = TextEditingController();
   Wallet wallet;
-  var box = Hive.box<Wallet>(addressBookBox);
+  var box = OpenedBox.addressBookInsance;
   int mode = 0;
   @override
   void initState() {

@@ -1,5 +1,6 @@
 import 'package:fil/index.dart';
 
+/// push signed message to lotus node
 class MesPushPage extends StatefulWidget {
   @override
   State createState() => MesPushPageState();
@@ -10,6 +11,8 @@ class MesPushPageState extends State<MesPushPage> {
   SignedMessage message;
   bool showDisplay = false;
   Gas gas;
+
+  /// store message which method is transfer, propose, approve, withdrawbalance or exec
   void checkToStoreMessage(TMessage mes, String cid) {
     var from = mes.from;
     var to = mes.to;
@@ -24,34 +27,31 @@ class MesPushPageState extends State<MesPushPage> {
           owner: mes.from,
           signedCid: cid,
           blockTime: now);
-      if ([0, 2, 3, 16].contains(mes.method)) {
-        var multiMes = StoreMultiMessage(
-          pending: 1,
-          from: from,
-          to: to,
-          value: '0',
-          owner: from,
-          blockTime: now,
-          msigTo: '',
-          msigValue: '0',
-          signedCid: cid,
-          type: 'proposal',
-        );
-        if ([0, 16].contains(from)) {
+      if ([0, 2, 3, 16, 21, 23].contains(mes.method)) {
+        if ([0, 16, 21, 23].contains(mes.method)) {
+          var methodName = <String, String>{
+            '0': FilecoinMethod.transfer,
+            '16': FilecoinMethod.withdraw,
+            '21': FilecoinMethod.confirmUpdateWorkerKey,
+            '23': FilecoinMethod.changeOwner
+          };
+          m.methodName = methodName[mes.method.toString()];
           OpenedBox.messageInsance.put(cid, m);
         }
         if (mes.method == 2) {
-          if (OpenedBox.multiInsance.containsKey(mes.to)) {
-            OpenedBox.multiMesInsance.put(cid, multiMes);
-          } else {
+          if (mes.to == FilecoinAccount.f04) {
+            m.methodName = FilecoinMethod.createMiner;
+          }
+          if (mes.to == FilecoinAccount.f01) {
+            m.methodName = FilecoinMethod.exec;
+          }
+          if (!OpenedBox.multiInsance.containsKey(mes.to)) {
             OpenedBox.messageInsance.put(cid, m);
           }
         }
-        if (mes.method == 3) {
-          multiMes.type = 'approval';
-          if (OpenedBox.multiInsance.containsKey(mes.to)) {
-            OpenedBox.multiMesInsance.put(cid, multiMes);
-          }
+        if (mes.method == 3 && !OpenedBox.multiInsance.containsKey(mes.to)) {
+          m.methodName = FilecoinMethod.changeWorker;
+          OpenedBox.messageInsance.put(cid, m);
         }
       }
     }
@@ -61,24 +61,26 @@ class MesPushPageState extends State<MesPushPage> {
     if (message == null) {
       return;
     }
-    if (checkGas && gas != null && gas.feeCap != '0') {
-      try {
-        var mes = message.message;
-        var nowMaxFee = double.parse(gas.feeCap) * gas.gasLimit;
-        var maxFee = double.parse(mes.gasFeeCap) * mes.gasLimit;
-        if (nowMaxFee > 1.2 * maxFee) {
-          showGasDialog();
-          return;
-        }
-      } catch (e) {}
-    }
+    // if (checkGas && gas != null && gas.feeCap != '0') {
+    //   try {
+    //     /// compare gas fee
+    //     /// if fee used in message was too small, display a dialog
+    //     var mes = message.message;
+    //     var nowMaxFee = double.parse(gas.feeCap) * gas.gasLimit;
+    //     var maxFee = double.parse(mes.gasFeeCap) * mes.gasLimit;
+    //     if (nowMaxFee > 1.2 * maxFee) {
+    //       showGasDialog();
+    //       return;
+    //     }
+    //   } catch (e) {}
+    // }
     try {
-      var res = await pushSignedMsg(message.toLotusSignedMessage());
-      if (res != '') {
+      await Global.provider.sendSignedMessage(message.toLotusSignedMessage(),
+          callback: (res) {
         var now = DateTime.now().millisecondsSinceEpoch;
         var mes = message.message;
         checkToStoreMessage(mes, res);
-        Hive.box<StoreSignedMessage>(pushMessageBox).put(
+        OpenedBox.pushInsance.put(
             res,
             StoreSignedMessage(
                 time: now.toString(),
@@ -87,16 +89,17 @@ class MesPushPageState extends State<MesPushPage> {
                 pending: 1,
                 nonce: message.message.nonce));
         showCustomToast('pushSuccess'.tr);
-        var page = singleStoreController.pushBackPage;
+        var page = $store.pushBackPage;
         var backPage = mainPage;
         if (page != '') {
           backPage = page;
         }
         Navigator.of(context)
             .popUntil((route) => route.settings.name == backPage);
-      }
+      });
     } catch (e) {
       print(e);
+      showCustomError(getErrorMessage(e.toString()));
     }
   }
 
@@ -108,7 +111,7 @@ class MesPushPageState extends State<MesPushPage> {
           var result = jsonDecode(scanResult);
           SignedMessage message = SignedMessage.fromJson(result);
           if (message.message.valid) {
-            getGas(message.message);
+            // getGas(message.message);
             setState(() {
               this.message = message;
               this.showDisplay = true;
@@ -122,10 +125,20 @@ class MesPushPageState extends State<MesPushPage> {
   }
 
   Future getGas(TMessage mes) async {
-    var res = await getGasDetail(to: mes.to, method: mes.method);
-    if (res.feeCap != '0') {
-      this.gas = res;
+    try {
+      var gas = await Global.provider.getGasDetail(
+          to: mes.to, methodName: FilecoinMethod.getMethodNameByMessage(mes));
+      this.gas = gas;
+    } catch (e) {
+      print(e);
     }
+  }
+
+  void showDetail(SignedMessage message) {
+    setState(() {
+      this.message = message;
+      this.showDisplay = true;
+    });
   }
 
   void showGasDialog() {
@@ -194,7 +207,7 @@ class MesPushPageState extends State<MesPushPage> {
   Widget build(BuildContext context) {
     return CommonScaffold(
       title: 'third'.tr,
-      footerText: 'send'.tr,
+      footerText: 'push'.tr,
       onPressed: () {
         if (!showDisplay) {
           return;
@@ -234,16 +247,24 @@ class MesPushPageState extends State<MesPushPage> {
                                   Expanded(
                                       child: SingleChildScrollView(
                                     padding: EdgeInsets.only(bottom: 20),
-                                    child: Container(
-                                      margin: EdgeInsets.all(20),
-                                      padding: EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                          border: Border.all(
-                                              color: Colors.grey[200]),
-                                          borderRadius: CustomRadius.b6),
-                                      child: CommonText(
-                                          JsonEncoder.withIndent(' ').convert(
-                                              message.toLotusSignedMessage())),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        copyText(jsonEncode(
+                                            message.toLotusSignedMessage()));
+                                        showCustomToast('copySucc'.tr);
+                                      },
+                                      child: Container(
+                                        margin: EdgeInsets.all(20),
+                                        padding: EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                            border: Border.all(
+                                                color: Colors.grey[200]),
+                                            borderRadius: CustomRadius.b6),
+                                        child: CommonText(
+                                            JsonEncoder.withIndent(' ').convert(
+                                                message
+                                                    .toLotusSignedMessage())),
+                                      ),
                                     ),
                                   ))
                                 ],
@@ -253,17 +274,68 @@ class MesPushPageState extends State<MesPushPage> {
                     },
                     message: message.message,
                   )
-                : GestureDetector(
-                    child: CommonCard(Container(
-                      height: Get.height / 2,
-                      alignment: Alignment.center,
-                      child: CommonText(
-                        'clickCode'.tr,
-                        size: 16,
+                : Column(
+                    children: [
+                      GestureDetector(
+                        child: CommonCard(Container(
+                          height: Get.height / 2,
+                          alignment: Alignment.center,
+                          child: CommonText(
+                            'clickCode'.tr,
+                            size: 16,
+                          ),
+                        )),
+                        onTap: handleScan,
                       ),
-                    )),
-                    onTap: handleScan,
-                  )
+                      GestureDetector(
+                        onTap: () async {
+                          var data =
+                              await Clipboard.getData(Clipboard.kTextPlain);
+                          var result = data.text;
+                          var valid = result.indexOf('Message') > 0 &&
+                              result.indexOf('Signature') > 0;
+                          if (!valid) {
+                            showCustomError('copyErrorMes'.tr);
+                            return;
+                          }
+                          try {
+                            var res = jsonDecode(result);
+                            SignedMessage message = SignedMessage.fromJson(res);
+                            if (message.message.valid) {
+                              // getGas(message.message);
+                              setState(() {
+                                this.message = message;
+                                this.showDisplay = true;
+                              });
+                            }
+                          } catch (e) {
+                            print(e);
+                          }
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Text(
+                            'copyMes'.tr,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: CustomColor.grey,
+                              fontSize: 14,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      )
+                    ],
+                  ),
+            SizedBox(
+              height: 12,
+            ),
+            Visibility(
+              child: DocButton(
+                page: mesPushPage,
+              ),
+              visible: !showDisplay,
+            )
           ]),
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20)),
     );

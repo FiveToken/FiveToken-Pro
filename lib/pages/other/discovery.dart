@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-
+/// make or push message
 class DiscoveryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -10,7 +10,7 @@ class DiscoveryPage extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
         child: Column(
           children: [
-            TabCard(
+            TapCard(
               items: [CardItem(label: 'mesMake'.tr,onTap: (){
                 Get.toNamed(mesMakePage);
               },)],
@@ -18,7 +18,7 @@ class DiscoveryPage extends StatelessWidget {
             SizedBox(
               height: 15,
             ),
-            TabCard(
+            TapCard(
               items: [CardItem(label: 'mesPush'.tr,onTap: (){
                 Get.toNamed(mesPushPage);
               },)],

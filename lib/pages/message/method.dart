@@ -1,21 +1,22 @@
 import 'package:fil/index.dart';
 
+/// select a method
 class MethodMap {
-  static Map<String, String> _methodMap = {
-    '0': 'transfer'.tr,
-    '2': 'createMiner'.tr,
-    '3': 'changeWorker'.tr,
-    '16': 'withdraw'.tr,
-    '21': 'ConfirmUpdateWorkerKey',
-    '23': 'changeOwner'.tr
-  };
-  static String getMethodDes(String method, {String to}) {
-    var des = MethodMap._methodMap[method];
+  static Map<String, String> get _methodMap => {
+        '0': 'transfer'.tr,
+        '2': 'createMiner'.tr,
+        '3': 'changeWorker'.tr,
+        '16': 'withdraw'.tr,
+        '21': 'confirmUpdateWorkerKey'.tr,
+        '23': 'changeOwner'.tr
+      };
+  String getMethodDes(String method, {String to}) {
+    var des = _methodMap[method];
     if (to != null) {
       if (method == '2') {
-        if (to == Global.netPrefix + '01') {
-          des = 'Exec';
-        } else if (to == Global.netPrefix + '04') {
+        if (to == FilecoinAccount.f01) {
+          des = FilecoinMethod.exec;
+        } else if (to == FilecoinAccount.f04) {
           des = 'createMiner'.tr;
         } else {
           des = 'propose'.tr;
@@ -30,7 +31,11 @@ class MethodMap {
       }
     }
 
-    return "${'method'.tr}$method${des != null ? ':$des' : ''}";
+    return "${'method'.tr} $method${des != null ? ':$des' : ''}";
+  }
+
+  static String getMethodNameByNum(String method) {
+    return _methodMap.containsKey(method) ? _methodMap[method] : method;
   }
 }
 
@@ -54,7 +59,14 @@ class MethodSelectPageState extends State<MethodSelectPage> {
   }
 
   List<String> get _methods {
-    return ['0', '2', '3', '16', '21', '23'];
+    return [
+      '0',
+      '16',
+      '23',
+      '3',
+      '21',
+      '2',
+    ];
   }
 
   @override
@@ -85,9 +97,8 @@ class MethodSelectPageState extends State<MethodSelectPage> {
 
   @override
   Widget build(BuildContext context) {
-    var filterList = _methods
-        .where((m) => hideMethods ? m != '2' && m != '21' : true)
-        .toList();
+    var filterList =
+        _methods.where((m) => hideMethods ? m != '2' : true).toList();
     return CommonScaffold(
       title: 'advanced'.tr,
       footerText: 'sure'.tr,
@@ -97,7 +108,7 @@ class MethodSelectPageState extends State<MethodSelectPage> {
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(12, 20, 12, 100),
         child: Layout.colStart([
-          CommonText.main('op'.tr),
+          CommonText.main('opOption'.tr),
           SizedBox(
             height: 13,
           ),
@@ -173,10 +184,12 @@ class MethodSelectItem extends StatelessWidget {
   final bool active;
   final Noop onTap;
   final bool custom;
+  final bool hasIcon;
   MethodSelectItem(
       {@required this.method,
       @required this.active,
       @required this.onTap,
+      this.hasIcon = true,
       this.custom = false});
   bool get caculateActive {
     return !custom && active;
@@ -194,20 +207,70 @@ class MethodSelectItem extends StatelessWidget {
             color: caculateActive ? CustomColor.primary : Colors.white),
         child: Row(
           children: [
-            Icon(
-              Icons.check_circle_outline,
-              color: caculateActive ? Colors.white : Colors.transparent,
-            ),
-            SizedBox(
-              width: 10,
+            Visibility(
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    color: caculateActive ? Colors.white : Colors.transparent,
+                  ),
+                  SizedBox(
+                    width: 10,
+                  ),
+                ],
+              ),
+              visible: hasIcon,
             ),
             CommonText(
-              MethodMap.getMethodDes(method),
+              MethodMap.getMethodNameByNum(method),
               color: caculateActive ? Colors.white : Colors.black,
-            )
+            ),
+            Spacer(),
+            CommonText(
+              'ID: $method',
+              color: caculateActive ? Colors.white : Colors.black,
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+void showMethodSelector(
+    {@required BuildContext context,
+    @required List<String> methods,
+    @required SingleParamCallback<String> onTap,
+    @required String title}) {
+  showCustomModalBottomSheet(
+      shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
+      context: context,
+      builder: (BuildContext context) {
+        return SingleChildScrollView(
+          padding: EdgeInsets.only(bottom: 30),
+          child: Column(
+            children: [
+              CommonTitle(
+                title,
+                showDelete: true,
+              ),
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+                child: Column(
+                  children: methods
+                      .map((method) => MethodSelectItem(
+                          method: method,
+                          hasIcon: false,
+                          active: false,
+                          onTap: () {
+                            Get.back();
+                            onTap(method);
+                          }))
+                      .toList(),
+                ),
+              )
+            ],
+          ),
+        );
+      });
 }

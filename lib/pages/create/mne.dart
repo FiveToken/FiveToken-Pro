@@ -1,9 +1,9 @@
-import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:fil/pages/create/warn.dart';
 import 'package:fil/widgets/dialog.dart';
 
+/// generate mne
 class MneCreatePage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -22,7 +22,10 @@ class MneCreatePageState extends State<MneCreatePage> {
           context,
           Column(
             children: [
-              CommonTitle('cut'.tr,showDelete: true,),
+              CommonTitle(
+                'cut'.tr,
+                showDelete: true,
+              ),
               Container(
                 child: Text(
                   'shareCut'.tr,
@@ -83,16 +86,10 @@ class MneCreatePageState extends State<MneCreatePage> {
                     size: 14,
                     weight: FontWeight.w500,
                   ),
-                  GestureDetector(
-                    child: CommonText(
-                      'writeMne'.tr,
-                      size: 14,
-                      color: Color(0xffB4B5B7),
-                    ),
-                    onTap: () {
-                      copyText(mne);
-                      showCustomToast('copyMne'.tr);
-                    },
+                  CommonText(
+                    'writeMne'.tr,
+                    size: 14,
+                    color: Color(0xffB4B5B7),
                   )
                 ],
               ),

@@ -1,4 +1,5 @@
 import 'package:fil/index.dart';
+import 'package:fil/pages/other/webview.dart';
 import 'package:share/share.dart';
 
 class DrawerBody extends StatelessWidget {
@@ -6,8 +7,8 @@ class DrawerBody extends StatelessWidget {
   DrawerBody({this.onTap});
   @override
   Widget build(BuildContext context) {
-    var label = singleStoreController.wal.label;
-    var addr = singleStoreController.wal.addr;
+    var label = $store.wal.label;
+    var addr = $store.wal.addr;
     return Container(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,15 +60,16 @@ class DrawerBody extends StatelessWidget {
           DrawerItem(
             onTap: () {
               Get.back();
-              //Get.toNamed(initWalletPage);
             },
             label: 'wallet'.tr,
             iconPath: 'wal.png',
           ),
           DrawerItem(
             onTap: () {
-              openInBrowser(
-                  'https://filscan.io/tipset/address-detail?address=$addr&utm_source=filwallet_app');
+              Get.back();
+              var url =
+                  '$filscanWeb/tipset/address-detail?address=$addr&utm_source=filwallet_app';
+              goWebviewPage(title: 'detail'.tr, url: url);
             },
             label: 'filscan'.tr,
             iconPath: 'browser.png',
@@ -99,7 +101,7 @@ class DrawerBody extends StatelessWidget {
               var url = Global.langCode == 'zh'
                   ? 'https://docs.google.com/forms/d/e/1FAIpQLSeZrn_8u6GUHlQQRZdvwRUrhCNOCiopVe1_z9alvOiyQFJW5A/viewform?usp=sf_link'
                   : 'https://docs.google.com/forms/d/e/1FAIpQLSfXRxdhK8NPcMxrHtDNpocFGZ5sFpINmcurYes-5x2c80aAdQ/viewform?usp=sf_link';
-              openInBrowser(url);
+              goWebviewPage(url: url, title: 'feedback'.tr);
             },
             label: 'feedback'.tr,
             iconPath: 'feedback.png',

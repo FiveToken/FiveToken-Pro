@@ -4,15 +4,19 @@ import 'package:get/get.dart';
 class StoreController extends GetxController {
   var wallet = Wallet().obs;
   var gas = Gas().obs;
+  var cacheGas = Gas().obs;
   var message = StoreMessage().obs;
   var scanResult = ''.obs;
   var multiWallet = MultiSignWallet(signerMap: {}, signers: []).obs;
   var unsignedMessage = TMessage().obs;
   var afterPushPage = ''.obs;
+  var n = (-1).obs;
+  Gas get chainGas => cacheGas.value;
   Wallet get wal {
     return wallet.value;
   }
 
+  String get addr => wal.addrWithNet;
   MultiSignWallet get multiWal {
     return multiWallet.value;
   }
@@ -23,6 +27,10 @@ class StoreController extends GetxController {
 
   String get maxFee {
     return getMaxFee(gas.value);
+  }
+
+  int get nonce {
+    return n.value;
   }
 
   String get pushBackPage {
@@ -44,6 +52,7 @@ class StoreController extends GetxController {
     return unsignedMessage.value;
   }
 
+  bool get canPush => nonce != -1 && gas.value.valid;
   void setWallet(Wallet wal) async {
     wallet.value = Wallet.fromJson(wal.toJson());
   }
@@ -94,6 +103,10 @@ class StoreController extends GetxController {
     gas.value = g;
   }
 
+  void setChainGas(Gas g) {
+    cacheGas.value = g;
+  }
+
   void setMessage(StoreMessage mes) {
     message.value = mes;
   }
@@ -101,6 +114,10 @@ class StoreController extends GetxController {
   void scan(String res) {
     scanResult.value = res;
   }
+
+  void setNonce(int nonce) {
+    n.value = nonce;
+  }
 }
 
-StoreController singleStoreController = Get.find();
+StoreController $store = Get.find();

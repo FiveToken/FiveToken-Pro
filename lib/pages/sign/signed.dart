@@ -1,4 +1,5 @@
 import 'package:fil/index.dart';
+/// signed message
 class SignedMessageBody extends StatelessWidget {
   final SignedMessage signedMessage;
   SignedMessageBody(this.signedMessage);
@@ -38,19 +39,32 @@ class SignedMessageBody extends StatelessWidget {
                 builder: (BuildContext context) {
                   return Container(
                     height: 500,
-                    child: Layout.colStart([
-                      CommonTitle(
-                        'detail'.tr,
-                        showDelete: true,
-                      ),
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        margin:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-                        child: CommonText(JsonEncoder.withIndent(" ")
-                            .convert(signedMessage.toLotusSignedMessage())),
-                      )
-                    ]),
+                    child: Column(
+                      children: [
+                        CommonTitle(
+                          'detail'.tr,
+                          showDelete: true,
+                        ),
+                        Expanded(
+                            child: SingleChildScrollView(
+                          child: GestureDetector(
+                            child: Container(
+                              padding: EdgeInsets.all(12),
+                              margin: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 20),
+                              child: CommonText(JsonEncoder.withIndent(" ")
+                                  .convert(
+                                      signedMessage.toLotusSignedMessage())),
+                            ),
+                            onTap: () {
+                              copyText(jsonEncode(
+                                  signedMessage.toLotusSignedMessage()));
+                              showCustomToast('copySucc'.tr);
+                            },
+                          ),
+                        ))
+                      ],
+                    ),
                   );
                 });
             //show(context);

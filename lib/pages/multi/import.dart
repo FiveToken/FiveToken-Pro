@@ -1,6 +1,7 @@
-import 'package:fil/index.dart';
-import 'package:oktoast/oktoast.dart';
 
+import 'package:fil/index.dart';
+
+/// import a multi-sig wallet of a signer
 class MultiImportPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -11,6 +12,7 @@ class MultiImportPage extends StatefulWidget {
 class MultiImportPageState extends State<MultiImportPage> {
   final TextEditingController labelCtrl = TextEditingController();
   final TextEditingController addressCtrl = TextEditingController();
+  var box=OpenedBox.multiInsance;
   void handleImport() async {
     var label = labelCtrl.text.trim();
     var addr = addressCtrl.text.trim();
@@ -26,13 +28,14 @@ class MultiImportPageState extends State<MultiImportPage> {
       showCustomError('errorAddr'.tr);
       return;
     }
+    if(box.containsKey(addr)){
+      showCustomError('errMultiExist'.tr);
+      return;
+    }
     showCustomLoading('Loading');
-    var res = await getMultiInfo(addr);
-    dismissAllToast();
-    if (res.balance == null) {
-      showCustomError('searchFailed'.tr);
-    } else {
-      var signer = singleStoreController.wal.addr;
+    try {
+      var res = await Global.provider.getMultiInfo(addr);
+      var signer = $store.addr;
       var signers = res.signerMap.keys.toList();
       if (!signers.contains(Global.netPrefix + signer.substring(1))) {
         showCustomError('notSigner'.tr);
@@ -47,13 +50,15 @@ class MultiImportPageState extends State<MultiImportPage> {
             signers: signers,
             robustAddress: res.robustAddress,
             threshold: res.approveRequired,
-            balance: atto2Fil(res.balance));
+            balance: res.balance);
         OpenedBox.multiInsance.put(addr, wallet);
         showCustomToast('importSuccess'.tr);
-        singleStoreController.setMultiWallet(wallet);
+        $store.setMultiWallet(wallet);
         Global.store.setString('activeMultiAddress', wallet.addrWithNet);
         Get.offAndToNamed(multiMainPage);
       }
+    } catch (e) {
+      showCustomError('searchFailed'.tr);
     }
   }
 
@@ -103,6 +108,12 @@ class MultiImportPageState extends State<MultiImportPage> {
               controller: labelCtrl,
               label: 'multiTag'.tr,
             ),
+            SizedBox(
+              height: 20
+            ),
+            DocButton(
+              page: multiImportPage,
+            )
           ]),
           padding: EdgeInsets.symmetric(horizontal: 20)),
     );

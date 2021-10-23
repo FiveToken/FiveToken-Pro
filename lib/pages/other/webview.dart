@@ -1,98 +1,123 @@
-import 'dart:io';
 import 'package:fil/index.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-// ignore: prefer_collection_literals
-// final Set<JavascriptChannel> jsChannels = [
-//   JavascriptChannel(
-//       name: 'Print',
-//       onMessageReceived: (JavascriptMessage message) {
-//         print(message.message);
-//       }),
-// ].toSet();
 
 class WebviewPage extends StatefulWidget {
   @override
-  State createState() => WebviewPageState();
+  State<WebviewPage> createState() {
+    return WebviewPageState();
+  }
 }
 
 class WebviewPageState extends State<WebviewPage> {
-  bool _showLoading = true;
-
-  Widget _renderLoading(BuildContext context, BoxConstraints constraints) {
-    if (!_showLoading) {
-      return Positioned(
-        child: SizedBox(),
-      );
-    }
-    return Positioned(
-      left: 0,
-      top: 0,
-      width: constraints.maxWidth,
-      height: constraints.maxHeight,
-      child: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
-  }
-
+  WebViewController controller;
+  String url = '';
+  String title = '';
+  bool loaded = false;
+  bool showWebview = false;
   @override
   void initState() {
     super.initState();
-    if (Platform.isAndroid) {
-      WebView.platform = SurfaceAndroidWebView();
+    var args = Get.arguments;
+    if (args != null) {
+      url = args['url'];
+      title = args['title'];
     }
-    Future.delayed(Duration(milliseconds: 1500)).then((_) {
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       setState(() {
-        _showLoading = false;
+        showWebview = true;
       });
+    });
+    Future.delayed(Duration(seconds: 10)).then((value) {
+      if (!loaded) {
+        setState(() {
+          loaded = true;
+        });
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    String selectedUrl = '';
-    String title = '';
-    if (Global.info[InfoKeyWebUrl] != null) {
-      selectedUrl = Global.info[InfoKeyWebUrl];
-    }
-    if (Global.info[InfoKeyWebTitle] != null) {
-      title = Global.info[InfoKeyWebTitle];
-    }
-
-    return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: PreferredSize(
-          child: AppBar(
-            backgroundColor: Color(FColorWhite),
-            elevation: NavElevation,
-            leading: IconButton(
-              onPressed: () {
-                Get.back();
-              },
-              icon: IconNavBack,
-              alignment: NavLeadingAlign,
-            ),
-            title: Text(title, style: NavTitleStyle),
-            centerTitle: true,
-          ),
-          preferredSize: Size.fromHeight(NavHeight),
-        ),
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
-              children: <Widget>[
-                Opacity(
-                  opacity: _showLoading ? 0 : 1,
-                  child: Container(
-                    child: WebView(
-                        initialUrl: selectedUrl,
-                        javascriptMode: JavascriptMode.unrestricted),
+    return CommonScaffold(
+        title: title,
+        hasLeading: false,
+        hasFooter: false,
+        barColor: Colors.white,
+        background: Colors.white,
+        actions: [
+          Center(
+            child: Container(
+              height: 30,
+              margin: EdgeInsets.only(right: 12),
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                  border: Border.all(color: CustomColor.grey),
+                  borderRadius: BorderRadius.all(Radius.circular(15))),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    child: Icon(
+                      Icons.refresh,
+                      color: Colors.black,
+                    ),
+                    onTap: () {
+                      controller.reload();
+                    },
                   ),
-                ),
-                _renderLoading(context, constraints),
-              ],
-            );
-          },
-        ));
+                  Container(
+                    width: 1,
+                    height: 18,
+                    margin: EdgeInsets.symmetric(horizontal: 4),
+                    color: CustomColor.grey,
+                  ),
+                  GestureDetector(
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.black,
+                    ),
+                    onTap: () {
+                      Get.back();
+                    },
+                  )
+                ],
+              ),
+            ),
+          )
+        ],
+        body: showWebview
+            ? Stack(
+                children: [
+                  WebView(
+                    javascriptMode: JavascriptMode.unrestricted,
+                    onWebViewCreated: (c) {
+                      controller = c;
+                    },
+                    onPageFinished: (str) {
+                      setState(() {
+                        loaded = true;
+                      });
+                    },
+                    initialUrl: url,
+                  ),
+                  !loaded
+                      ? Container(
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  CustomColor.primary),
+                            ),
+                          ),
+                        )
+                      : Container(),
+                ],
+              )
+            : Container(
+                color: Colors.white,
+              ));
   }
+}
+
+void goWebviewPage({String url, String title = ''}) {
+  Get.toNamed(webviewPage, arguments: {'title': title, 'url': url});
 }

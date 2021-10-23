@@ -1,3 +1,5 @@
+import 'package:fil/index.dart';
+
 class Gas {
   String feeCap, premium, baseFee;
   num gasLimit, gasUsed;
@@ -24,6 +26,24 @@ class Gas {
       "baseFee": this.baseFee,
       'gasUsed': this.gasUsed
     };
+  }
+
+  bool get valid => feeCap != '0';
+
+  String get maxFee {
+    try {
+      return formatFil(feeNum.toString(), size: 5);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  BigInt get feeNum {
+    try {
+      return BigInt.from(gasLimit) * BigInt.parse(feeCap);
+    } catch (e) {
+      return BigInt.zero;
+    }
   }
 
   String get attoFil {

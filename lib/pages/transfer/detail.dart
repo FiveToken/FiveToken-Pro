@@ -1,7 +1,8 @@
 import 'package:fil/index.dart';
-import 'package:fil/store/store.dart';
+import 'package:fil/pages/other/webview.dart';
 import 'package:oktoast/oktoast.dart';
 
+/// display detail of a transaction
 class FilDetailPage extends StatefulWidget {
   @override
   State createState() => FilDetailPageState();
@@ -11,7 +12,7 @@ class FilDetailPageState extends State<FilDetailPage> {
   MessageDetail msgDetail =
       MessageDetail(value: '0', methodName: '', allGasFee: '0');
   StoreMessage mes = Get.arguments;
-  StoreController controller = Get.find();
+  String amount;
   void getMessageDetailInfo() async {
     if (mes.pending == 1 || mes.exitCode == -1 || mes.exitCode == -2) {
       setState(() {
@@ -21,19 +22,35 @@ class FilDetailPageState extends State<FilDetailPage> {
             value: mes.value,
             methodName: '',
             signedCid: mes.signedCid);
+        amount = mes.value;
       });
       return;
     }
     showCustomLoading('Loading');
-    var res = await getMessageDetail(mes);
+    var res = await Global.provider.getMessageDetail(mes.signedCid);
     dismissAllToast();
     if (res.height != null) {
       setState(() {
-        msgDetail = res;
+        if (mes.multiMethod == '') {
+          msgDetail = res;
+          if (res.methodName == FilecoinMethod.withdraw && res.args is Map) {
+            amount = res.args['AmountRequested'];
+          }
+        } else {
+          msgDetail
+            ..from = mes.from
+            ..value = mes.value
+            ..methodName = FilecoinMethod.send
+            ..signedCid = mes.signedCid
+            ..height = res.height
+            ..allGasFee = res.allGasFee
+            ..to = mes.to;
+        }
       });
     }
   }
 
+  String get methodName => msgDetail.methodName;
   @override
   void initState() {
     super.initState();
@@ -41,18 +58,202 @@ class FilDetailPageState extends State<FilDetailPage> {
   }
 
   void goFilScan(MessageDetail m) {
-    openInBrowser("$filscanWeb/tipset/message-detail?cid=${m.signedCid}&utm_source=filwallet_app");
+    var url =
+        "$filscanWeb/tipset/message-detail?cid=${m.signedCid}&utm_source=filwallet_app";
+
+    goWebviewPage(url: url, title: 'detail'.tr);
+  }
+
+  Widget get withdrawWidget {
+    if (methodName == FilecoinMethod.withdraw) {
+      amount = msgDetail.args['AmountRequested'];
+      return Column(
+        children: [
+          CommonCard(Column(
+            children: [
+              MessageRow(
+                label: 'minerAddr'.tr,
+                value: msgDetail.to,
+              ),
+              MessageRow(
+                label: 'withdrawNum'.tr,
+                value: formatFil(amount, returnRaw: true),
+              )
+            ],
+          )),
+          SizedBox(
+            height: 7,
+          )
+        ],
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  Widget get changeOwnerWidget {
+    if (methodName == FilecoinMethod.changeOwner) {
+      return Column(
+        children: [
+          CommonCard(Column(
+            children: [
+              MessageRow(
+                label: 'minerAddr'.tr,
+                value: msgDetail.to,
+              ),
+              MessageRow(
+                label: 'newOwner'.tr,
+                value: msgDetail.args.toString(),
+              ),
+              // MessageRow(
+              //   label: 'oldOwner'.tr,
+              //   value: msgDetail.from.toString(),
+              // ),
+            ],
+          )),
+          SizedBox(
+            height: 7,
+          )
+        ],
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  Widget get createMinerWidget {
+    if (msgDetail.methodName == FilecoinMethod.createMiner &&
+        msgDetail.args is Map &&
+        msgDetail.returns is Map) {
+      return Column(
+        children: [
+          CommonCard(Column(
+            children: [
+              MessageRow(
+                label: 'minerAddr'.tr,
+                value: msgDetail.returns['IDAddress'],
+              ),
+              MessageRow(
+                label: 'owner'.tr,
+                value: msgDetail.args['Owner'],
+              ),
+              MessageRow(
+                label: 'worker'.tr,
+                value: msgDetail.args['Worker'],
+              ),
+            ],
+          )),
+          SizedBox(
+            height: 7,
+          )
+        ],
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  Widget get execWidget {
+    var miner = '';
+    if (methodName == FilecoinMethod.exec &&
+        msgDetail.returns is Map &&
+        msgDetail.returns['IDAddress'] != null) {
+      miner = msgDetail.returns['IDAddress'];
+      return Column(
+        children: [
+          CommonCard(MessageRow(
+            label: 'multisig'.tr,
+            value: miner,
+          )),
+          SizedBox(
+            height: 7,
+          ),
+        ],
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  Widget get amountWidget {
+    var amount = msgDetail.value;
+    if (methodName == FilecoinMethod.send) {
+      return Column(
+        children: [
+          CommonCard(MessageRow(
+            label: 'amount'.tr,
+            value: formatFil(amount, returnRaw: true),
+          )),
+          SizedBox(
+            height: 7,
+          ),
+        ],
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  Widget get changeWorkerParam {
+    var args = msgDetail.args;
+    if (methodName == FilecoinMethod.changeWorker && args is Map) {
+      var newWorker = args['NewWorker'];
+      List conaddrs =
+          args['NewControlAddrs'] is List ? args['NewControlAddrs'] : [];
+
+      return Column(
+        children: [
+          CommonCard(Column(
+            children: [
+              MessageRow(
+                label: 'minerAddr'.tr,
+                value: msgDetail.to,
+              ),
+              MessageRow(
+                label: 'worker'.tr,
+                value: newWorker.toString(),
+              ),
+              MessageRow(
+                label: 'controller'.tr,
+                append: Column(
+                  children: List.generate(conaddrs.length, (index) {
+                    var addr = conaddrs[index];
+                    return Container(
+                      child: Row(
+                        children: [
+                          Expanded(
+                              child: CommonText(
+                            addr.toString(),
+                            weight: FontWeight.w500,
+                            align: TextAlign.end,
+                          ))
+                        ],
+                      ),
+                      padding: EdgeInsets.only(bottom: 7),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          )),
+          SizedBox(
+            height: 7,
+          )
+        ],
+      );
+    } else {
+      return Container();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    print(msgDetail.args);
     return CommonScaffold(
       title: 'detail'.tr,
       hasFooter: false,
       body: SingleChildScrollView(
         physics: BouncingScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(12, 30, 12, 0),
+        padding: EdgeInsets.fromLTRB(12, 30, 12, 40),
         child: Column(
           children: [
             Container(
@@ -62,47 +263,59 @@ class FilDetailPageState extends State<FilDetailPage> {
             SizedBox(
               height: 25,
             ),
-            CommonCard(MessageRow(
-              label: 'amount'.tr,
-              value: atto2Fil(msgDetail.value) + ' FIL',
-            )),
-            SizedBox(
-              height: 7,
-            ),
+            Visibility(
+                child: Column(
+                  children: [
+                    createMinerWidget,
+                    withdrawWidget,
+                    amountWidget,
+                    changeWorkerParam,
+                    execWidget,
+                    changeOwnerWidget,
+                  ],
+                ),
+                visible: mes.pending == 0),
             Visibility(
                 visible: mes.pending != 1,
                 child: CommonCard(MessageRow(
                   label: 'fee'.tr,
-                  value:
-                      formatFil(BigInt.parse(msgDetail.allGasFee).toString(),size: 5),
+                  value: formatFil(BigInt.parse(msgDetail.allGasFee).toString(),
+                      size: 5),
                 ))),
             SizedBox(
               height: 7,
             ),
-            CommonCard(Column(
-              children: [
-                MessageRow(
-                  label: 'from'.tr,
-                  selectable: true,
-                  value: msgDetail.from,
-                ),
-                MessageRow(
-                  label: 'to'.tr,
-                  selectable: true,
-                  value: msgDetail.to,
-                )
-              ],
-            )),
+            Visibility(
+              child: CommonCard(Column(
+                children: [
+                  MessageRow(
+                    label: 'from'.tr,
+                    selectable: true,
+                    value: msgDetail.from,
+                  ),
+                  MessageRow(
+                    label: 'to'.tr,
+                    selectable: true,
+                    value: msgDetail.to,
+                  ),
+                  MessageRow(
+                    label: 'Nonce',
+                    value: mes.nonce.toString(),
+                  ),
+                ],
+              )),
+              visible: methodName != FilecoinMethod.changeOwner,
+            ),
             SizedBox(
               height: 7,
             ),
             mes.pending != 1
                 ? ChainMeta(
                     cid: msgDetail.signedCid,
-                    height: msgDetail.height.toString(),
-                    params: msgDetail.methodName == 'Exec'
-                        ? msgDetail.returns
-                        : msgDetail.args)
+                    height: msgDetail.height == null
+                        ? ''
+                        : msgDetail.height.toString(),
+                    params: null)
                 : CommonCard(MessageRow(
                     label: 'cid'.tr,
                     selectable: true,
@@ -155,6 +368,7 @@ class MessageStatusHeader extends StatelessWidget {
   }
 }
 
+/// widget to show message field
 class MessageRow extends StatelessWidget {
   final bool selectable;
   final String label;
@@ -179,19 +393,21 @@ class MessageRow extends StatelessWidget {
               width: 52,
             ),
             Expanded(
-                child: GestureDetector(
-              onTap: () {
-                if (selectable) {
-                  copyText(value);
-                  showCustomToast('copySucc'.tr);
-                }
-              },
-              child: Text(
-                value,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                textAlign: this.align ?? TextAlign.end,
-              ),
-            ))
+                child: append ??
+                    GestureDetector(
+                      onTap: () {
+                        if (selectable) {
+                          copyText(value);
+                          showCustomToast('copySucc'.tr);
+                        }
+                      },
+                      child: Text(
+                        value,
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500),
+                        textAlign: this.align ?? TextAlign.end,
+                      ),
+                    ))
           ],
         ));
   }
@@ -202,7 +418,9 @@ class ChainMeta extends StatelessWidget {
   final String height;
   final dynamic params;
   void goFilScan() {
-    openInBrowser("$filscanWeb/tipset/message-detail?cid=$cid&utm_source=filwallet_app");
+    var url =
+        "$filscanWeb/tipset/message-detail?cid=$cid&utm_source=filwallet_app";
+    goWebviewPage(url: url, title: 'detail'.tr);
   }
 
   ChainMeta({this.cid, this.height, this.params});

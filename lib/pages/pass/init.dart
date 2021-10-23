@@ -1,6 +1,7 @@
 import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
 
+/// set password of a wallet
 class PassInitPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -12,7 +13,7 @@ class PassInitPageState extends State<PassInitPage> {
   TextEditingController passCtrl = TextEditingController();
   TextEditingController passConfirmCtrl = TextEditingController();
   bool mneCreate;
-  Wallet wallet = Get.arguments['wallet'] as Wallet;
+  Wallet wallet;
   bool checkPass() {
     var pass = passCtrl.text.trim();
     var confirm = passConfirmCtrl.text.trim();
@@ -30,6 +31,7 @@ class PassInitPageState extends State<PassInitPage> {
   @override
   void initState() {
     super.initState();
+    wallet = Get.arguments['wallet'] as Wallet;
     mneCreate = Get.arguments != null && Get.arguments['create'] == true;
   }
 
@@ -52,9 +54,10 @@ class PassInitPageState extends State<PassInitPage> {
     wallet.skKek = skKek;
     wallet.digest = digest;
     wallet.ck = '';
+    print(wallet.toJson());
     Global.store.setString('activeWalletAddress', addr);
     OpenedBox.addressInsance.put(addr, wallet);
-    singleStoreController.setWallet(wallet);
+    $store.setWallet(wallet);
     Get.offAllNamed(mainPage, arguments: {'create': mneCreate});
   }
 
@@ -92,4 +95,3 @@ class PassInitPageState extends State<PassInitPage> {
     );
   }
 }
-

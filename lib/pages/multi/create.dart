@@ -2,6 +2,7 @@ import 'package:fil/common/index.dart';
 import 'package:fil/index.dart';
 import 'package:fil/widgets/dialog.dart';
 
+/// create a multi-sig wallet
 class MultiCreatePage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -21,52 +22,13 @@ class MultiCreatePageState extends State<MultiCreatePage> {
   @override
   void initState() {
     super.initState();
-    getGas();
-    getWalletNonce();
-    signerCtrl.text = singleStoreController.wal.address;
-  }
-
-  Future getGas() async {
-    var res = await getGasDetail(to: Global.netPrefix + '01', method: 2);
-    if (res.feeCap != '0') {
-      singleStoreController.setGas(res);
-      setState(() {
-        this.chainGas = res;
-      });
-    }
-  }
-
-  void getWalletNonce() async {
-    var wal = singleStoreController.wal;
-    var nonce = await getNonce(wal);
-    var address = wal.address;
-    var now = DateTime.now().millisecondsSinceEpoch;
-    if (nonce != -1) {
-      this.nonce = nonce;
-      if (!nonceBoxInstance.containsKey(address)) {
-        nonceBoxInstance.put(address, Nonce(time: now, value: nonce));
-      } else {
-        Nonce nonceInfo = nonceBoxInstance.get(address);
-        var interval = 5 * 60 * 1000;
-        if (now - nonceInfo.time > interval) {
-          nonceBoxInstance.put(address, Nonce(time: now, value: nonce));
-        }
-      }
-    }
+    signerCtrl.text = $store.wal.address;
+    Global.provider
+        .getNonceAndGas(to: FilecoinAccount.f01, method: 2, methodName: 'Exec');
   }
 
   String get from {
-    return singleStoreController.wal.addrWithNet;
-  }
-
-  int get realNonce {
-    var cahcheNonce = nonceBoxInstance.get(from);
-    var storeNonce = 0;
-    if (cahcheNonce != null) {
-      storeNonce = cahcheNonce.value;
-    }
-    var n = max(nonce, storeNonce);
-    return n;
+    return $store.wal.addrWithNet;
   }
 
   List<String> get signerAddrs {
@@ -79,7 +41,7 @@ class MultiCreatePageState extends State<MultiCreatePage> {
   }
 
   Future<TMessage> genMsg() async {
-    var controller = singleStoreController;
+    var g = $store.gas.value;
     var value = '0';
     var threshold = int.parse(thresholdCtrl.text.trim());
     var params = {
@@ -87,79 +49,54 @@ class MultiCreatePageState extends State<MultiCreatePage> {
       'threshold': threshold,
       'unlock_duration': 0
     };
-    var p = await Flotus.genConstructorParamV3(jsonEncode(params));
-    var decodeParams = jsonDecode(p);
+
+    /// serialize create params
+    var p = await Global.provider.getSerializeParams(params);
     var msg = TMessage(
         version: 0,
         method: 2,
-        nonce: realNonce,
+        nonce: $store.nonce,
         from: from,
-        to: Global.netPrefix + '01',
-        params: decodeParams['param'],
+        to: FilecoinAccount.f01,
+        params: p,
         value: value,
-        gasFeeCap: controller.gas.value.feeCap,
-        gasLimit: controller.gas.value.gasLimit,
-        gasPremium: controller.gas.value.premium);
+        gasFeeCap: g.feeCap,
+        gasLimit: g.gasLimit,
+        gasPremium: g.premium);
     return msg;
   }
 
   void pushMessage(String pass) async {
-    var controller = singleStoreController;
     var threshold = int.parse(thresholdCtrl.text.trim());
-    var msg = await genMsg();
-    String sign = '';
-    num signType;
-    var cid = await Flotus.messageCid(msg: jsonEncode(msg));
-    var wal = singleStoreController.wal;
-    var ck = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
-    if (controller.wal.type == '1') {
-      signType = SignTypeSecp;
-      sign = await Flotus.secpSign(ck: ck, msg: cid);
-    } else {
-      signType = SignTypeBls;
-      sign = await Bls.cksign(num: "$ck $cid");
+    TMessage msg;
+    try {
+      msg = await genMsg();
+    } catch (e) {
+      showCustomError('createFail'.tr);
+      return;
     }
-    var sm = SignedMessage(msg, Signature(signType, sign));
-    String res = await pushSignedMsg(sm.toLotusSignedMessage());
-    if (res != '') {
-      controller.setGas(Gas());
-      var now = getSecondSinceEpoch();
-      OpenedBox.messageInsance.put(
-          res,
-          StoreMessage(
-            pending: 1,
-            from: from,
-            to: msg.to,
-            value: msg.value,
-            owner: from,
-            nonce: msg.nonce,
-            signedCid: res,
-            blockTime: getSecondSinceEpoch()
-          ));
-      OpenedBox.multiInsance.put(
-          res,
-          MultiSignWallet(
-              cid: res,
-              blockTime: now,
-              label: labelCtrl.text.trim(),
-              threshold: threshold,
-              signers: signerAddrs));
-      OpenedBox.multiMesInsance.put(
-          res,
-          StoreMultiMessage(
-              pending: 1,
-              from: from,
-              to: Global.netPrefix + '01',
-              value: '0',
-              owner: from,
-              signedCid: res,
-              type: 'create_multisig',
-              blockTime: now));
-      var oldNonce = nonceBoxInstance.get(from);
-      nonceBoxInstance.put(
-          from, Nonce(value: realNonce + 1, time: oldNonce.time));
+    var wal = $store.wal;
+    var private = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
+    try {
+      await Global.provider.sendMessage(
+          message: msg,
+          private: private,
+          methodName: FilecoinMethod.exec,
+          callback: (res) {
+            OpenedBox.multiInsance.put(
+                res,
+                MultiSignWallet(
+                    cid: res,
+                    blockTime: getSecondSinceEpoch(),
+                    label: labelCtrl.text.trim(),
+                    threshold: threshold,
+                    signers: signerAddrs));
+            Get.offAllNamed(mainPage);
+          });
+    } catch (e) {
+      print(e);
+      showCustomError(getErrorMessage(e.toString()));
     }
-    Get.offAllNamed(mainPage);
   }
 
   void handleConfirm() async {
@@ -189,26 +126,44 @@ class MultiCreatePageState extends State<MultiCreatePage> {
         break;
       }
     }
+    var balanceNum = BigInt.tryParse($store.wal.balance);
+    var feeNum = this.chainGas.feeNum;
+    if (balanceNum <= feeNum) {
+      showCustomError('errorLowBalance'.tr);
+      return;
+    }
     if (!allAddrValid) {
       showCustomError('errorSigner'.tr);
       return;
     }
-    if (singleStoreController.gas.value.feeCap == '0') {
-      await getGas();
-      if (singleStoreController.gas.value.feeCap == '0') {
-        showCustomError("error.wrongGas");
+    if (!$store.canPush) {
+      var valid = await Global.provider.getNonceAndGas(
+          to: FilecoinAccount.f01, method: 2, methodName: 'Exec');
+      if (!valid) {
+        showCustomError('errorSetGas'.tr);
         return;
       }
     }
-    //var a = double.parse(_amountCtl.text.trim());
-    if (nonce == null || nonce == -1) {
-      showCustomError('errorGetNonce'.tr);
-      return;
-    }
-    if (singleStoreController.wal.readonly == 1) {
-      var msg = await genMsg();
-      singleStoreController.setPushBackPage(mainPage);
+
+    if ($store.wal.readonly == 1) {
+      TMessage msg;
+      try {
+        msg = await genMsg();
+      } catch (e) {
+        showCustomError('createFail'.tr);
+        return;
+      }
+      $store.setPushBackPage(mainPage);
+      var cid = await Flotus.genCid(msg: jsonEncode(msg));
       Get.toNamed(mesBodyPage, arguments: {'mes': msg});
+      OpenedBox.multiInsance.put(
+          cid,
+          MultiSignWallet(
+              cid: cid,
+              blockTime: getSecondSinceEpoch(),
+              label: labelCtrl.text.trim(),
+              threshold: int.parse(thresholdCtrl.text.trim()),
+              signers: signerAddrs));
     } else {
       showPassDialog(context, (String pass) {
         pushMessage(pass);
@@ -218,124 +173,165 @@ class MultiCreatePageState extends State<MultiCreatePage> {
 
   @override
   Widget build(BuildContext context) {
+    var keyH = MediaQuery.of(context).viewInsets.bottom;
     return CommonScaffold(
       title: 'createMulti'.tr,
       footerText: 'create'.tr,
       onPressed: () {
         handleConfirm();
       },
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: 12),
-        physics: BouncingScrollPhysics(),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(
-            height: 10,
-          ),
-          Field(
-            controller: labelCtrl,
-            inputFormatters: [LengthLimitingTextInputFormatter(20)],
-            label: 'nameMulti'.tr,
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(
-              vertical: 13,
-            ),
-            child: CommonText(
-              'addMultiMember'.tr,
-              size: 14,
-              weight: FontWeight.w500,
-            ),
-          ),
-          CommonCard(Container(
-            height: 45,
-            padding: EdgeInsets.fromLTRB(12, 0, 15, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                CommonText(dotString(str: singleStoreController.wal.address)),
-                CommonText('(${'myAddr'.tr})')
-              ],
-            ),
-          )),
-          SizedBox(
-            height: 5,
-          ),
-          Column(
-            children: List.generate(signers.length, (index) {
-              return Container(
-                child: Field(
-                    controller: signers[index],
-                    extra: Row(
-                      children: [
-                        GestureDetector(
-                            onTap: () {
-                              Get.toNamed(scanPage,
-                                      arguments: {'scene': ScanScene.Address})
-                                  .then((scanResult) {
-                                if (scanResult != '' &&
-                                    isValidAddress(scanResult)) {
-                                  signers[index].text = scanResult;
-                                }
-                              });
-                            },
-                            child: Image(
-                              width: 16,
-                              image: AssetImage('images/scan.png'),
-                            )),
-                        SizedBox(
-                          width: 10,
-                        ),
-                        GestureDetector(
-                          child: IconMinus,
-                          onTap: () {
-                            signers.removeAt(index);
-                            setState(() {});
-                          },
-                        ),
-                        SizedBox(
-                          width: 12,
-                        )
-                      ],
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(12, 20, 12, keyH + 20),
+              physics: BouncingScrollPhysics(),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: 10,
+                    ),
+                    Field(
+                      controller: labelCtrl,
+                      inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                      label: 'nameMulti'.tr,
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        vertical: 13,
+                      ),
+                      child: CommonText(
+                        'addMultiMember'.tr,
+                        size: 14,
+                        weight: FontWeight.w500,
+                      ),
+                    ),
+                    CommonCard(Container(
+                      height: 45,
+                      padding: EdgeInsets.fromLTRB(12, 0, 15, 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                              child: CommonText(
+                            $store.wal.address,
+                            size: 16,
+                          )),
+                          SizedBox(
+                            width: 15,
+                          ),
+                          CommonText('(${'myAddr'.tr})')
+                        ],
+                      ),
                     )),
-              );
-            }),
+                    SizedBox(
+                      height: 5,
+                    ),
+                    Column(
+                      children: List.generate(signers.length, (index) {
+                        return Container(
+                          child: Field(
+                              controller: signers[index],
+                              extra: Row(
+                                children: [
+                                  GestureDetector(
+                                    child: Icon(
+                                      Icons.portrait_outlined,
+                                      size: 22,
+                                      color: Color.fromRGBO(0, 0, 0, .7),
+                                    ),
+                                    onTap: () {
+                                      Get.toNamed(addressSelectPage)
+                                          .then((value) {
+                                        if (value != null) {
+                                          signers[index].text =
+                                              (value as Wallet).address;
+                                        }
+                                      });
+                                    },
+                                  ),
+                                  SizedBox(
+                                    width: 6,
+                                  ),
+                                  GestureDetector(
+                                      onTap: () {
+                                        Get.toNamed(scanPage, arguments: {
+                                          'scene': ScanScene.Address
+                                        }).then((scanResult) {
+                                          if (scanResult != '' &&
+                                              isValidAddress(scanResult)) {
+                                            signers[index].text = scanResult;
+                                          }
+                                        });
+                                      },
+                                      child: Image(
+                                        width: 16,
+                                        image: AssetImage('images/scan.png'),
+                                      )),
+                                  SizedBox(
+                                    width: 10,
+                                  ),
+                                  GestureDetector(
+                                    child: IconMinus,
+                                    onTap: () {
+                                      signers.removeAt(index);
+                                      setState(() {});
+                                    },
+                                  ),
+                                  SizedBox(
+                                    width: 12,
+                                  )
+                                ],
+                              )),
+                        );
+                      }),
+                    ),
+                    SizedBox(
+                      height: 5,
+                    ),
+                    FButton(
+                      text: 'addMember'.tr,
+                      width: double.infinity,
+                      height: 50,
+                      corner: FCorner.all(6),
+                      color: Colors.white,
+                      onPressed: () {
+                        signers.add(TextEditingController());
+                        setState(() {});
+                      },
+                      image: Icon(Icons.add),
+                    ),
+                    SizedBox(
+                      height: 13,
+                    ),
+                    Field(
+                      label: 'approvalNum'.tr,
+                      hintText: 'lessThanMember'.tr,
+                      type: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      controller: thresholdCtrl,
+                    ),
+                    SizedBox(
+                      height: 15,
+                    ),
+                    Obx(() => SetGas(
+                          maxFee: $store.maxFee,
+                          gas: $store.chainGas,
+                        )),
+                    SizedBox(
+                      height: 20,
+                    ),
+                    DocButton(
+                      page: multiCreatePage,
+                    ),
+                  ]),
+            ),
           ),
           SizedBox(
-            height: 5,
-          ),
-          FButton(
-            text: 'addMember'.tr,
-            width: double.infinity,
-            height: 50,
-            corner: FCorner.all(6),
-            color: Colors.white,
-            onPressed: () {
-              signers.add(TextEditingController());
-              setState(() {});
-            },
-            image: Icon(Icons.add),
-          ),
-          SizedBox(
-            height: 13,
-          ),
-          Field(
-            label: 'approvalNum'.tr,
-            hintText: 'lessThanMember'.tr,
-            type: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            controller: thresholdCtrl,
-          ),
-          SizedBox(
-            height: 15,
-          ),
-          Obx(() => SetGas(
-                maxFee: singleStoreController.maxFee,
-                gas: chainGas,
-              )),
-          SizedBox(
-            height: 100,
+            height: 120,
           )
-        ]),
+        ],
       ),
     );
   }

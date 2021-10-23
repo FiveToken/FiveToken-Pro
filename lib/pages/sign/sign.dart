@@ -1,6 +1,7 @@
 import 'package:fil/index.dart';
 import './unsigned.dart';
 
+/// sign message
 class SignIndexPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -13,7 +14,6 @@ class SignIndexPageState extends State<SignIndexPage> {
   SignedMessage signedMessage;
   bool showSigned = false;
   void handleScan() {
-    var signMode = Global.store.getInt('signMode');
     Get.toNamed(scanPage, arguments: {'scene': ScanScene.UnSignedMessage})
         .then((res) {
       if (res != '') {
@@ -21,14 +21,6 @@ class SignIndexPageState extends State<SignIndexPage> {
           var mes = jsonDecode(res);
           setState(() {
             var message = TMessage.fromJson(mes);
-            if (signMode == 1) {
-              var cacheGas = OpenedBox.nonceInsance.get(message.from);
-              if (cacheGas != null) {
-                var nonce = cacheGas.value;
-                var realNonce = max(nonce, message.nonce);
-                message.nonce = realNonce;
-              }
-            }
             this.message = message;
           });
         } catch (e) {
@@ -39,7 +31,7 @@ class SignIndexPageState extends State<SignIndexPage> {
   }
 
   void signMessage(String pass) async {
-    var wallet = singleStoreController.wal;
+    var wallet = $store.wal;
     var signMode = Global.store.getInt('signMode');
     if (message.from != wallet.addrWithNet) {
       showCustomError('fromNotMatch'.tr);
@@ -50,7 +42,7 @@ class SignIndexPageState extends State<SignIndexPage> {
     num signType;
     var cid =
         await Flotus.messageCid(msg: jsonEncode(message.toLotusMessage()));
-    var wal = singleStoreController.wal;
+    var wal = $store.wal;
     var ck = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
     if (message.from[1] == '1') {
       signType = SignTypeSecp;
@@ -72,13 +64,13 @@ class SignIndexPageState extends State<SignIndexPage> {
 
   @override
   Widget build(BuildContext context) {
-    var kH=MediaQuery.of(context).viewInsets.bottom;
+    var kH = MediaQuery.of(context).viewInsets.bottom;
     return CommonScaffold(
       title: 'second'.tr,
       footerText: showSigned ? 'close'.tr : 'signBtn'.tr,
       grey: true,
-      hasFooter: kH==0,
-      resizeToAvoidBottomInset: kH!=0,
+      hasFooter: kH == 0,
+      resizeToAvoidBottomInset: kH != 0,
       onPressed: () {
         if (showSigned) {
           Get.back();
@@ -92,19 +84,27 @@ class SignIndexPageState extends State<SignIndexPage> {
         }
       },
       actions: [ScanAction(handleScan: handleScan)],
-      body: SingleChildScrollView(
-        child: showSigned
-            ? SignedMessageBody(signedMessage)
-            : UnsignedMessage(
-                onTap: handleScan,
-                message: message,
-                edit: (TMessage message) {
-                  setState(() {
-                    this.message = message;
-                  });
-                },
-              ),
-        padding: EdgeInsets.fromLTRB(12, 20, 12, 120),
+      body: Column(
+        children: [
+          Expanded(
+              child: SingleChildScrollView(
+            child: showSigned
+                ? SignedMessageBody(signedMessage)
+                : UnsignedMessage(
+                    onTap: handleScan,
+                    message: message,
+                    edit: (TMessage message) {
+                      setState(() {
+                        this.message = message;
+                      });
+                    },
+                  ),
+            padding: EdgeInsets.fromLTRB(12, 20, 12, 20),
+          )),
+          SizedBox(
+            height: 120,
+          )
+        ],
       ),
     );
   }

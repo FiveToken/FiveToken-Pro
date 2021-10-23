@@ -1,9 +1,10 @@
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/online.dart';
 import 'package:fil/pages/main/widgets/miner/balanceMonitoring.dart';
+import 'package:fil/pages/main/widgets/miner/powerBoard.dart';
 import 'package:fil/pages/main/widgets/price.dart';
+import 'package:fil/pages/other/webview.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
-import 'dart:math';
 
 class RefreshEvent {}
 
@@ -15,44 +16,41 @@ class MinerAddressStats extends StatefulWidget {
 }
 
 class MinerAddressStatsState extends State<MinerAddressStats> {
-  MinerMeta info = MinerMeta();
+  MinerSelfBalance info = MinerSelfBalance();
   Worker worker;
-  StreamSubscription sub;
-  RefreshController _refreshController =
-      RefreshController(initialRefresh: false);
+  var box = OpenedBox.minerBalanceInstance;
+  List<MinerAddress> relatedList = [];
+  String get addr => $store.wal.addrWithNet;
+  RefreshController rc;
   @override
   void initState() {
     super.initState();
-
-    worker = ever(singleStoreController.wallet, (Wallet wal) async {
-      if(wal.walletType==2){
-        _refreshController.requestRefresh();
+    worker = ever($store.wallet, (Wallet wal) async {
+      if (wal.walletType == 2) {
+        if (box.containsKey(addr)) {
+          info = box.get(addr);
+          setState(() {});
+        }
+        rc.requestRefresh();
       }
     });
-    sub = Global.eventBus.on<AppStateChangeEvent>().listen((event) {
-      getStatus();
-    });
-    nextTick(() {
-      _refreshController.requestRefresh();
-    });
-  }
-
-  Future getStatus() async {
-    var res = await getMinerInfo(singleStoreController.wal.addrWithNet);
-    if (res.sectorSize != 0) {
-      setState(() {
-        this.info = res;
-      });
+    if (box.containsKey(addr)) {
+      info = box.get(addr);
     }
   }
 
-  String get marketPrice {
+  Future getStatus(String addr) async {
     try {
-      var v = double.parse(info.balance);
-      var atto = BigInt.from(v * pow(10, 18));
-      return getMarketPrice(atto.toString(), 7);
+      var balance = await Global.provider.getMinerBalanceInfo(addr);
+      OpenedBox.minerBalanceInstance.put(addr, balance);
+      if (mounted) {
+        setState(() {
+          this.info = balance;
+          // this.relatedList = res.relatedAddress;
+        });
+      }
     } catch (e) {
-      return '--';
+      print(e);
     }
   }
 
@@ -60,105 +58,94 @@ class MinerAddressStatsState extends State<MinerAddressStats> {
   void dispose() {
     super.dispose();
     worker.dispose();
-    sub.cancel();
   }
 
-  void _onRefresh() async {
+  Future _onRefresh() async {
     Global.eventBus.fire(RefreshEvent());
-    await getStatus();
-    _refreshController.refreshCompleted();
+    await getStatus(addr);
   }
 
   @override
   Widget build(BuildContext context) {
-    return SmartRefresher(
-      enablePullDown: true,
-      enablePullUp: false,
-      controller: _refreshController,
-      onRefresh: _onRefresh,
-      header: WaterDropHeader(
-        waterDropColor: CustomColor.primary,
-        complete: Text('finish'.tr),
-      ),
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(12, 0, 12, 40),
-        child: Column(
-          children: [
-            SizedBox(
-              height: 16,
-            ),
-            Obx(
-              () => CommonText(
-                singleStoreController.wal.label,
-                size: 16,
+    return CustomRefreshWidget(
+        enablePullUp: false,
+        initRefresh: true,
+        onInit: (rc) {
+          this.rc = rc;
+        },
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(12, 0, 12, 40),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 16,
               ),
-            ),
-            SizedBox(
-              height: 10,
-            ),
-            CommonText(
-              formatDouble(info.balance, size: 4, truncate: true) + 'FIL',
-              size: 30,
-              weight: FontWeight.w800,
-            ),
-            SizedBox(
-              height: 12,
-            ),
-            MarketPrice(
-              atto: false,
-              balance: info.balance,
-            ),
-            // CommonText(marketPrice),
-            SizedBox(
-              height: 18,
-            ),
-            Obx(() => CopyAddress(singleStoreController.wal.addrWithNet)),
-            SizedBox(
-              height: 18,
-            ),
-            MinerBoard(Row(
-              children: [
-                Expanded(
-                    child: minerMeta(
-                        'metaAvailable'.tr, getFilBalance(info.available))),
-                Expanded(
-                    child:
-                        minerMeta('metaPledge'.tr, getFilBalance(info.pledge))),
-                Expanded(
-                    child: minerMeta(
-                        'metaLock'.tr,
-                        getFilBalance(
-                          info.lock,
-                        ),
-                        bordered: false)),
-              ],
-            )),
-            SizedBox(
-              height: 12,
-            ),
-            PowerBoard(info),
-            SizedBox(
-              height: 12,
-            ),
-            YestodayBoard(),
-            SizedBox(
-              height: 12,
-            ),
-            BalanceMonitoring()
-          ],
+              Obx(
+                () => CommonText(
+                  $store.wal.label,
+                  size: 16,
+                ),
+              ),
+              SizedBox(
+                height: 10,
+              ),
+              CommonText(
+                formatFil(
+                  info.total,
+                  size: 4,
+                ),
+                size: 30,
+                weight: FontWeight.w800,
+              ),
+              SizedBox(
+                height: 12,
+              ),
+              MarketPrice(
+                atto: true,
+                balance: info.total,
+              ),
+              SizedBox(
+                height: 18,
+              ),
+              Obx(() => CopyAddress($store.wal.addrWithNet)),
+              SizedBox(
+                height: 18,
+              ),
+              MinerBoard(Row(
+                children: [
+                  Expanded(
+                      child: minerMeta('metaAvailable'.tr,
+                          formatFil(info.available, size: 2))),
+                  Expanded(
+                      child: minerMeta(
+                          'metaPledge'.tr, formatFil(info.pledge, size: 2))),
+                  Expanded(
+                      child: minerMeta(
+                          'metaLock'.tr, formatFil(info.locked, size: 2),
+                          bordered: false)),
+                ],
+              )),
+              SizedBox(
+                height: 12,
+              ),
+              PowerBoard(),
+              SizedBox(
+                height: 12,
+              ),
+              YesterdayBoard(),
+              SizedBox(
+                height: 12,
+              ),
+              BalanceMonitoring()
+            ],
+          ),
         ),
-      ),
-    );
+        onRefresh: _onRefresh);
   }
 }
 
 Widget minerMeta(String label, String value, {bool bordered = true}) {
   return Container(
-    // decoration: BoxDecoration(
-    //     border: Border(
-    //         right:
-    //             BorderSide(color: Colors.grey[100], width: bordered ? 0 : 0))),
-    //padding: EdgeInsets.symmetric(vertical: 15),
     child: Column(
       children: [
         CommonText(label),
@@ -196,128 +183,35 @@ class MinerBoard extends StatelessWidget {
   }
 }
 
-class PowerBoard extends StatelessWidget {
-  final MinerMeta meta;
-  PowerBoard(this.meta);
-  String get powerPercent {
-    try {
-      var v = double.parse(meta.percent);
-      return '${(100 * v).toStringAsFixed(2)}%';
-    } catch (e) {
-      return '';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MinerBoard(Column(
-      children: [
-        Row(
-          children: [
-            IconStats,
-            SizedBox(
-              width: 5,
-            ),
-            CommonText(
-              'metaQuality'.tr,
-              color: CustomColor.primary,
-              weight: FontWeight.bold,
-            )
-          ],
-        ),
-        SizedBox(
-          height: 12,
-        ),
-        Layout.rowBetween([
-          CommonText(
-            unitConversion(meta.qualityPower, 2),
-            weight: FontWeight.bold,
-          ),
-          CommonText('${'metaPercent'.tr}: $powerPercent'),
-          CommonText('${'metaRank'.tr}: ${meta.rank}'),
-        ]),
-        Divider(),
-        MinerStatusRow(
-          label: 'metaRaw'.tr,
-          value: unitConversion(meta.rawPower, 2),
-        ),
-        MinerStatusRow(
-          label: 'metaBlocks'.tr,
-          value: meta.blockCount.toString(),
-        ),
-        MinerStatusRow(
-          label: 'metaRewards'.tr,
-          value: getFilBalance(meta.rewards),
-        ),
-        MinerStatusRow(
-          label: 'metaSectorSize'.tr,
-          value: unitConversion(meta.sectorSize.toString(), 0),
-        ),
-        Container(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CommonText.main('metaSectorStatus'.tr),
-              SizedBox(
-                width: 100,
-              ),
-              Expanded(
-                  child: RichText(
-                textAlign: TextAlign.end,
-                text: TextSpan(
-                    style: DefaultTextStyle.of(context).style,
-                    children: [
-                      TextSpan(
-                          text: '${meta.allSectors} ${'allSector'.tr} ',
-                          style: TextStyle(fontSize: 13)),
-                      TextSpan(
-                          text: '${meta.liveSectors} ${'validSector'.tr} ',
-                          style: TextStyle(
-                              color: CustomColor.primary, fontSize: 13)),
-                      TextSpan(
-                          text: '${meta.faultSectors} ${'faultSector'.tr} ',
-                          style:
-                              TextStyle(color: CustomColor.red, fontSize: 13)),
-                      TextSpan(
-                          text:
-                              '${meta.preCommitSectors} ${'precommitSector'.tr}',
-                          style:
-                              TextStyle(color: Color(0xffE8CC5C), fontSize: 13))
-                    ]),
-              ))
-            ],
-          ),
-        ),
-      ],
-    ));
-  }
-}
-
-class YestodayBoard extends StatefulWidget {
+class YesterdayBoard extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
-    return YestodayBoardState();
+    return YesterdayBoardState();
   }
 }
 
-class YestodayBoardState extends State<YestodayBoard> {
+class YesterdayBoardState extends State<YesterdayBoard> {
   MinerHistoricalStats stats = MinerHistoricalStats();
-  String address = singleStoreController.wal.addrWithNet;
+  String get address => $store.wal.addrWithNet;
   Worker worker;
   StreamSubscription sub;
-  StreamSubscription sub2;
+  var box = OpenedBox.minerStatisticInstance;
   @override
   void initState() {
     super.initState();
-    getYestodayInfo();
-    worker = ever(singleStoreController.wallet, (Wallet wal) {
-      getYestodayInfo();
+    if (box.containsKey(address)) {
+      stats = box.get(address);
+    }
+    worker = ever($store.wallet, (Wallet wal) {
+      if (box.containsKey(address)) {
+        setState(() {
+          stats = box.get(address);
+        });
+      }
+      getYesterdayInfo(wal.addrWithNet);
     });
-    sub = Global.eventBus.on<AppStateChangeEvent>().listen((event) {
-      getYestodayInfo();
-    });
-    sub2 = Global.eventBus.on<RefreshEvent>().listen((event) {
-      getYestodayInfo();
+    sub = Global.eventBus.on<RefreshEvent>().listen((event) {
+      getYesterdayInfo(address);
     });
   }
 
@@ -326,14 +220,12 @@ class YestodayBoardState extends State<YestodayBoard> {
     super.dispose();
     worker.dispose();
     sub.cancel();
-    sub2.cancel();
   }
 
-  void getYestodayInfo() async {
+  void getYesterdayInfo(String addr) async {
     try {
-      var res =
-          await getMinerYestodayInfo(singleStoreController.wal.addrWithNet);
-      print(res);
+      var res = await Global.provider.getMinerYesterdayInfo(addr);
+      box.put(addr, res);
       if (mounted) {
         setState(() {
           stats = res;
@@ -386,11 +278,11 @@ class YestodayBoardState extends State<YestodayBoard> {
         ),
         MinerStatusRow(
           label: 'yesGas'.tr,
-          value: formatFil(stats.gasFee),
+          value: formatFil(stats.gasFee, returnRaw: true),
         ),
         MinerStatusRow(
           label: 'yesBlock'.tr,
-          value: formatFil(stats.total),
+          value: formatFil(stats.total, size: 2),
         ),
         MinerStatusRow(
           label: 'yesLucky'.tr,
@@ -407,7 +299,9 @@ class YestodayBoardState extends State<YestodayBoard> {
         Divider(),
         GestureDetector(
           onTap: () {
-            openInBrowser('https://filscan.io/address/miner?address=$address&utm_source=filwallet_app');
+            var url =
+                '$filscanWeb/address/miner?address=$address&utm_source=filwallet_app';
+            goWebviewPage(url: url, title: 'detail'.tr);
           },
           child: Container(
             child: CommonText('more'.tr),
@@ -415,24 +309,5 @@ class YestodayBoardState extends State<YestodayBoard> {
         )
       ],
     ));
-  }
-}
-
-class MinerStatusRow extends StatelessWidget {
-  final String label;
-  final String value;
-  MinerStatusRow({
-    this.label,
-    this.value,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 3),
-      child: Layout.rowBetween([
-        CommonText.main(label),
-        CommonText(value),
-      ]),
-    );
   }
 }

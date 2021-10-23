@@ -1,52 +1,9 @@
+
 import 'package:fil/index.dart';
 
-Future checkCreateMessages() async {
-  var box = OpenedBox.multiInsance;
-  var l = box.values.where((wal) => wal.status == 0).toList();
-  if (l.isNotEmpty) {
-    for (var i = 0; i < l.length; i++) {
-      var wal = l[i];
-      var detail = await getMessageDetail(StoreMessage(signedCid: wal.cid));
-      if (detail.height != null) {
-        var code = detail.exitCode;
-        var copy = MultiSignWallet(
-            cid: wal.cid,
-            signers: wal.signers,
-            label: wal.label,
-            blockTime: detail.blockTime,
-            threshold: wal.threshold);
-        if (code == 0 || code == null) {
-          copy.status = 1;
-          var returns = detail.returns;
-          if (returns != null && returns['IDAddress'] != null) {
-            var res = await getMultiInfo(returns['IDAddress']);
-            if (res.signerMap != null && res.signerMap.keys.isNotEmpty) {
-              box.delete(wal.cid);
-              copy.id = returns['IDAddress'];
-              copy.signerMap = res.signerMap;
-              copy.robustAddress = res.robustAddress;
-              //copy.balance=atto2Fil(value)
-              box.put(returns['IDAddress'], copy);
-            }
-          }
-        } else {
-          wal.status = -1;
-          box.put(wal.cid, wal);
-        }
-      } else {
-        var time = wal.blockTime;
-        var now = getSecondSinceEpoch();
-        if (now - time > 3600 * 2) {
-          wal.status = -1;
-          box.put(wal.cid, wal);
-        }
-      }
-    }
-  }
-}
+
 
 void tapSign(List<MultiSignWallet> multiList) {
-  // checkCreateMessages();
   var comleteList = multiList.where((wal) => wal.status == 1).toList();
   if (comleteList.isEmpty) {
     showModalBottomSheet(
@@ -70,7 +27,7 @@ void tapSign(List<MultiSignWallet> multiList) {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TabCard(
+                      TapCard(
                         items: [
                           CardItem(
                             label: 'createMulti'.tr,
@@ -84,7 +41,7 @@ void tapSign(List<MultiSignWallet> multiList) {
                       SizedBox(
                         height: 15,
                       ),
-                      TabCard(
+                      TapCard(
                         items: [
                           CardItem(
                             label: 'importMulti'.tr,
@@ -103,21 +60,31 @@ void tapSign(List<MultiSignWallet> multiList) {
           );
         });
   } else {
-    if (singleStoreController.multiWal == null ||
-        singleStoreController.multiWal.cid == '' ||
-        !(singleStoreController.multiWal.signers is List &&
-            singleStoreController.multiWal.signers
-                .contains(singleStoreController.wal.addrWithNet))) {
-      singleStoreController.setMultiWallet(comleteList[0]);
-      Global.store.setString('activeMultiAddress', comleteList[0].addrWithNet);
-    }
+    // if ($store.multiWal == null ||
+    //     $store.multiWal.id == '' ||
+    //     !($store.multiWal.signers is List &&
+    //         $store.multiWal.signers
+    //             .contains($store.wal.addrWithNet))) {
+    //   $store.setMultiWallet(comleteList[0]);
+    //   Global.store.setString('activeMultiAddress', comleteList[0].addrWithNet);
+    // }
 
-    Get.toNamed(multiMainPage);
+    // Get.toNamed(multiMainPage);
+    if (comleteList.length == 1) {
+      
+      $store.setMultiWallet(comleteList[0]);
+      Global.store.setString('activeMultiAddress', comleteList[0].addrWithNet);
+      Get.toNamed(multiMainPage);
+    } else {
+      showMultiWalletSelector(Get.context, () {
+        Get.toNamed(multiMainPage);
+      });
+    }
   }
 }
 
 List<MultiSignWallet> getList() {
-  var signer = singleStoreController.wal.addrWithNet;
+  var signer = $store.wal.addrWithNet;
   var l = OpenedBox.multiInsance.values.where((wal) {
     return wal.signers.contains(signer);
   }).toList();
@@ -143,7 +110,6 @@ class HdService extends StatelessWidget {
             IconBtn(
               onTap: () {
                 Get.toNamed(walletCodePage);
-                // Get.toNamed(signIndexPage);
               },
               path: 'send.png',
               color: CustomColor.primary,

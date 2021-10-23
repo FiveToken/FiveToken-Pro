@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-
+/// language set
 class SelectLangPage extends StatelessWidget {
   void selectLang(String lang) async {
     Locale l = Locale(lang);
@@ -25,7 +25,7 @@ class SelectLangPage extends StatelessWidget {
                     padding: EdgeInsets.fromLTRB(0, 40, 0, 12),
                   ),
                   CommonText(
-                    'FiveToken',
+                    'FiveToken Pro',
                     color: Colors.white,
                     size: 20,
                     weight: FontWeight.w800,
@@ -46,7 +46,7 @@ class SelectLangPage extends StatelessWidget {
                       size: 14,
                     ),
                   ),
-                  TabCard(
+                  TapCard(
                     items: [
                       CardItem(
                           label: 'English',
@@ -58,7 +58,7 @@ class SelectLangPage extends StatelessWidget {
                   SizedBox(
                     height: 15,
                   ),
-                  TabCard(
+                  TapCard(
                     items: [
                       CardItem(
                           label: '中文',

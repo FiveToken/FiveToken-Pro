@@ -4,6 +4,7 @@ import 'package:fil/pages/main/widgets/select.dart';
 import 'package:fil/widgets/dialog.dart';
 import 'package:oktoast/oktoast.dart';
 
+/// miner deposit
 class DepositPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -19,7 +20,6 @@ class DepositPageState extends State<DepositPage> {
   TextEditingController methodCtrl = TextEditingController();
   bool fromEnabled = true;
   num nonce;
-  var nonceBoxInstance = Hive.box<Nonce>(nonceBox);
   @override
   void initState() {
     super.initState();
@@ -57,87 +57,105 @@ class DepositPageState extends State<DepositPage> {
       return;
     }
     if (type == '1') {
-      var res = await buildMessage(
-          {'from': from, 'to': to, 'value': value, 'method': 0}, null);
+      var res = await Global.provider
+          .buildMessage({'from': from, 'to': to, 'value': value, 'method': 0});
       if (res.value != null) {
         unFocusOf(context);
-        singleStoreController.setPushBackPage(mainPage);
+        $store.setPushBackPage(mainPage);
         Get.toNamed(mesBodyPage, arguments: {'mes': res});
       }
     } else {
-      showPassDialog(context, (String pass) async {
+      if (!$store.canPush) {
         showCustomLoading('Loading');
-        var meta = await getWalletMeta(from);
-        var now = DateTime.now().millisecondsSinceEpoch;
-        if (meta.nonce == -1) {
-          dismissAllToast();
-          showCustomError('errorGetNonce'.tr);
+        var valid = await Global.provider.getNonceAndGas(to: from);
+        dismissAllToast();
+        if (!valid) {
+          showCustomError('errorSetGas'.tr);
           return;
-        } else {
-          var gas = await getGasDetail();
-          if (gas.gasLimit == 0 || gas.gasLimit == -1) {
-            dismissAllToast();
-            showCustomError('errorSetGas'.tr);
-            return;
-          }
-          this.nonce = nonce;
-          if (!nonceBoxInstance.containsKey(from)) {
-            nonceBoxInstance.put(from, Nonce(time: now, value: nonce));
-          } else {
-            Nonce nonceInfo = nonceBoxInstance.get(from);
-            var interval = 5 * 60 * 1000;
-            if (now - nonceInfo.time > interval) {
-              nonceBoxInstance.put(from, Nonce(time: now, value: nonce));
-            }
-          }
-          var realNonce = max(nonce, nonceBoxInstance.get(from).value);
-          var msg = TMessage(
-              version: 0,
-              method: 0,
-              nonce: realNonce,
-              from: from,
-              to: to,
-              params: "",
-              value: value,
-              gasFeeCap: gas.feeCap,
-              gasLimit: gas.gasLimit,
-              gasPremium: gas.premium);
-          String sign = '';
-          num signType;
-          var cid = await Flotus.messageCid(msg: jsonEncode(msg));
-          var wal = OpenedBox.addressInsance.get(from);
-          var ck = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
-          //var ck = base64.encode(sk);
-          if (from[1] == '1') {
-            signType = SignTypeSecp;
-            sign = await Flotus.secpSign(ck: ck, msg: cid);
-          } else {
-            signType = SignTypeBls;
-            sign = await Bls.cksign(num: "$ck $cid");
-          }
-          var sm = SignedMessage(msg, Signature(signType, sign));
-          String res = await pushSignedMsg(sm.toLotusSignedMessage());
-          if (res != '') {
-            Get.back();
-            Hive.box<StoreMessage>(messageBox).put(
-                res,
-                StoreMessage(
-                    pending: 1,
-                    from: from,
-                    to: to,
-                    value: value,
-                    owner: from,
-                    nonce: msg.nonce,
-                    signedCid: res,
-                    blockTime: (DateTime.now().millisecondsSinceEpoch / 1000)
-                        .truncate()));
-            var oldNonce = nonceBoxInstance.get(from);
-            nonceBoxInstance.put(
-                from, Nonce(value: realNonce + 1, time: oldNonce.time));
-          }
         }
-      });
+      }
+      var wal = OpenedBox.addressInsance.get(from);
+      showPassDialog(context, (String pass) async {
+        var g = $store.gas.value;
+        var msg = TMessage(
+            version: 0,
+            method: 0,
+            nonce: $store.nonce,
+            from: from,
+            to: to,
+            params: "",
+            value: value,
+            gasFeeCap: g.feeCap,
+            gasLimit: g.gasLimit,
+            gasPremium: g.premium);
+
+        var private = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
+        try {
+          await Global.provider.sendMessage(
+              message: msg,
+              private: private,
+              callback: (res) {
+                Get.back();
+              });
+        } catch (e) {
+          print(e);
+          showCustomError(getErrorMessage(e.toString()));
+        }
+      }, from: wal);
     }
+  }
+
+  void showWallet() {
+    showCustomModalBottomSheet(
+        shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
+        context: context,
+        builder: (BuildContext context) {
+          return ConstrainedBox(
+              child: Column(
+                children: [
+                  Container(
+                    height: 35,
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                        borderRadius: BorderRadius.only(
+                            topRight: Radius.circular(8),
+                            topLeft: Radius.circular(8)),
+                        color: CustomColor.primary),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          child: Image(
+                            width: 20,
+                            image: AssetImage('images/close.png'),
+                          ),
+                          onTap: () {
+                            Get.back();
+                          },
+                        ),
+                        CommonText('selectWallet'.tr, color: Colors.white),
+                        SizedBox(
+                          width: 10,
+                        )
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                      child: WalletSelect(
+                    filterType: type != '1' ? 'hd' : 'readonly',
+                    onTap: (Wallet wallet) {
+                      var from = wallet.addrWithNet;
+                      Get.back();
+                      fromCtrl.text = from;
+                      if (type == '2') {
+                        Global.provider.getNonceAndGas(from: from);
+                      }
+                    },
+                  ))
+                ],
+              ),
+              constraints: BoxConstraints(maxHeight: 800));
+        });
   }
 
   @override
@@ -191,62 +209,12 @@ class DepositPageState extends State<DepositPage> {
               label: 'from'.tr,
               enabled: fromEnabled,
               extra: GestureDetector(
-                child: Padding(
-                  child: Image(width: 20, image: AssetImage('images/book.png')),
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                ),
-                onTap: () {
-                  showCustomModalBottomSheet(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: CustomRadius.top),
-                      context: context,
-                      builder: (BuildContext context) {
-                        return ConstrainedBox(
-                            child: Column(
-                              children: [
-                                Container(
-                                  height: 35,
-                                  padding: EdgeInsets.symmetric(horizontal: 12),
-                                  decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.only(
-                                          topRight: Radius.circular(8),
-                                          topLeft: Radius.circular(8)),
-                                      color: CustomColor.primary),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      GestureDetector(
-                                        child: Image(
-                                          width: 20,
-                                          image: AssetImage('images/close.png'),
-                                        ),
-                                        onTap: () {
-                                          Get.back();
-                                        },
-                                      ),
-                                      CommonText('selectWallet'.tr,
-                                          color: Colors.white),
-                                      SizedBox(
-                                        width: 10,
-                                      )
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                    child: WalletSelect(
-                                  filterType: type != '1' ? 'hd' : 'readonly',
-                                  onTap: (Wallet wallet) {
-                                    Get.back();
-                                    fromCtrl.text = wallet.addrWithNet;
-                                  },
-                                ))
-                              ],
-                            ),
-                            constraints: BoxConstraints(maxHeight: 800));
-                      });
-                },
-              ),
+                  child: Padding(
+                    child:
+                        Image(width: 20, image: AssetImage('images/book.png')),
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  onTap: showWallet),
             ),
             Field(
               controller: toCtrl,
@@ -265,6 +233,13 @@ class DepositPageState extends State<DepositPage> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp("[0-9.]"))
                 ]),
+            Visibility(
+              child: Obx(() => SetGas(
+                    maxFee: $store.maxFee,
+                    gas: $store.chainGas,
+                  )),
+              visible: type == '2',
+            ),
             type == '1' ? Tips(['depositDes'.tr]) : Container()
           ],
         ),

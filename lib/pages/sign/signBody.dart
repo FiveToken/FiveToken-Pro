@@ -15,6 +15,19 @@ class DisplayMessage extends StatelessWidget {
     return maxFee;
   }
 
+  String get withdrawNum {
+    try {
+      if (message.args == null) {
+        return '';
+      } else {
+        var p = jsonDecode(message.args);
+        return formatFil(p['AmountRequested']);
+      }
+    } catch (e) {
+      return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -36,10 +49,20 @@ class DisplayMessage extends StatelessWidget {
         SizedBox(
           height: 7,
         ),
-        CommonCard(MessageRow(
-          label: 'amount'.tr,
-          value: atto2Fil(message.value) + ' FIL',
-        )),
+        Visibility(
+          child: CommonCard(MessageRow(
+            label: 'amount'.tr,
+            value: formatFil(message.value),
+          )),
+          visible: message.method == 0,
+        ),
+        Visibility(
+          child: CommonCard(MessageRow(
+            label: 'withdrawNum'.tr,
+            value: withdrawNum,
+          )),
+          visible: message.method == 16 && withdrawNum != '',
+        ),
         SizedBox(
           height: 7,
         ),
@@ -54,8 +77,8 @@ class DisplayMessage extends StatelessWidget {
           children: [
             MessageRow(
               label: 'method'.tr,
-              value: MethodMap.getMethodDes(message.method.toString(),
-                  to: message.to),
+              value: MethodMap()
+                  .getMethodDes(message.method.toString(), to: message.to),
             ),
             MessageRow(
               label: 'Nonce',

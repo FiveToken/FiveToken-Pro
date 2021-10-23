@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-
+/// select a address when transfer 
 class AddressBookSelectPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -8,7 +8,7 @@ class AddressBookSelectPage extends StatefulWidget {
 }
 
 class AddressBookSelectPageState extends State<AddressBookSelectPage> {
-  var box = Hive.box<Wallet>(addressBookBox);
+  var box = OpenedBox.addressBookInsance;
   List<Wallet> list = [];
   void setList() {
     setState(() {

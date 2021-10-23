@@ -2,14 +2,14 @@
 import 'package:fil/index.dart';
 import 'package:fil/pages/main/online.dart';
 import 'package:fil/store/store.dart';
-
+/// customize gas fee
 class FilGasPage extends StatefulWidget {
   @override
   State createState() => FilGasPageState();
 }
 
 class FilGasPageState extends State<FilGasPage> {
-  StoreController controller = singleStoreController;
+  StoreController controller = $store;
   TextEditingController feeCapCtrl = TextEditingController();
   TextEditingController gasLimitCtrl = TextEditingController();
   TextEditingController premiumCtrl = TextEditingController();
@@ -20,7 +20,7 @@ class FilGasPageState extends State<FilGasPage> {
   }
 
   Gas get gas {
-    return singleStoreController.gas.value;
+    return $store.gas.value;
   }
 
   int get premium {
@@ -48,7 +48,7 @@ class FilGasPageState extends State<FilGasPage> {
 
   String get feePrice {
     return getMarketPrice(
-        singleStoreController.maxFeeNum, Global.price?.rate);
+        $store.maxFeeNum, Global.price?.rate);
   }
 
   void handleSubmit(BuildContext context) {
@@ -110,7 +110,7 @@ class FilGasPageState extends State<FilGasPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       CommonText.white('fee'.tr),
-                      Obx(() => CommonText.white(singleStoreController.maxFee,
+                      Obx(() => CommonText.white($store.maxFee,
                           size: 18))
                     ],
                   ),
@@ -177,7 +177,7 @@ class FilGasPageState extends State<FilGasPage> {
                       feeCap: chainGas.feeCap,
                       gasLimit: chainGas.gasLimit,
                       premium: chainGas.premium);
-                  singleStoreController.setGas(g);
+                  $store.setGas(g);
                   syncGas(g);
                 });
               },
@@ -221,13 +221,14 @@ class FilGasPageState extends State<FilGasPage> {
                   index = 1;
                   try {
                     var n = int.parse(chainGas.feeCap);
-                    var feeCap = (0.9 * n).truncate().toString();
+                    var feeCapNum=(0.9 * n).truncate();
+                    var feeCap = feeCapNum.toString();
                     var g = Gas(
                         level: 1,
-                        premium: chainGas.premium,
+                        premium: (feeCapNum-100).toString(),
                         feeCap: feeCap,
                         gasLimit: chainGas.gasLimit);
-                    singleStoreController.setGas(g);
+                    $store.setGas(g);
                     syncGas(g);
                   } catch (e) {}
                 });
@@ -271,21 +272,21 @@ class FilGasPageState extends State<FilGasPage> {
                           label: '',
                           controller: feeCapCtrl,
                           type: TextInputType.number,
-                          inputFormatters: [PrecisionLimitFormatter(8)],
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         ),
                         CommonText.white('GasPremium', size: 10),
                         Field(
                           label: '',
                           controller: premiumCtrl,
                           type: TextInputType.number,
-                          inputFormatters: [PrecisionLimitFormatter(8)],
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         ),
                         CommonText.white('GasLimit', size: 10),
                         Field(
                           label: '',
                           controller: gasLimitCtrl,
                           type: TextInputType.number,
-                          inputFormatters: [PrecisionLimitFormatter(8)],
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         )
                       ],
                     ),
@@ -297,50 +298,3 @@ class FilGasPageState extends State<FilGasPage> {
   }
 }
 
-// class MaxFee extends StatelessWidget {
-//   final String feeCap;
-//   final String gas;
-//   MaxFee({this.feeCap = '0', this.gas = '0'});
-//   @override
-//   Widget build(BuildContext context) {
-//     var _feeCap = feeCap;
-//     var _gas = gas;
-//     if (_feeCap?.trim() == '') {
-//       _feeCap = '0';
-//     }
-//     if (_gas?.trim() == '') {
-//       _gas = '0';
-//     }
-//     return Column(
-//       children: [
-//         Container(
-//           child: Row(
-//             children: [
-//               Text(
-//                 'maxFee'.tr,
-//                 style: _lableStyle,
-//               ),
-//               Text(formatFil(
-//                   attoFil: double.parse(_feeCap) * double.parse(_gas)))
-//             ],
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//           ),
-//           decoration: _decoration,
-//           padding: EdgeInsets.only(bottom: 10),
-//         ),
-//         SizedBox(
-//           height: 10,
-//         ),
-//         Row(
-//           children: [
-//             CommonText(
-//               'GasFeeCap($_feeCap attoFil)*Gas($_gas)',
-//               size: 14,
-//             )
-//           ],
-//           mainAxisAlignment: MainAxisAlignment.end,
-//         )
-//       ],
-//     );
-//   }
-// }

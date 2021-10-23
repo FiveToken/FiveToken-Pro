@@ -100,13 +100,16 @@ class MinerAddressAdapter extends TypeAdapter<MinerAddress> {
       type: fields[1] as String,
       balance: fields[2] as String,
       time: fields[3] as int,
-    )..yestodayGasFee = fields[4] as String;
+      label: fields[6] as String,
+      miner: fields[5] as String,
+      yestodayGasFee: fields[4] as String,
+    );
   }
 
   @override
   void write(BinaryWriter writer, MinerAddress obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.address)
       ..writeByte(1)
@@ -116,7 +119,11 @@ class MinerAddressAdapter extends TypeAdapter<MinerAddress> {
       ..writeByte(3)
       ..write(obj.time)
       ..writeByte(4)
-      ..write(obj.yestodayGasFee);
+      ..write(obj.yestodayGasFee)
+      ..writeByte(5)
+      ..write(obj.miner)
+      ..writeByte(6)
+      ..write(obj.label);
   }
 
   @override
@@ -188,33 +195,36 @@ class MinerHistoricalStatsAdapter extends TypeAdapter<MinerHistoricalStats> {
           typeId == other.typeId;
 }
 
-class MinerStatsAdapter extends TypeAdapter<MinerStats> {
+class MinerSelfBalanceAdapter extends TypeAdapter<MinerSelfBalance> {
   @override
-  final int typeId = 12;
+  final int typeId = 19;
 
   @override
-  MinerStats read(BinaryReader reader) {
+  MinerSelfBalance read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return MinerStats(
-      historicalStats: fields[0] as MinerHistoricalStats,
-      addressList: (fields[1] as List)?.cast<MinerAddress>(),
-      owner: fields[2] as String,
+    return MinerSelfBalance(
+      total: fields[0] as String,
+      available: fields[1] as String,
+      locked: fields[2] as String,
+      pledge: fields[3] as String,
     );
   }
 
   @override
-  void write(BinaryWriter writer, MinerStats obj) {
+  void write(BinaryWriter writer, MinerSelfBalance obj) {
     writer
+      ..writeByte(4)
+      ..writeByte(0)
+      ..write(obj.total)
+      ..writeByte(1)
+      ..write(obj.available)
+      ..writeByte(2)
+      ..write(obj.locked)
       ..writeByte(3)
-      ..writeByte(0)
-      ..write(obj.historicalStats)
-      ..writeByte(1)
-      ..write(obj.addressList)
-      ..writeByte(2)
-      ..write(obj.owner);
+      ..write(obj.pledge);
   }
 
   @override
@@ -223,44 +233,7 @@ class MinerStatsAdapter extends TypeAdapter<MinerStats> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is MinerStatsAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
-
-class MinerInfoAdapter extends TypeAdapter<MinerInfo> {
-  @override
-  final int typeId = 13;
-
-  @override
-  MinerInfo read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return MinerInfo(
-      meta: fields[0] as MinerMeta,
-      stats: fields[1] as MinerStats,
-    );
-  }
-
-  @override
-  void write(BinaryWriter writer, MinerInfo obj) {
-    writer
-      ..writeByte(2)
-      ..writeByte(0)
-      ..write(obj.meta)
-      ..writeByte(1)
-      ..write(obj.stats);
-  }
-
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is MinerInfoAdapter &&
+      other is MinerSelfBalanceAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

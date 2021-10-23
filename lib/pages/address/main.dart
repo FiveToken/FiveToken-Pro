@@ -1,6 +1,6 @@
 import 'package:fil/index.dart';
 import 'package:flutter_swipe_action_cell/flutter_swipe_action_cell.dart';
-
+/// display all address in address book 
 class AddressBookIndexPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -9,7 +9,7 @@ class AddressBookIndexPage extends StatefulWidget {
 }
 
 class AddressBookIndexPageState extends State<AddressBookIndexPage> {
-  var box = Hive.box<Wallet>(addressBookBox);
+  var box = OpenedBox.addressBookInsance;
   List<Wallet> list = [];
   void setList() {
     setState(() {
@@ -165,7 +165,7 @@ class SwiperItem extends StatelessWidget {
             decoration: BoxDecoration(
                 borderRadius: CustomRadius.b8,
                 color:
-                    wallet.addrWithNet == singleStoreController.wal.addrWithNet
+                    wallet.addrWithNet == $store.wal.addrWithNet
                         ? CustomColor.primary
                         : Color(0xff8297B0)),
           ),

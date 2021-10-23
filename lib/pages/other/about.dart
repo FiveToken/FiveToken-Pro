@@ -1,103 +1,20 @@
 import 'package:fil/index.dart';
-import 'package:flutter_update_dialog/flutter_update_dialog.dart';
-import 'dart:io';
-import 'package:install_plugin/install_plugin.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:fil/pages/other/webview.dart';
 
 const _textStyle = TextStyle(
   fontSize: 15,
   color: Color(FColorBlue),
 );
 
-class AboutPage extends StatefulWidget {
-  @override
-  State createState() => AboutPageState();
-}
-
-class AboutPageState extends State<AboutPage> {
-  double _gapHeight = 10;
-  UpdateDialog dialog;
-  File file;
-  bool isAndroid = Platform.isAndroid;
-  ApkInfo apk = ApkInfo();
-  Widget _divider = Divider(
+/// display something about app
+class AboutPage extends StatelessWidget {
+  final double _gapHeight = 10;
+  final Widget _divider = Divider(
     color: Color(FTips3),
     height: 0.5,
     indent: 15,
     endIndent: 15,
   );
-  @override
-  void initState() {
-    super.initState();
-    if (Global.online && Platform.isAndroid) {
-      getLatestApkInfo();
-    }
-  }
-
-  void install() async {
-    if (!file.existsSync()) {
-      return;
-    }
-    Map<PermissionGroup, PermissionStatus> permissions =
-        await PermissionHandler().requestPermissions([PermissionGroup.storage]);
-    if (permissions[PermissionGroup.storage] == PermissionStatus.granted) {
-      InstallPlugin.installApk(file.path, 'io.fivetokenpro.fil').then((result) {
-        print('install apk $result');
-      }).catchError((error) {
-        print('install apk error: $error');
-      });
-    } else {
-      print('Permission request fail!');
-    }
-  }
-
-  getLatestApkInfo() async {
-    var info = await checkNeedUpdate();
-    setState(() {
-      apk = info;
-    });
-  }
-
-  void checkUpdate() async {
-    var info = await checkNeedUpdate();
-    if (info.needUpdate) {
-      var dirPath = await getDownloadDirPath();
-      file = File('$dirPath/${info.name}--${info.version}.apk');
-      info.content = info.content.replaceAll('\\n', '\n');
-      var fileExist = file.existsSync();
-      dialog = UpdateDialog.showUpdate(context,
-          title: 'updateTips'.tr
-              .replaceFirst(RegExp('{version}'), info.version),
-          themeColor: Color(FColorBlue),
-          updateContent: "${info.content}",
-          progressBackgroundColor: Color(0xff5CC1CB),
-          isForce: info.force,
-          width: 280,
-          topImage: Image.asset('images/update.png'),
-          updateButtonText: fileExist ? 'updateInstall'.tr : 'updateTitle'.tr,
-          enableIgnore: true,
-          onIgnore: () {
-            dialog.dismiss();
-          },
-          ignoreButtonText: 'updateIgnore'.tr,
-          onUpdate: () {
-            if (fileExist) {
-              install();
-            } else {
-              downLoadApk(info.downloadUrl, file.path,
-                  onReceiveProgress: (int count, int total) {
-                var progress = count / total;
-                dialog.update(progress);
-              }, onFinished: () {
-                dialog.dismiss();
-                install();
-              });
-            }
-          });
-    } else {
-      showCustomToast('isLatest'.tr);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +64,8 @@ class AboutPageState extends State<AboutPage> {
             children: <Widget>[
               ListTile(
                 onTap: () {
-                  openInBrowser("https://fivetoken.io");
+                  goWebviewPage(
+                      url: "https://fivetoken.io", title: 'Fivetoken');
                 },
                 title: Row(
                   children: <Widget>[
@@ -162,7 +80,7 @@ class AboutPageState extends State<AboutPage> {
               _divider,
               ListTile(
                 onTap: () {
-                  openInBrowser("https://filscan.io");
+                  goWebviewPage(url: "https://m.filscan.io", title: 'Filscan');
                 },
                 title: Row(
                   children: <Widget>[
@@ -200,8 +118,6 @@ class AboutPageState extends State<AboutPage> {
                   ],
                 ),
               ),
-              _divider,
-              
             ],
           ))
         ],

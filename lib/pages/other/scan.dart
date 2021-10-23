@@ -1,7 +1,7 @@
 import 'package:fil/index.dart';
 import 'package:scan/scan.dart';
 import 'package:image_picker/image_picker.dart';
-
+/// scan qrcode
 enum ScanScene {
   Address,
   UnSignedMessage,

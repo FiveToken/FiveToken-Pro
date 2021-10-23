@@ -8,6 +8,9 @@ Future<String> initSharedPreferences() async {
   if (instance.getInt('passWrongCount') == null) {
     instance.setInt('passWrongCount', 0);
   }
+
+  /// If the the app was opened for the first time, English is preferred.
+  /// If there is a cached lang code in device, set language to that
   var langCode = instance.getString(StoreKeyLanguage);
   if (langCode == null) {
     var locale = WidgetsBinding.instance.window.locale;
@@ -23,7 +26,9 @@ Future<String> initSharedPreferences() async {
   } else {
     Global.langCode = 'en';
   }
-
+  
+  /// As the app support two mode, set when it's start
+  /// Offline mode: mainly for sign message
   var mode = instance.getBool('runMode');
   if (mode != null) {
     Global.onlineMode = mode;
@@ -33,6 +38,8 @@ Future<String> initSharedPreferences() async {
   var walletstr = instance.getString(StoreKeyActiveWallet);
   var activeAddrStr = instance.getString('activeWalletAddress');
   var activeMultiStr = instance.getString('activeMultiAddress');
+  /// Compatible historical version
+  /// In the original version, all data store in SharedPreferences as string
   if (walletstr != null || activeAddrStr != null) {
     Wallet wallet;
     if (activeAddrStr != null) {
@@ -55,24 +62,18 @@ Future<String> initSharedPreferences() async {
       }
     }
     if (wallet != null) {
-      singleStoreController.setWallet(wallet);
+      $store.setWallet(wallet);
       instance.setString('activeWalletAddress', wallet.addr);
-      var hash = instance.getString(StoreKeyHash);
-      var migrated = instance.getBool('migrated');
-      if (migrated == null) {
-        Global.info[StoreKeyHash] = hash;
-        Global.needMigrate = true;
-      }
     } else {
       initialRoute = initLangPage;
     }
   } else {
     initialRoute = initLangPage;
-    instance.setBool('migrated', true);
   }
+  /// set current multi-sig wallet
   if (activeMultiStr != null) {
     MultiSignWallet wal = OpenedBox.multiInsance.get(activeMultiStr);
-    singleStoreController.setMultiWallet(wal);
+    $store.setMultiWallet(wal);
   }
   return initialRoute;
 }

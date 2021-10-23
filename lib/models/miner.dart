@@ -74,22 +74,22 @@ class MinerMeta {
   }
 
   MinerMeta.fromMap(Map<String, dynamic> map) {
-    this.balance = map['balance'];
-    this.lock = map['lock'];
-    this.pledge = map['pledge'];
-    this.available = map['available'];
-    this.qualityPower = map['qualityPower'];
+    this.balance = map['rewards'];
+    this.lock = map['lock'] ?? '0';
+    this.pledge = map['pledge'] ?? "0";
+    this.available = map['available'] ?? "0";
+    this.qualityPower = map['quality_adj_power'];
     this.rewards = map['rewards'];
     this.deposit = map['deposit'];
-    this.rawPower = map['rawPower'];
-    this.percent = map['percent'];
+    this.rawPower = map['power'];
+    this.percent = map['power_percent'];
     this.rank = map['rank'];
-    this.blockCount = map['blockCount'];
-    this.sectorSize = map['sectorSize'];
-    this.allSectors = map['allSectors'];
-    this.liveSectors = map['liveSectors'];
-    this.faultSectors = map['faultSectors'];
-    this.preCommitSectors = map['preCommitSectors'];
+    this.blockCount = map['block_count'];
+    this.sectorSize = map['sector_size'];
+    this.allSectors = map['sector_count'];
+    this.liveSectors = map['active_sector_count'];
+    this.faultSectors = map['fault_sector_count'];
+    this.preCommitSectors = map['recover_sector_count'];
   }
 }
 
@@ -105,22 +105,34 @@ class MinerAddress {
   int time;
   @HiveField(4)
   String yestodayGasFee;
+  @HiveField(5)
+  String miner;
+  @HiveField(6)
+  String label;
+  String get key => '$address$type';
   MinerAddress(
-      {this.address = '', this.type = '', this.balance = '0', this.time = 0});
+      {this.address = '',
+      this.type = '',
+      this.balance = '0',
+      this.time = 0,
+      this.label = '',
+      this.miner = '',
+      this.yestodayGasFee = '0'});
   MinerAddress.fromMap(Map map) {
     address = map['address'];
-    type = map['address_type'];
+    type = map['type'];
     balance = map['balance'];
     time = map['estimate_valid_time'];
-    yestodayGasFee = map['yesterdayGasFee'];
+    yestodayGasFee = map['yesterday_cost'];
   }
   Map<String, dynamic> toJson() {
     return {
       'address': address,
-      'address_type': type,
+      'type': type,
       'balance': balance,
       'estimate_valid_time': time,
-      'yestodayGasFee': yestodayGasFee
+      'yestodayGasFee': yestodayGasFee,
+      'label': label
     };
   }
 }
@@ -179,120 +191,31 @@ class MinerHistoricalStats {
   }
 }
 
-@HiveType(typeId: 12)
-class MinerStats {
+class MinerBalance {
+  MinerSelfBalance self;
+  List<MinerAddress> relatedAddress;
+  MinerBalance({this.self, this.relatedAddress});
+}
+
+@HiveType(typeId: 19)
+class MinerSelfBalance {
   @HiveField(0)
-  MinerHistoricalStats historicalStats;
+  String total;
   @HiveField(1)
-  List<MinerAddress> addressList;
+  String available;
   @HiveField(2)
-  String owner;
-  MinerStats({this.historicalStats, this.addressList, this.owner = ''})
-      : assert(historicalStats != null),
-        assert(addressList != null);
-  Map<String, dynamic> toJson() {
-    return {
-      'addressList': addressList,
-      'owner': owner,
-      'historicalStats': historicalStats.toJson()
-    };
-  }
-
-  MinerStats.fromMap(Map<String, dynamic> map) {
-    this.historicalStats = MinerHistoricalStats.fromMap(map['historicalStats']);
-    this.addressList = (map['addressList'] as List<dynamic>)
-        .map((e) => MinerAddress.fromMap(e))
-        .toList();
-    this.owner = map['owner'];
-  }
-}
-
-@HiveType(typeId: 13)
-class MinerInfo {
-  @HiveField(0)
-  MinerMeta meta;
-  @HiveField(1)
-  MinerStats stats;
-  MinerInfo({this.meta, this.stats});
-}
-
-class InnerMiner {
-  num totalPower,
-      rewards,
-      expected,
-      yesIncrease,
-      yesIncreasePercent,
-      yesGas,
-      yesPledge,
-      pledge,
-      workerBalance,
-      workerConsume,
-      windowBalance,
-      yesCtrlConsume,
-      preCtlBalance,
-      preTime,
-      proveCtrlBalance,
-      proveTime;
-  String updateTime, actor;
-  InnerMiner(
-      {this.totalPower = 0,
-      this.rewards = 0,
-      this.expected = 0,
-      this.yesIncrease = 0,
-      this.yesIncreasePercent = 0,
-      this.yesGas = 0,
-      this.yesPledge = 0,
-      this.pledge = 0,
-      this.workerBalance = 0,
-      this.workerConsume = 0,
-      this.windowBalance = 0,
-      this.yesCtrlConsume = 0,
-      this.preCtlBalance = 0,
-      this.preTime = 0,
-      this.proveCtrlBalance = 0,
-      this.proveTime = 0,
-      this.updateTime = '',
-      this.actor = ''});
-  InnerMiner.fromMap(Map<String, dynamic> map) {
-    this.totalPower = map['current_power'];
-    this.rewards = map['yesterday_block_rewards'];
-    this.expected = map['expected'];
-    this.yesIncrease = map['yesterday_increased_power'];
-    this.yesIncreasePercent = map['yesterday_increased_percent'];
-    this.yesGas = map['yesterday_mining_service_charge'];
-    this.yesPledge = map['yesterday_prove_controller_pledge_expend'];
-    this.pledge = map['pledge'];
-    this.workerBalance = map['f3_balance'];
-    this.workerConsume = map['yesterday_worker_consumed'];
-    this.windowBalance = map['windowposter_balance'];
-    this.yesCtrlConsume = map['yesterday_controller_consumed'];
-    this.preCtlBalance = map['pre_controller_balance'];
-    this.preTime = map['expected_pre_controller_consumed_in_hours'];
-    this.proveCtrlBalance = map['prove_controller_balance'];
-    this.proveTime = map['expected_prove_controller_consumed_in_hours'];
-    this.updateTime = map['update_time'];
-    this.actor = map['actor'];
-  }
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'current_power': this.totalPower,
-      'yesterday_block_rewards': this.rewards,
-      'expected': this.expected,
-      'yesterday_increased_power': this.yesIncrease,
-      'yesterday_increased_percent': this.yesIncreasePercent,
-      'yesterday_mining_service_charge': this.yesGas,
-      'yesterday_prove_controller_pledge_expend': this.yesPledge,
-      'pledge': this.pledge,
-      'f3_balance': this.workerBalance,
-      'yesterday_worker_consumed': this.workerConsume,
-      'windowposter_balance': this.windowBalance,
-      'yesterday_controller_consumed': this.yesCtrlConsume,
-      'pre_controller_balance': this.preCtlBalance,
-      'expected_pre_controller_consumed_in_hours': this.preTime,
-      'prove_controller_balance': this.proveCtrlBalance,
-      'expected_prove_controller_consumed_in_hours': this.proveTime,
-      'update_time': this.updateTime,
-      'actor': this.actor,
-    };
+  String locked;
+  @HiveField(3)
+  String pledge;
+  MinerSelfBalance(
+      {this.total = '0',
+      this.available = '0',
+      this.locked = '0',
+      this.pledge = '0'});
+  MinerSelfBalance.fromJson(Map<String, dynamic> json) {
+    total = json['total_balance'];
+    available = json['available_balance'];
+    locked = json['locked_funds'];
+    pledge = json['initial_pledge'];
   }
 }

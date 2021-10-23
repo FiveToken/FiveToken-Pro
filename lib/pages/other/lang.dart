@@ -1,5 +1,5 @@
 import 'package:fil/index.dart';
-
+/// language set page
 class LangPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -25,7 +25,7 @@ class LangPageState extends State<LangPage> {
       body: Padding(
         child: Column(
           children: [
-            TabCard(
+            TapCard(
               items: [
                 CardItem(
                   label: 'English',

@@ -6,9 +6,9 @@ List<GetPage> getWalletRoutes() {
   var mne = GetPage(name: walletMnePage, page: () => WalletMnePage());
   var private =
       GetPage(name: walletPrivatekey, page: () => WalletPrivatekeyPage());
-  var main = GetPage(name: walletMainPage, page: () => WalletMainPage());
   var code = GetPage(name: walletCodePage, page: () => WalletCodePage());
   var select = GetPage(name: walletSelectPage, page: () => WalletListPage());
-  list..add(manage)..add(mne)..add(private)..add(main)..add(code)..add(select);
+  var main = GetPage(name: mainPage, page: () => MainPage());
+  list..add(manage)..add(mne)..add(private)..add(code)..add(select)..add(main);
   return list;
 }

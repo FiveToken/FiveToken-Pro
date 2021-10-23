@@ -11,7 +11,7 @@ const String mneCheckPage = "/create/mneCheck";
 const String importPrivateKeyPage = "/create/importPrivateKey";
 const String importMnePage = "/create/importMne";
 const String readonlyPage = '/create/readonly';
-const String minerPage = '/createminer';
+const String minerPage = '/create/miner';
 const String createWarnPage = '/create/warn';
 const String createEntrancePage='/create/entrance';
 
@@ -19,7 +19,6 @@ const String createEntrancePage='/create/entrance';
 const String webviewPage = "/webview";
 const String introPage = "/intro";
 const String scanPage = '/scan';
-const String errorPage='/error';
 const String setPage = '/set';
 const String langPage = '/lang';
 const String discoveryPage='/discovery';

@@ -3,14 +3,12 @@ import 'package:fil/common/navigation.dart';
 import 'package:fil/i10n/localization.dart';
 import 'package:fil/index.dart';
 import 'package:fil/lang/index.dart';
-import 'package:fil/pages/main/messageList.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:oktoast/oktoast.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import './routes/routes.dart';
-final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
-class AppStateChangeEvent {}
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 class App extends StatefulWidget {
   final String initialRoute;
@@ -22,42 +20,63 @@ class App extends StatefulWidget {
 }
 
 class AppState extends State<App> with WidgetsBindingObserver {
-  AppState() {
-    var dio = Dio();
-    dio.options.baseUrl = ServerAddress.use;
-    dio.options.connectTimeout = 20000;
-    dio.interceptors
-        .add(InterceptorsWrapper(onRequest: (RequestOptions options) async {
-      options.validateStatus = (status) {
-        return status < 1000;
-      };
-
-      return options;
-    }, onResponse: (Response response) async {
-      return response;
-    }));
-    Global.dio = dio;
-  }
+  Timer timer;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    freshList();
     initDevice();
     migrateAddress();
+    timer = Timer.periodic(Duration(seconds: 5), (timer) {
+      deletePushList();
+    });
   }
 
-  void freshList() {
-    var invalidList = OpenedBox.messageInsance.values.where((mes) {
-      var invalidMethod = !ValidMethods.contains(mes.methodName ?? '');
-      if (mes.blockTime != null) {
-        return invalidMethod ||
-            getSecondSinceEpoch() - mes.blockTime > 3600 * 24 * 30;
+  @override
+  void dispose() {
+    super.dispose();
+    timer.cancel();
+  }
+
+  void deletePushList() async {
+    var now = getSecondSinceEpoch();
+    var wal = $store.wal;
+    var source = wal.addrWithNet;
+    var list = OpenedBox.pushInsance.values.where((mes) {
+      if (wal.walletType != 2) {
+        return mes.from == $store.wal.addrWithNet;
       } else {
-        return invalidMethod;
+        var list = OpenedBox.minerAddressInstance.values
+            .where(
+                (addr) => addr.miner == wal.addrWithNet && addr.type == 'owner')
+            .toList();
+        if (list.isNotEmpty) {
+          source = list[0].address;
+        }
+        return mes.from == source;
       }
-    }).map((mes) => mes.signedCid);
-    OpenedBox.messageInsance.deleteAll(invalidList);
+    }).where((mes) {
+      var t = int.tryParse(mes.time);
+      if (t != null && now - t > 30) {
+        return true;
+      } else {
+        return false;
+      }
+    });
+    if (list.isNotEmpty) {
+      var nonce = await Global.provider.getNonce(source);
+      if (nonce != -1) {
+        var now = getSecondSinceEpoch();
+        List<String> keys = [];
+        list.forEach((mes) {
+          var time = int.tryParse(mes.time) ?? 0;
+          if (mes.nonce == null || now - time > 3600 * 2 || mes.nonce < nonce) {
+            keys.add(mes.cid);
+          }
+        });
+        OpenedBox.pushInsance.deleteAll(keys);
+      }
+    }
   }
 
   @override
@@ -80,8 +99,6 @@ class AppState extends State<App> with WidgetsBindingObserver {
       OpenedBox.addressInsance.deleteAll(list.map((wal) => wal.addrWithNet));
     }
   }
-
-
   void initDevice() async {
     await initDeviceInfo();
     await listenNetwork();

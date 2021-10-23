@@ -1,5 +1,6 @@
 import 'package:fil/index.dart';
 
+/// create or import different wallet
 class WalletInitPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -34,7 +35,7 @@ class WalletInitPage extends StatelessWidget {
                     height: 12,
                   ),
                   CommonText(
-                    'FiveToken',
+                    'FiveToken Pro',
                     color: Colors.white,
                     size: 20,
                     weight: FontWeight.w800,
@@ -57,7 +58,7 @@ class WalletInitPage extends StatelessWidget {
                         size: 14,
                       ),
                     ),
-                    TabCard(
+                    TapCard(
                       items: [
                         CardItem(
                             label: 'createWallet'.tr,
@@ -77,7 +78,7 @@ class WalletInitPage extends StatelessWidget {
                     SizedBox(
                       height: 12,
                     ),
-                    TabCard(
+                    TapCard(
                       items: [
                         CardItem(
                             label: 'pkImport'.tr,
@@ -91,19 +92,14 @@ class WalletInitPage extends StatelessWidget {
                             })
                       ],
                     ),
+                    SizedBox(
+                      height: 20,
+                    ),
                     Visibility(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: EdgeInsets.fromLTRB(0, 20, 0, 12),
-                            child: CommonText(
-                              'readonlyW'.tr,
-                              color: Colors.white,
-                              size: 14,
-                            ),
-                          ),
-                          TabCard(
+                          TapCard(
                             items: [
                               CardItem(
                                   label: 'importReadonly'.tr,
@@ -112,15 +108,10 @@ class WalletInitPage extends StatelessWidget {
                                   })
                             ],
                           ),
-                          Container(
-                            padding: EdgeInsets.fromLTRB(0, 20, 0, 12),
-                            child: CommonText(
-                              'minerW'.tr,
-                              color: Colors.white,
-                              size: 14,
-                            ),
+                          SizedBox(
+                            height: 12,
                           ),
-                          TabCard(
+                          TapCard(
                             items: [
                               CardItem(
                                   label: 'importMiner'.tr,

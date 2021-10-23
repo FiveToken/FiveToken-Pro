@@ -1,6 +1,8 @@
 import 'package:fil/index.dart';
 import 'package:fil/store/store.dart';
+import 'package:oktoast/oktoast.dart';
 
+/// import readonly wallet
 class ReadonlyPage extends StatefulWidget {
   @override
   State createState() => ReadonlyPageState();
@@ -9,7 +11,7 @@ class ReadonlyPage extends StatefulWidget {
 class ReadonlyPageState extends State<ReadonlyPage> {
   final TextEditingController labelCtrl = TextEditingController();
   final TextEditingController addressCtrl = TextEditingController();
-  void handleSubmit() {
+  void handleSubmit() async {
     var label = labelCtrl.text;
     var address = addressCtrl.text.trim();
     if (label == '') {
@@ -18,6 +20,18 @@ class ReadonlyPageState extends State<ReadonlyPage> {
     }
     if (!isValidAddress(address) || address[1] == '0') {
       showCustomError('errorAddr'.tr);
+      return;
+    }
+    try {
+      showCustomLoading('Loading');
+      var type = await Global.provider.getAddressType(address);
+      dismissAllToast();
+      if (type != FilecoinAddressType.account) {
+        showCustomError('errorAddr'.tr);
+        return;
+      }
+    } catch (e) {
+      showCustomError('searchAccountFail'.tr);
       return;
     }
     var exist = OpenedBox.addressInsance.containsKey(address);
@@ -34,8 +48,8 @@ class ReadonlyPageState extends State<ReadonlyPage> {
         walletType: 0,
         type: address[1]);
     OpenedBox.addressInsance.put(address, activeWallet);
-    singleStoreController.setWallet(activeWallet);
     Global.store.setString('activeWalletAddress', address);
+    $store.setWallet(activeWallet);
     Get.offAllNamed(mainPage);
   }
 
@@ -71,12 +85,12 @@ class ReadonlyPageState extends State<ReadonlyPage> {
             Field(
               controller: addressCtrl,
               append: GestureDetector(
-                    child: Image(width: 20, image: AssetImage('images/cop.png')),
-                    onTap: () async {
-                      var data = await Clipboard.getData(Clipboard.kTextPlain);
-                      addressCtrl.text = data.text;
-                    },
-                  ),
+                child: Image(width: 20, image: AssetImage('images/cop.png')),
+                onTap: () async {
+                  var data = await Clipboard.getData(Clipboard.kTextPlain);
+                  addressCtrl.text = data.text;
+                },
+              ),
               label: 'walletAddr'.tr,
             ),
             SizedBox(
@@ -86,7 +100,6 @@ class ReadonlyPageState extends State<ReadonlyPage> {
               controller: labelCtrl,
               label: 'walletName'.tr,
             ),
-            
           ]),
           padding: EdgeInsets.symmetric(horizontal: 20)),
     );
