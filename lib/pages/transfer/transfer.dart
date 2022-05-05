@@ -1,7 +1,27 @@
-import 'package:fil/index.dart';
+import 'dart:async';
+import 'dart:math';
+import 'package:decimal/decimal.dart';
+import 'package:fil/chain/provider.dart';
+import 'package:fil/common/formatter.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/libsodium.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/event/index.dart';
+import 'package:fil/models/message.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/pages/other/scan.dart';
+import 'package:fil/routes/path.dart';
 import 'package:fil/store/store.dart';
 import 'package:fil/widgets/index.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+import 'package:oktoast/oktoast.dart';
 
 /// transfer page
 class FilTransferNewPage extends StatefulWidget {
@@ -9,98 +29,72 @@ class FilTransferNewPage extends StatefulWidget {
   State createState() => FilTransferNewPageState();
 }
 
-class FilTransferNewPageState extends State<FilTransferNewPage>
-    with RouteAware {
+/// page of transfer
+class FilTransferNewPageState extends State<FilTransferNewPage> {
   String balance;
-  TextEditingController _amountCtl = TextEditingController();
-  TextEditingController _addressCtl = TextEditingController();
+  TextEditingController _amountCtrl = TextEditingController();
+  TextEditingController _addressCtrl = TextEditingController();
   StoreController controller = $store;
   int nonce;
   FocusNode focusNode = FocusNode();
   FocusNode focusNode2 = FocusNode();
-  Gas chainGas;
-  var nonceBoxInstance = OpenedBox.nonceInsance;
+  StreamSubscription sub;
   @override
   void initState() {
     super.initState();
     if (Get.arguments != null && Get.arguments['to'] != null) {
-      _addressCtl.text = Get.arguments['to'];
+      _addressCtrl.text = Get.arguments['to'] as String;
     }
-    Global.provider.getNonceAndGas();
+    Global.provider.prepareNonce();
+    sub = Global.eventBus.on<GasConfirmEvent>().listen((event) {
+      handleConfirm();
+    });
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    routeObserver.subscribe(this, ModalRoute.of(context));
-  }
-
-  @override
-  void didPopNext() {
-    super.didPopNext();
-    setState(() {});
-  }
-
+  BigInt get fromBalance => BigInt.tryParse($store.wal.balance) ?? BigInt.zero;
   @override
   void dispose() {
-    $store.setGas(Gas());
-    _amountCtl.dispose();
-    _addressCtl.dispose();
-    routeObserver.unsubscribe(this);
     super.dispose();
+    _amountCtrl.dispose();
+    _addressCtrl.dispose();
+    sub.cancel();
   }
 
   /// increase gas and resend a blocked message
   void speedup(String private) async {
     try {
-      await Global.provider.speedup(private: private, gas: $store.gas.value);
-      Get.back();
+      await Global.provider.speedup(private: private);
+      Navigator.popUntil(context, (route) => route.settings.name == mainPage);
     } catch (e) {
       showCustomError(e.toString());
     }
   }
 
   /// push message
-  void _pushMsg(String ck, {bool increaseNonce = false}) async {
+  void pushMsg(String ck, {bool increaseNonce = false}) async {
     if (!Global.online) {
       showCustomError('errorNet'.tr);
       return;
     }
-    var from = controller.wal.addrWithNet;
-    var to = _addressCtl.text.trim();
-    var value = fil2Atto(_amountCtl.text.trim());
-    var msg = TMessage(
-        version: 0,
-        method: 0,
-        nonce: $store.nonce,
-        from: from,
-        to: to,
-        params: "",
-        value: value,
-        gasFeeCap: controller.gas.value.feeCap,
-        gasLimit: controller.gas.value.gasLimit,
-        gasPremium: controller.gas.value.premium);
-
     try {
       await Global.provider.sendMessage(
-          message: msg,
+          message: $store.confirmMes,
           increaseNonce: increaseNonce,
           private: ck,
           callback: (res) {
-            Get.back();
+            Get.offAndToNamed(mainPage);
+            // Navigator.popUntil(context, (route) => route.settings.name == mainPage);
           });
     } catch (e) {
-      print(e);
       showCustomError(getErrorMessage(e.toString()));
     }
   }
 
+  /// check valid of valid
   bool checkInputValid() {
-    var amount = _amountCtl.text;
-    var toAddress = _addressCtl.text;
+    var amount = _amountCtrl.text;
+    var toAddress = _addressCtrl.text;
     var trimAmount = amount.trim();
-    var feeCap = controller.gas.value.feeCap;
-    var gasLimit = controller.gas.value.gasLimit;
     var trimAddress = toAddress.trim();
     if (trimAddress == "") {
       showCustomError('enterTo'.tr);
@@ -123,40 +117,85 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
       showCustomError('enterValidAmount'.tr);
       return false;
     }
-    var balance = double.parse(controller.wal.balance);
-    var amountAtto = double.parse(fil2Atto(trimAmount));
-    var maxFee = double.parse(feeCap) * gasLimit;
-
-    if (balance < amountAtto + maxFee) {
+    var n = Decimal.parse(a.toString()) * Decimal.fromInt(pow(10, 18).toInt());
+    if (fromBalance <= BigInt.from(n.toDouble())) {
       showCustomError('errorLowBalance'.tr);
       return false;
     }
-
     return true;
   }
 
-  String get maxFee {
-    return formatFil(controller.gas.value.attoFil);
-  }
+  /// estimate gas
+  void estimateGas() async {
+    try {
+      var from = $store.addr;
+      var to = _addressCtrl.text.trim();
+      var value = fil2Atto(_amountCtrl.text.trim());
+      showCustomLoading('getGas'.tr);
+      var gas = await Global.provider.estimateGas(
+          {'from': from, 'to': to, 'value': value, 'params': null});
+      dismissAllToast();
+      var message = TMessage(
+        from: from,
+        to: to,
+        value: value,
+        nonce: $store.nonce,
+      );
+      var balance = BigInt.tryParse($store.wal.balance);
+      var fee = message.maxFee;
+      if (balance <= fee) {
+        showCustomError('errorLowBalance'.tr);
+        return;
+      }
 
-  void checkInputToGetGas(String v) {
-    v = v.trim();
-    if (v != '' && isValidAddress(v)) {
-      Global.provider.getGas(to: v);
+      /// set message gas
+      message.setGas(gas);
+      $store.setConfirmMessage(message);
+      Get.toNamed(mesConfirmPage,
+          arguments: {'title': 'send'.tr, 'footer': 'send'.tr});
+    } catch (e) {
+      showCustomError('getGasFail'.tr);
     }
   }
 
+  /// handle scan
   void handleScan() {
     Get.toNamed(scanPage, arguments: {'scene': ScanScene.Address})
         .then((scanResult) {
       if (scanResult != '') {
-        if (isValidAddress(scanResult)) {
-          _addressCtl.text = scanResult;
+        if (isValidAddress(scanResult as String)) {
+          _addressCtrl.text = scanResult as String;
         } else {
           showCustomError('errorAddr'.tr);
         }
       }
     });
+  }
+
+  /// handle confirm
+  void handleConfirm() {
+    var pushNew = (bool increaseNonce) {
+      showPassDialog(context, (String pass) async {
+        var wal = $store.wal;
+        var address = wal.addressWithNet;
+        var ck = await decryptSodium(wal.skKek, address, pass);
+        pushMsg(ck, increaseNonce: increaseNonce);
+      });
+    };
+    Global.provider.checkSpeedUpOrMakeNew(
+        context: context,
+        onNew: (bool increaseNonce) {
+          pushNew(increaseNonce);
+        },
+        nonce: $store.nonce,
+        onSpeedup: () async {
+          showPassDialog(context, (String pass) async {
+            var wal = $store.wal;
+            var address = wal.addressWithNet;
+            var ck = await decryptSodium(wal.skKek, address, pass);
+            speedup(ck);
+          });
+        });
   }
 
   @override
@@ -179,54 +218,17 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
         if (!checkInputValid()) {
           return;
         }
-        var handle = () {
-          var pushNew = (bool increaseNonce) {
-            showCustomModalBottomSheet(
-                shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
-                context: context,
-                builder: (BuildContext context) {
-                  return ConstrainedBox(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.only(bottom: 30),
-                      child: ConfirmSheet(
-                        from: controller.wal.address,
-                        to: _addressCtl.text,
-                        gas: controller.maxFee,
-                        value: _amountCtl.text,
-                        onConfirm: (String ck) {
-                          _pushMsg(ck, increaseNonce: increaseNonce);
-                        },
-                      ),
-                    ),
-                    constraints: BoxConstraints(maxHeight: 800),
-                  );
-                });
-          };
-          Global.provider.checkSpeedUpOrMakeNew(
-              context: context,
-              onNew: (increaseNonce) {
-                pushNew(increaseNonce);
-              },
-              nonce: $store.nonce,
-              onSpeedup: () async {
-                showPassDialog(context, (String pass) async {
-                  var wal = $store.wal;
-                  var ck =
-                      await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
-                  speedup(ck);
-                });
-              });
-        };
         if (!$store.canPush) {
-          var valid =
-              await Global.provider.getNonceAndGas(to: _addressCtl.text.trim());
+          showCustomLoading('getNonce'.tr);
+          var valid = await Global.provider.prepareNonce();
+          dismissAllToast();
           if (valid) {
-            handle();
+            estimateGas();
           } else {
-            showCustomError("errorSetGas".tr);
+            showCustomError('errorGetNonce'.tr);
           }
         } else {
-          handle();
+          estimateGas();
         }
       },
       body: Padding(
@@ -235,11 +237,8 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Field(
-              controller: _addressCtl,
+              controller: _addressCtrl,
               label: 'to'.tr,
-              onChanged: (v) {
-                checkInputToGetGas(v);
-              },
               extra: GestureDetector(
                 child: Padding(
                   child: Image(width: 20, image: AssetImage('images/book.png')),
@@ -249,15 +248,14 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
                   Get.toNamed(addressSelectPage).then((value) {
                     if (value != null) {
                       var addr = (value as Wallet).address;
-                      _addressCtl.text = addr;
-                      checkInputToGetGas(addr);
+                      _addressCtrl.text = addr;
                     }
                   });
                 },
               ),
             ),
             Field(
-              controller: _amountCtl,
+              controller: _amountCtrl,
               type: TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [PrecisionLimitFormatter(18)],
               label: 'amount'.tr,
@@ -266,10 +264,6 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
                     color: CustomColor.grey,
                   )),
             ),
-            Obx(() => SetGas(
-                  maxFee: $store.maxFee,
-                  gas: $store.chainGas,
-                )),
           ],
         ),
       ),
@@ -277,6 +271,7 @@ class FilTransferNewPageState extends State<FilTransferNewPage>
   }
 }
 
+/// widget of speed up sheet
 class SpeedupSheet extends StatelessWidget {
   final Noop onSpeedUp;
   final Noop onNew;
@@ -330,7 +325,9 @@ class SpeedupSheet extends StatelessWidget {
   }
 }
 
+/// widget of confirm sheet
 class ConfirmSheet extends StatelessWidget {
+  final TMessage message;
   final String from;
   final String to;
   final String gas;
@@ -339,7 +336,13 @@ class ConfirmSheet extends StatelessWidget {
   final Widget footer;
   final EdgeInsets padding = EdgeInsets.symmetric(horizontal: 12, vertical: 14);
   ConfirmSheet(
-      {this.from, this.to, this.gas, this.value, this.onConfirm, this.footer});
+      {this.from,
+      this.to,
+      this.gas,
+      this.value,
+      this.onConfirm,
+      this.footer,
+      this.message});
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -365,7 +368,7 @@ class ConfirmSheet extends StatelessWidget {
                         ),
                         Expanded(
                             child: Text(
-                          from,
+                          message.from,
                           textAlign: TextAlign.right,
                         )),
                       ],
@@ -382,7 +385,7 @@ class ConfirmSheet extends StatelessWidget {
                         ),
                         Expanded(
                             child: Text(
-                          to,
+                          message.to,
                           textAlign: TextAlign.right,
                         )),
                       ],
@@ -402,7 +405,7 @@ class ConfirmSheet extends StatelessWidget {
                   children: [
                     CommonText.grey('amount'.tr),
                     CommonText(
-                      '-$value Fil',
+                      formatFil(message.value, returnRaw: true),
                       size: 18,
                       color: CustomColor.primary,
                       weight: FontWeight.w500,
@@ -419,7 +422,10 @@ class ConfirmSheet extends StatelessWidget {
                 padding: padding,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [CommonText.grey('fee'.tr), CommonText.main(gas)],
+                  children: [
+                    CommonText.grey('fee'.tr),
+                    CommonText.main(formatFil(message.maxFee.toString()))
+                  ],
                 ),
                 decoration: BoxDecoration(
                     color: Colors.white, borderRadius: CustomRadius.b8),
@@ -444,8 +450,9 @@ class ConfirmSheet extends StatelessWidget {
                         Get.back();
                         showPassDialog(context, (String pass) async {
                           var wal = $store.wal;
-                          var ck = await getPrivateKey(
-                              wal.addrWithNet, pass, wal.skKek);
+                          var address = wal.addressWithNet;
+                          var ck =
+                              await decryptSodium(wal.skKek, address, pass);
                           onConfirm(ck);
                         });
                       },
@@ -457,50 +464,6 @@ class ConfirmSheet extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(12, 15, 12, 20),
         )
       ],
-    );
-  }
-}
-
-class SetGas extends StatelessWidget {
-  final String maxFee;
-  final Gas gas;
-  SetGas({@required this.maxFee, this.gas});
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            child: CommonText.main('fee'.tr),
-            padding: EdgeInsets.symmetric(vertical: 12),
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-            decoration: BoxDecoration(
-                color: Color(0xff5C8BCB), borderRadius: CustomRadius.b8),
-            child: Row(
-              children: [
-                CommonText(
-                  maxFee,
-                  size: 14,
-                  color: Colors.white,
-                ),
-                Spacer(),
-                CommonText(
-                  'advanced'.tr,
-                  color: Colors.white,
-                  size: 14,
-                ),
-                Image(width: 18, image: AssetImage('images/right-w.png'))
-              ],
-            ),
-          )
-        ],
-      ),
-      onTap: () {
-        Get.toNamed(filGasPage, arguments: {'gas': gas});
-      },
     );
   }
 }

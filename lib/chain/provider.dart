@@ -1,18 +1,82 @@
-import 'package:fil/index.dart';
+import 'dart:math';
+import 'package:bls/bls.dart';
+import 'package:dio/dio.dart';
+import 'package:fil/api/update.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/conf/conf.dart';
+import 'package:fil/data/preferences_manager.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/cacheMessage.dart';
+import 'package:fil/models/gas.dart';
+import 'package:fil/models/message.dart';
+import 'package:fil/models/miner.dart';
+import 'package:fil/models/nonce.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/pages/transfer/transfer.dart';
+import 'package:fil/repository/http/http.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/utils/enum.dart';
+import 'package:fil/widgets/bottomSheet.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:flotus/flotus.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 import 'package:oktoast/oktoast.dart';
+import 'package:fil/common/private.dart';
+import 'dart:convert';
+
+import 'constant.dart';
 
 class FilecoinResponse {
   int code;
   dynamic data;
   String message;
   String detail;
+
   FilecoinResponse({this.code, this.data, this.message, this.detail});
+
   FilecoinResponse.fromJson(Map<String, dynamic> map) {
-    code = map['code'];
+    code = map['code'] as int;
     data = map['data'];
-    message = map['message'];
-    detail = map['detail'];
+    message = map['message'] as String;
+    detail = map['detail'] as String;
   }
+}
+
+Future fetchPing() async {
+  List<String> hostList = [];
+  for (var i = 1; i < 16; i++) {
+    String hash = await sha256hash('fivetoken${i}');
+    String hostMid =
+        hash.substring(0, 4) + hash.substring(hash.length - 9, hash.length - 1);
+    String host = 'https://api${hostMid}.xyz/api/7om8n3ri4v23pjjfs4ozctlb';
+    hostList.add(host);
+  }
+  try {
+    final one = await Future.any(hostList.map((e) => _callPing(e + '/ping')));
+    await PreferencesManager.setString('host', one.data['data'] as String);
+    return one;
+  } catch (e) {
+    return null;
+  }
+}
+
+Future _callPing(String url) async {
+  try {
+    return await http.get(url);
+  } catch (e) {
+    await Future.delayed(Duration(seconds: 30));
+  }
+}
+
+String GetBaseUrl() {
+  String host = PreferencesManager.getString('host') as String;
+  return host != null
+      ? "https://" + host + "/api/7om8n3ri4v23pjjfs4ozctlb"
+      : 'https://api.fivetoken.io/api/7om8n3ri4v23pjjfs4ozctlb';
 }
 
 class FilecoinProvider {
@@ -34,53 +98,64 @@ class FilecoinProvider {
   static String multiDepositPath = '/actor/msig/deposits';
   static String minersPath = '/owner/miner/active';
   static String serializePath = '/message/msig/construct';
+  static String decodeParamsPath = '/message/params/decode';
+  static String pricePath = '/token/price';
   static String clientId = ClientID;
-  static String baseUrl = 'https://api.fivetoken.io/api/$clientId';
+  static String baseUrl() {
+    return GetBaseUrl();
+  }
+
   FilecoinProvider({Dio httpClient}) {
     client = httpClient ?? Dio();
     if (httpClient == null) {
-      client.options.baseUrl = baseUrl;
-      client.options.connectTimeout = 30000;
-      client.interceptors.add(InterceptorsWrapper(onRequest: (options) {
+      // client.options.baseUrl = 'http://192.168.1.161:8081/api/test';
+      client.options.baseUrl = baseUrl();
+      print(client.options.baseUrl);
+      client.options.connectTimeout = Timeout.medium;
+      client.interceptors
+          .add(InterceptorsWrapper(onRequest: (options, handler) {
         options.headers.addAll({
           'X-Client-Info': jsonEncode({
             'platform': Global.platform,
             'version': Global.version,
             'uuid': Global.uuid
-          }),
+          })
         });
+        return handler.next(options);
       }));
     }
   }
+
   Future<String> getActorId(String addr) async {
     try {
       var result = await client.get(idPath, queryParameters: {"address": addr});
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
-        return response.data;
+        return response.data as String;
       } else {
         throw Exception('get actor id fail');
       }
     } catch (e) {
-      print(e);
-      throw (e);
+      throw Exception('get actor id fail');
     }
   }
 
   Future sendSignedMessage(
     Map<String, dynamic> message, {
-    SingleParamCallback<String> callback,
+    ValueChanged<String> callback,
   }) async {
     showCustomLoading('sending'.tr);
     var result = await client
         .post(pushPath, data: {'cid': '', 'raw': jsonEncode(message)});
     dismissAllToast();
-    var response = FilecoinResponse.fromJson(result.data);
+    var response =
+        FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
     if (response.code == 200 && response.data != null) {
       showCustomToast('tradeSucc'.tr);
       var res = response.data;
       if (callback != null) {
-        callback(res);
+        callback(res as String);
       }
     } else {
       throw (response.detail);
@@ -93,7 +168,7 @@ class FilecoinProvider {
     String multiId = '',
     String methodName = 'transfer',
     String multiTo,
-    SingleParamCallback<String> callback,
+    ValueChanged<String> callback,
     bool increaseNonce = false,
     CacheMultiMessage multiMessage,
   }) async {
@@ -103,7 +178,7 @@ class FilecoinProvider {
       if (increaseNonce) {
         var nonce = message.nonce;
         OpenedBox.pushInsance.values
-            .where((mes) => mes.from == $store.wal.addrWithNet)
+            .where((mes) => mes.from == $store.wal.addressWithNet)
             .forEach((mes) {
           if (mes.nonce != null && mes.nonce > nonce) {
             nonce = mes.nonce;
@@ -111,7 +186,8 @@ class FilecoinProvider {
         });
         message.nonce = nonce + 1;
       }
-      var cid = await Flotus.messageCid(msg: jsonEncode(message));
+      var cid =
+          await Flotus.messageCid(msg: jsonEncode(message.toLotusMessage()));
       if (message.from[1] == '1') {
         signType = SignTypeSecp;
         sign = await Flotus.secpSign(ck: private, msg: cid);
@@ -125,54 +201,42 @@ class FilecoinProvider {
       var value = message.value;
       var sm = SignedMessage(message, Signature(signType, sign));
       print(jsonEncode(sm.toLotusSignedMessage()));
-      String res = '';
       showCustomLoading('sending'.tr);
       var result = await client.post(pushPath,
           data: {'cid': cid, 'raw': jsonEncode(sm.toLotusSignedMessage())});
       dismissAllToast();
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
         if (response.data is String && response.data != '') {
           showCustomToast('tradeSucc'.tr);
-          res = response.data;
-          var cacheGas = CacheGas(
-              cid: res,
-              feeCap: message.gasFeeCap,
-              gasLimit: message.gasLimit,
-              premium: message.gasPremium);
-          OpenedBox.gasInsance.put('$from\_$nonce', cacheGas);
+          String res = response.data as String;
           $store.setGas(Gas());
           $store.setNonce(-1);
           var now = getSecondSinceEpoch();
           var m = message.method;
           var isCreate = message.to == FilecoinAccount.f01;
+          StoreMessage msgData = StoreMessage(
+              pending: 1,
+              from: from,
+              to: to,
+              value: value,
+              owner: from,
+              nonce: nonce,
+              methodName: methodName,
+              signedCid: res,
+              blockTime: now);
+          StoreSignedMessage signData = StoreSignedMessage(
+              time: now.toString(),
+              message: sm,
+              cid: res,
+              pending: 1,
+              nonce: sm.message.nonce);
           if (m == 0 || (m == 2 && isCreate)) {
-            await OpenedBox.messageInsance.put(
-                res,
-                StoreMessage(
-                    pending: 1,
-                    from: from,
-                    to: to,
-                    value: value,
-                    owner: from,
-                    nonce: nonce,
-                    methodName: methodName,
-                    signedCid: res,
-                    blockTime: now));
+            await OpenedBox.messageInsance.put(res, msgData);
           }
-          OpenedBox.pushInsance.put(
-              res,
-              StoreSignedMessage(
-                  time: now.toString(),
-                  message: sm,
-                  cid: res,
-                  pending: 1,
-                  nonce: sm.message.nonce));
-          OpenedBox.nonceInsance.put(
-              from,
-              Nonce(
-                  value: nonce + 1,
-                  time: DateTime.now().millisecondsSinceEpoch));
+          OpenedBox.pushInsance.put(res, signData);
+          addOperation(methodName);
           if (callback != null) {
             callback(res);
           }
@@ -181,28 +245,27 @@ class FilecoinProvider {
         throw Exception(response.detail);
       }
     } on DioError catch (e) {
-      if (e.type == DioErrorType.CONNECT_TIMEOUT) {
+      if (e.type == DioErrorType.connectTimeout) {
         throw Exception('timeout');
       } else {
         throw (e);
       }
     } catch (e) {
       dismissAllToast();
-      print(e);
       throw (e);
     }
   }
 
   void checkSpeedUpOrMakeNew(
       {@required BuildContext context,
-      @required SingleParamCallback<bool> onNew,
+      @required ValueChanged<bool> onNew,
       @required Noop onSpeedup,
       int nonce,
       String multiId = ''}) {
     bool shouldSpeed = false;
     shouldSpeed = OpenedBox.pushInsance.values
         .where((mes) =>
-            mes.message.message.from == $store.wal.addrWithNet &&
+            mes.message.message.from == $store.wal.addressWithNet &&
             mes.nonce == nonce)
         .isNotEmpty;
 
@@ -229,26 +292,22 @@ class FilecoinProvider {
     }
   }
 
-  TMessage getIncreaseGasMessage({Gas gas, int nonce}) {
+  TMessage getIncreaseGasMessage({int nonce}) {
     if (nonce == null) {
       nonce = $store.nonce;
     }
 
     var pushList = OpenedBox.pushInsance.values
-        .where(
-            (mes) => mes.from == $store.wal.addrWithNet && mes.nonce == nonce)
+        .where((mes) =>
+            mes.from == $store.wal.addressWithNet && mes.nonce == nonce)
         .toList();
     if (pushList.isNotEmpty) {
       var last = pushList.last;
       var msg = last.message.message;
       var caculatePremium = (int.tryParse(msg.gasPremium) * 1.3).truncate();
-      var chainPremium =
-          int.tryParse(gas != null ? gas.premium : msg.gasPremium) ?? 0;
-      var chainFeeCap =
-          int.tryParse(gas != null ? gas.feeCap : msg.gasFeeCap) ?? 0;
-      var realPremium = max(chainPremium, caculatePremium);
-      msg.gasPremium = realPremium.toString();
-      msg.gasFeeCap = max(chainFeeCap, realPremium + 100).toString();
+      var chainFeeCap = int.tryParse(msg.gasFeeCap) ?? 0;
+      msg.gasPremium = caculatePremium.toString();
+      msg.gasFeeCap = max(chainFeeCap, caculatePremium + 100).toString();
       return msg;
     } else {
       throw Exception('get message fail');
@@ -257,16 +316,14 @@ class FilecoinProvider {
 
   Future<void> speedup(
       {@required String private,
-      @required Gas gas,
       String methodName = '',
       String multiId = ''}) async {
     TMessage msg;
     var isApprove = methodName == FilecoinMethod.approve;
     var isPropose = methodName == FilecoinMethod.propose;
     try {
-      msg = getIncreaseGasMessage(gas: gas);
+      msg = getIncreaseGasMessage();
     } catch (e) {
-      print(e);
       showCustomError('opFail'.tr);
       return '';
     }
@@ -320,7 +377,6 @@ class FilecoinProvider {
             }
           });
     } catch (e) {
-      print(e);
       throw (e);
     }
   }
@@ -337,49 +393,52 @@ class FilecoinProvider {
     }
   }
 
+  /// get gas detail by to
   Future<Gas> getGasDetail({String to, String methodName = 'Send'}) async {
     to = to ?? $store.addr;
     try {
       var result = await client
           .get(feePath, queryParameters: {'method': methodName, 'actor': to});
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
         var res = response.data;
         var limit = res['gas_limit'] ?? 0;
         var premium = res['gas_premium'] ?? '100000';
         var feeCap = res['gas_cap'] ?? '0';
         var limitNum = limit;
-        var premiumNum = int.tryParse(premium) ?? 0;
-        var feeCapNum = int.tryParse(feeCap) ?? 0;
+        var premiumNum = int.tryParse(premium as String) ?? 0;
+        var feeCapNum = int.tryParse(feeCap as String) ?? 0;
         var gas = Gas(
             feeCap: feeCapNum.toString(),
-            gasLimit: limitNum,
+            gasLimit: limitNum as num,
             premium: premiumNum.toString());
         return gas;
       } else {
         throw Exception('get gas fail');
       }
     } catch (e) {
-      throw (e);
+      throw Exception('get gas fail');
     }
   }
 
+  /// get multi info by address
   Future<MultiWalletInfo> getMultiInfo(String addr) async {
     try {
-      var result =
-          await client.get(multiPath, queryParameters: {'address': addr});
-      var response = FilecoinResponse.fromJson(result.data);
+      var result = await client.get(multiPath, queryParameters: {'address': addr});
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
         var res = response.data;
         var info = MultiWalletInfo(
             signerMap: {},
-            balance: res['balance'],
-            robustAddress: res['address'],
-            approveRequired: res['approve_required']);
+            balance: res['balance'] as String,
+            robustAddress: res['address'] as String,
+            approveRequired: res['approve_required'] as num);
         (res['signers'] as List).forEach((element) {
           var m = element as Map<String, dynamic>;
           m.entries.forEach((e) {
-            info.signerMap[e.value] = e.key;
+            info.signerMap[e.value as String] = e.key;
           });
         });
         return info;
@@ -387,44 +446,40 @@ class FilecoinProvider {
         throw Exception('get multisig fail');
       }
     } catch (e) {
-      throw (e);
+      throw Exception('get multisig fail');
     }
   }
 
+  /// get message detail
   Future<MessageDetail> getMessageDetail(String cid) async {
     try {
       var result = await client.get(pushPath, queryParameters: {'cid': cid});
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
         var res = response.data;
-        var detail = MessageDetail.fromJson(res);
+        var detail = MessageDetail.fromJson(res as Map<String, dynamic>);
         return detail;
       } else {
         throw Exception('get message detail fail');
       }
     } catch (e) {
-      throw (e);
+      throw Exception('get message detail fail');
     }
   }
 
-  Future<bool> getNonceAndGas(
+  /// prepare nonce
+  Future<bool> prepareNonce(
       {num method, String to, String from, String methodName = 'Send'}) async {
     var wal = $store.wal;
-    var address = wal.addrWithNet;
+    var address = wal.addressWithNet;
     to = to ?? address;
     try {
-      var res = await Future.wait([
-        getNonce(from ?? $store.addr),
-        getGas(to: to, methodName: methodName)
-      ]);
-      if (res[0] != -1 && (res[1] as bool) == true) {
-        var nonce = res[0] as int;
-        $store.setNonce(nonce);
-        return true;
-      } else {
-        return false;
-      }
+      var res = await getNonce(from ?? $store.addr);
+      $store.setNonce(res);
+      return true;
     } catch (e) {
+      $store.setNonce(-1);
       return false;
     }
   }
@@ -433,17 +488,18 @@ class FilecoinProvider {
     var nonce = 0;
     try {
       var res = await client.get(balancePath, queryParameters: {'actor': addr});
-      var response = FilecoinResponse.fromJson(res.data);
+      var response =
+          FilecoinResponse.fromJson(res.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
         if (response.data is Map<String, dynamic>) {
-          Map<String, dynamic> data = response.data;
-          nonce = data['nonce'];
+          Map<String, dynamic> data = response.data as Map<String, dynamic>;
+          nonce = data['nonce'] as int;
         }
       } else {
         throw Exception("get nonce fail");
       }
     } catch (e) {
-      throw Exception(e);
+      throw Exception("get nonce fail");
     }
     return nonce;
   }
@@ -452,17 +508,18 @@ class FilecoinProvider {
     var balance = '0';
     try {
       var res = await client.get(balancePath, queryParameters: {'actor': addr});
-      var response = FilecoinResponse.fromJson(res.data);
+      var response =
+          FilecoinResponse.fromJson(res.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
         if (response.data is Map<String, dynamic>) {
-          Map<String, dynamic> data = response.data;
-          balance = data['balance'];
+          Map<String, dynamic> data = response.data as Map<String, dynamic>;
+          balance = data['balance'] as String;
         }
       } else {
         throw Exception("get balance fail");
       }
     } catch (e) {
-      throw Exception(e);
+      throw Exception("get balance fail");
     }
     return balance;
   }
@@ -471,18 +528,19 @@ class FilecoinProvider {
     var balanceNonce = BalanceNonce();
     try {
       var res = await client.get(balancePath, queryParameters: {'actor': addr});
-      var response = FilecoinResponse.fromJson(res.data);
+      var response =
+          FilecoinResponse.fromJson(res.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
         if (response.data is Map<String, dynamic>) {
-          Map<String, dynamic> data = response.data;
-          balanceNonce.balance = data['balance'];
-          balanceNonce.nonce = data['nonce'];
+          Map<String, dynamic> data = response.data as Map<String, dynamic>;
+          balanceNonce.balance = data['balance'] as String;
+          balanceNonce.nonce = data['nonce'] as int;
         }
       } else {
         throw Exception("get balance fail");
       }
     } catch (e) {
-      throw Exception(e);
+      throw Exception("get balance fail");
     }
     return balanceNonce;
   }
@@ -500,7 +558,8 @@ class FilecoinProvider {
         'mid': mid,
         'limit': limit
       });
-      var response = FilecoinResponse.fromJson(res.data);
+      var response =
+          FilecoinResponse.fromJson(res.data as Map<String, dynamic>);
       if (response.code != 200 && response.data != null) {
         throw Exception('get messages fail');
       } else {
@@ -514,7 +573,6 @@ class FilecoinProvider {
       }
       return list;
     } catch (e) {
-      print(e);
       throw Exception(e);
     }
   }
@@ -522,14 +580,16 @@ class FilecoinProvider {
   Future<TMessage> buildMessage(Map<String, dynamic> data) async {
     try {
       var result = await client.post(buildPath, data: data);
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
-        return TMessage.fromJson(response.data['message']);
+        return TMessage.fromJson(
+            response.data['message'] as Map<String, dynamic>);
       } else {
         throw Exception('build message fail');
       }
     } catch (e) {
-      throw (e);
+      throw Exception('build message fail');
     }
   }
 
@@ -546,7 +606,8 @@ class FilecoinProvider {
         'mid': mid,
         'limit': limit
       });
-      var response = FilecoinResponse.fromJson(res.data);
+      var response =
+          FilecoinResponse.fromJson(res.data as Map<String, dynamic>);
       if (response.code != 200 && response.data != null) {
         throw Exception('get messages fail');
       } else {
@@ -560,7 +621,6 @@ class FilecoinProvider {
       }
       return list;
     } catch (e) {
-      print(e);
       throw Exception(e);
     }
   }
@@ -569,14 +629,16 @@ class FilecoinProvider {
     try {
       var result =
           await client.get(proposeDetailPath, queryParameters: {'cid': cid});
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data is Map) {
-        return CacheMultiMessage.fromJson(response.data);
+        return CacheMultiMessage.fromJson(
+            response.data as Map<String, dynamic>);
       } else {
         throw Exception('get approves fail');
       }
     } catch (e) {
-      throw (e);
+      throw Exception('get approves fail');
     }
   }
 
@@ -584,16 +646,17 @@ class FilecoinProvider {
     try {
       var result =
           await client.get(typePath, queryParameters: {'address': addr});
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 &&
           response.data is Map &&
           response.data['type'] != null) {
-        return response.data['type'];
+        return response.data['type'] as String;
       } else {
         throw Exception('not exist');
       }
     } catch (e) {
-      throw (e);
+      throw Exception('not exist');
     }
   }
 
@@ -601,15 +664,15 @@ class FilecoinProvider {
     try {
       var result =
           await client.get(minerMetaPath, queryParameters: {'address': addr});
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
-        return MinerMeta.fromMap(response.data);
+        return MinerMeta.fromMap(response.data as Map<String, dynamic>);
       } else {
         throw Exception('get miner meta fail');
       }
     } catch (e) {
-      print(e);
-      throw (e);
+      throw Exception('get miner meta fail');
     }
   }
 
@@ -617,14 +680,16 @@ class FilecoinProvider {
     try {
       var result =
           await client.get(minerPowerPath, queryParameters: {'address': addr});
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
-        return MinerHistoricalStats.fromMap(response.data);
+        return MinerHistoricalStats.fromMap(
+            response.data as Map<String, dynamic>);
       } else {
         throw Exception('get miner info fail');
       }
     } catch (e) {
-      throw (e);
+      throw Exception('get miner info fail');
     }
   }
 
@@ -632,12 +697,13 @@ class FilecoinProvider {
     try {
       var result = await client
           .get(minerRelatedAddressPath, queryParameters: {'address': actor});
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 &&
           response.data != null &&
           response.data['balances'] is List) {
         return (response.data['balances'] as List).map((addr) {
-          var res = MinerAddress.fromMap(addr);
+          var res = MinerAddress.fromMap(addr as Map<String, dynamic>);
           res.miner = actor;
           return res;
         }).toList();
@@ -645,22 +711,24 @@ class FilecoinProvider {
         throw Exception('get miner balance fail');
       }
     } catch (e) {
-      throw (e);
+      throw Exception('get miner balance fail');
     }
   }
 
   Future<MinerSelfBalance> getMinerBalanceInfo(String address) async {
+    print(address);
     try {
       var result = await client
           .get(minerBalancePath, queryParameters: {'address': address});
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data != null) {
-        return MinerSelfBalance.fromJson(response.data);
+        return MinerSelfBalance.fromJson(response.data as Map<String, dynamic>);
       } else {
         throw Exception('get miner balance fail');
       }
     } catch (e) {
-      throw (e);
+      throw Exception('get miner balance fail');
     }
   }
 
@@ -677,7 +745,8 @@ class FilecoinProvider {
         'mid': mid,
         'limit': limit
       });
-      var response = FilecoinResponse.fromJson(res.data);
+      var response =
+          FilecoinResponse.fromJson(res.data as Map<String, dynamic>);
       if (response.code != 200 && response.data != null) {
         throw Exception('get messages fail');
       } else {
@@ -691,7 +760,6 @@ class FilecoinProvider {
       }
       return list;
     } catch (e) {
-      print(e);
       throw Exception(e);
     }
   }
@@ -700,7 +768,8 @@ class FilecoinProvider {
     try {
       var result =
           await client.get(minersPath, queryParameters: {'address': actor});
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 &&
           response.data is Map &&
           response.data['miners'] is List) {
@@ -711,23 +780,79 @@ class FilecoinProvider {
         throw Exception('not exist');
       }
     } catch (e) {
-      throw (e);
+      throw Exception('not exist');
     }
   }
 
   Future<String> getSerializeParams(Map<String, dynamic> data) async {
     try {
       var result = await client.post(serializePath, data: data);
-      var response = FilecoinResponse.fromJson(result.data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
       if (response.code == 200 && response.data is Map) {
-        return response.data['param'];
+        return response.data['param'] as String;
       } else {
         throw Exception('serialize params fail');
       }
     } catch (e) {
-      print(e);
-      rethrow;
+      throw Exception('serialize params fail');
     }
+  }
+
+  Future<Gas> estimateGas(Map<String, dynamic> data) async {
+    try {
+      var result = await client.post(buildPath, data: data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
+      if (response.code == 200 && response.data != null) {
+        var message =
+            TMessage.fromJson(response.data['message'] as Map<String, dynamic>);
+        return Gas(
+            feeCap: message.gasFeeCap,
+            gasLimit: message.gasLimit,
+            premium: message.gasPremium);
+      } else {
+        throw Exception('estimate gas fail');
+      }
+    } catch (e) {
+      throw Exception('estimate gas fail');
+    }
+  }
+
+  Future<Map<String, dynamic>> decodeParams(Map<String, dynamic> data) async {
+    try {
+      var result = await client.post(decodeParamsPath, data: data);
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
+      if (response.code == 200 && response.data != null) {
+        return response.data as Map<String, dynamic>;
+      } else {
+        throw Exception("decode params fail");
+      }
+    } catch (e) {
+      throw Exception("decode params fail");
+    }
+  }
+
+  /// get fil price
+  Future<double> getFilPrice() async {
+    double price;
+    try {
+      var result = await client
+          .get(pricePath, queryParameters: {'id': 'filecoin', 'vs': 'usd'});
+      var response =
+          FilecoinResponse.fromJson(result.data as Map<String, dynamic>);
+      if (response.code == 200 && response.data != null) {
+        price = response.data as double;
+      } else {
+        price = 0;
+        throw Exception("get fil price fail");
+      }
+    } catch (e) {
+      price = 0;
+      throw Exception("get fil price fail");
+    }
+    return price;
   }
 }
 

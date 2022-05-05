@@ -1,57 +1,68 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 import 'package:day/day.dart';
-import 'package:fil/common/index.dart';
-import 'package:fil/index.dart';
+import 'package:fil/bloc/main/main_bloc.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/time.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/event/index.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/cacheMessage.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/models/wallet.dart';
 import 'package:fil/pages/main/widgets/service.dart';
+import 'package:fil/pages/other/scan.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/utils/enum.dart';
 import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:fil/widgets/fresh.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_rx/src/rx_workers/rx_workers.dart';
+import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
+import '../../app.dart';
+import 'index.dart';
 import 'messageItem.dart';
-
+/// online wallet
 class OnlineWallet extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
     return OnlineWalletState();
   }
 }
-
+/// page of online wallet
 class OnlineWalletState extends State<OnlineWallet> with RouteAware {
   final TextEditingController controller = TextEditingController();
-  var box = Hive.box<Wallet>(addressBox);
+  var box = OpenedBox.addressInsance;
   var multiBox = OpenedBox.multiInsance;
   var mesBox = OpenedBox.messageInsance;
   List<MultiSignWallet> multiList = [];
-  FilPrice price = FilPrice();
-  List<StoreMessage> messageList = [];
   Map<String, List<StoreMessage>> mesMap = {};
-  Box<Nonce> nonceBoxInstance = OpenedBox.nonceInsance;
-  bool enablePullDown = true;
-  bool enablePullUp = true;
   num currentNonce;
   StreamSubscription sub;
   Worker worker;
   RefreshController rc;
-  int selectType = 0;
-  void getPrice() async {
-    var res = await getFilPrice();
-    Global.price = res;
-    if (res.cny != 0) {
-      if (mounted) {
-        setState(() {
-          this.price = res;
-        });
-      }
-    }
-  }
 
-  double get rate {
-    var lang = Global.langCode;
-    lang = 'en';
-    return lang == 'en' ? price.usd : price.cny;
-  }
+  List<int> messageTypeList = [
+    TransferType.all,
+    TransferType.transferIn,
+    TransferType.transferOut
+  ];
 
   @override
   void initState() {
     super.initState();
-    getPrice();
     var isCreate = false;
     if (Get.arguments != null && Get.arguments['create'] != null) {
       isCreate = Get.arguments['create'] as bool;
@@ -60,27 +71,29 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
     if (show) {
       showChangeNameDialog();
     }
-    messageList = getWalletSortedMessages();
+
     sub = Global.eventBus.on<AppStateChangeEvent>().listen((event) {
       rc.requestRefresh();
     });
     worker = ever($store.wallet, (Wallet wal) {
-      if (wal.walletType != 2) {
-        setState(() {
-          messageList = getWalletSortedMessages();
-          enablePullUp = false;
-        });
+      if (wal.walletType != WalletsType.miner) {
+        BlocProvider.of<MainBloc>(_context)..add(getWalletSortedMessagesEvent())..add(updateEnablePullUpEvent(false));
         nextTick(() {
           rc.requestRefresh();
         });
       }
     });
+
+    // sub = Global.eventBus.on<AccountChangeEvent>().listen((event) {
+    //
+    // });
+
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    routeObserver.subscribe(this, ModalRoute.of(context));
+    routeObserver.subscribe(this, ModalRoute.of(context) as PageRoute<dynamic>);
   }
 
   @override
@@ -94,9 +107,7 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
   @override
   void didPopNext() {
     super.didPopNext();
-    setState(() {
-      messageList = getWalletSortedMessages();
-    });
+    BlocProvider.of<MainBloc>(_context)..add(getWalletSortedMessagesEvent());
   }
 
   void showChangeNameDialog() {
@@ -172,291 +183,159 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
     });
   }
 
-  Future<void> updateBalance() async {
-    var wal = $store.wal;
-    try {
-      var balance = await Global.provider.getBalance($store.addr);
-      if (balance != wal.balance) {
-        $store.changeWalletBalance(balance);
-        OpenedBox.addressInsance.put(wal.address, wal);
-      }
-    } catch (e) {
-      print(e);
-    }
-  }
-
   void handleScan() async {
     Get.toNamed(scanPage, arguments: {'scene': ScanScene.Address})
         .then((value) async {
-      if (value != null && isValidAddress(value)) {
+      if (value != null && isValidAddress(value as String)) {
         Get.toNamed(filTransferPage, arguments: {'to': value});
       }
     });
   }
 
-  Future getLatestMessage() async {
-    var resList = await getMessages(direction: 'down');
-
-    if (resList.isNotEmpty && mounted) {
-      var list = getWalletSortedMessages();
-      setState(() {
-        messageList = list;
-        enablePullUp = resList.length >= 20;
-      });
-    }
+  Future onRefresh(BuildContext context) async {
+    BlocProvider.of<MainBloc>(_context)..add(updateBalanceEvent($store.addr))..add(getLatestMessageEvent('down'));
   }
 
-  /// load messages before
-  Future getMessagesBeforeLastCompletedMessage() async {
-    var completeList = messageList.where((mes) => mes.mid != '').toList();
-    var mid = completeList.last.mid;
-    var lis = await getMessages(direction: 'up', mid: mid);
-    if (mounted) {
-      if (lis.isNotEmpty) {
-        setState(() {
-          messageList = getWalletSortedMessages();
-          enablePullUp = lis.length >= 20;
-        });
-      } else {
-        setState(() {
-          enablePullUp = false;
-        });
-      }
-    }
+  Future onLoading(BuildContext context,String mid) async {
+    BlocProvider.of<MainBloc>(_context)..add(updateBalanceEvent($store.addr))..add(getMessagesBeforeLastCompletedMessageEvent('up',mid));
   }
 
-  List<StoreMessage> getWalletSortedMessages() {
-    var list = <StoreMessage>[];
-    var resList = <StoreMessage>[];
-    var address = $store.wal.address;
-    list = mesBox.values
-        .where((message) => message.from == address || message.to == address)
-        .toList();
-    var pendingList = <StoreMessage>[];
-    var completeList = <StoreMessage>[];
-    list.forEach((mes) {
-      if (mes.pending == 0) {
-        completeList.add(mes);
-      } else {
-        pendingList.add(mes);
-      }
-    });
-    pendingList.sort((a, b) {
-      if (a.blockTime != null && b.blockTime != null) {
-        return b.blockTime.compareTo(a.blockTime);
-      } else {
-        return 1;
-      }
-    });
-    completeList.sort((a, b) {
-      if (a.blockTime != null && b.blockTime != null) {
-        return b.blockTime.compareTo(a.blockTime);
-      } else {
-        return 1;
-      }
-    });
-    resList..addAll(pendingList)..addAll(completeList);
-    return resList;
-  }
-
-  Future<List<StoreMessage>> getMessages(
-      {String direction = 'up', String mid = ''}) async {
-    try {
-      var list = await Global.provider
-          .getMessageList(actor: $store.addr, mid: mid, direction: direction);
-      if (list.isNotEmpty) {
-        var maxNonce = 0;
-        var messages = list.map((e) {
-          var mes = StoreMessage.fromJson(e);
-          mes.pending = 0;
-          mes.owner = $store.addr;
-          if (mes.from == $store.wal.addrWithNet &&
-              mes.nonce != null &&
-              maxNonce < mes.nonce) {
-            maxNonce = mes.nonce;
-          }
-          return mes;
-        }).toList();
-
-        /// if the current nonce of the wallet is biggger than the nonce of the message,
-        /// message was either packaged or discarded
-        /// delete it from local db
-        var pendingList = messageList.where((mes) => mes.pending == 1).toList();
-        if (pendingList.isNotEmpty) {
-          for (var k = 0; k < pendingList.length; k++) {
-            var mes = pendingList[k];
-            if (mes.nonce <= maxNonce && mes.owner == $store.addr) {
-              await OpenedBox.pushInsance.delete(mes.signedCid);
-              await mesBox.delete(mes.signedCid);
-            }
-          }
-        }
-        if (direction == 'down') {
-          var completeKeys = messageList
-              .where((mes) => mes.pending == 0)
-              .map((mes) => mes.signedCid);
-          await mesBox.deleteAll(completeKeys);
-        }
-        for (var i = 0; i < messages.length; i++) {
-          var m = messages[i];
-          if (FilecoinMethod.validMethods.contains(m.methodName)) {
-            await mesBox.put(m.signedCid, m);
-          }
-        }
-
-        /// if there is a pending message which send for create multi-sig wallet,
-        /// get the detail info of the multi-sig wallet from this message
-        if (messages.where((mes) => mes.to == FilecoinAccount.f01).isNotEmpty &&
-            direction == 'down') {
-          checkCreateMessages();
-        }
-        return messages.toList();
-      } else {
-        return [];
-      }
-    } catch (e) {
-      print(e);
-      return [];
-    }
-  }
-
-  Future onRefresh() async {
-    updateBalance();
-    await getLatestMessage();
-  }
-
-  Future onLoading() async {
-    await getMessagesBeforeLastCompletedMessage();
-  }
-
-  Widget genMethodSelectItem({Noop onTap, bool active, int type = 0}) {
-    return GestureDetector(
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-            border: Border(
-                bottom: BorderSide(
-                    color: active ? CustomColor.primary : Colors.transparent,
-                    width: 2))),
-        padding: EdgeInsets.only(bottom: 8),
-        child: CommonText(
-          <String>[
-            'all'.tr,
-            'in'.tr,
-            'out'.tr,
-          ][type],
-          size: 16,
-          color: active ? CustomColor.primary : Colors.black,
-          weight: active ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      onTap: () {
-        setState(() {
-          selectType = type;
-        });
-      },
-    );
-  }
-
+  BuildContext _context;
   @override
   Widget build(BuildContext context) {
-    mesMap = {};
-    var filterList = messageList.where((mes) {
-      switch (selectType) {
-        case 0:
-          return true;
-        case 1:
-          return mes.to == $store.wal.addrWithNet;
-        case 2:
-          return mes.from == $store.wal.addrWithNet;
-        default:
-          return true;
-      }
-    });
-    var today = Day();
-    var formatStr = 'YYYY-MM-DD';
-    var todayStr = today.format(formatStr);
-    var yestoday = today.subtract(1, 'd') as Day;
-    var yestodayStr = yestoday.format(formatStr);
-    filterList.forEach((mes) {
-      var time = formatTimeByStr(mes.blockTime, str: formatStr);
+    return BlocProvider(
+        create: (context) => MainBloc()..add(getWalletSortedMessagesEvent())..add(getPriceEvent()),
+        child: BlocBuilder<MainBloc, MainState>(builder: (context, state) {
+          _context = context;
+          mesMap = {};
+          var filterList = state.messageList.where((mes) {
+            if(state.transferType == TransferType.all){
+              return true;
+            }else if(state.transferType == TransferType.transferIn){
+              return mes.to == $store.wal.addressWithNet;
+            }else{
+              return mes.from == $store.wal.addressWithNet;
+            }
+          });
+          var today = Day();
+          var formatStr = 'YYYY-MM-DD';
+          var todayStr = today.format(formatStr);
+          var yestoday = today.subtract(1, 'd') as Day;
+          var yestodayStr = yestoday.format(formatStr);
+          filterList.forEach((mes) {
+            var time = formatTimeByStr(mes.blockTime, str: formatStr);
 
-      var item = mesMap[time];
-      if (item == null) {
-        mesMap[time] = [];
-      }
-      mesMap[time].add(mes);
-    });
-    var keys = mesMap.keys.toList();
-    var noData = filterList.isEmpty;
-    return CustomRefreshWidget(
-        onLoading: onLoading,
-        enablePullUp: enablePullUp,
-        initRefresh: true,
-        refreshKey: mainPage,
-        onInit: (rc) {
-          this.rc = rc;
-        },
-        child: CustomScrollView(
-          slivers: [
-            SliverPersistentHeader(
-                pinned: true,
-                delegate: SliverDelegate(
-                    child: Container(
-                      color: Colors.white,
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: 16,
-                          ),
-                          Obx(
-                            () => CommonText(
-                              $store.wal.label,
-                              size: 16,
+            var item = mesMap[time];
+            if (item == null) {
+              mesMap[time] = [];
+            }
+            mesMap[time].add(mes);
+          });
+          var keys = mesMap.keys.toList();
+          var noData = filterList.isEmpty;
+          return CustomRefreshWidget(
+              onLoading: (){
+                onLoading(context,state.mid);
+              },
+              enablePullUp: state.enablePullUp,
+              initRefresh: true,
+              refreshKey: mainPage,
+              onInit: (rc) {
+                this.rc = rc;
+              },
+              child: CustomScrollView(
+                slivers: [
+                  SliverPersistentHeader(
+                      pinned: true,
+                      delegate: SliverDelegate(
+                          child: Container(
+                            color: Colors.white,
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  height: 16,
+                                ),
+                                Obx(
+                                      () => CommonText(
+                                    $store.wal.label,
+                                    size: 16,
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: 10,
+                                ),
+                                Obx(
+                                      () => CommonText(
+                                    formatFil($store.wal.balance),
+                                    size: 30,
+                                    weight: FontWeight.w800,
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: 12,
+                                ),
+                                Obx(
+                                        () => CommonText(getMarketPrice($store.wal.balance, state.price))
+                                ),
+                                SizedBox(
+                                  height: 15,
+                                ),
+                                Obx(() => CopyAddress($store.wal.addressWithNet)),
+                                SizedBox(
+                                  height: 15,
+                                ),
+                                Obx(() => $store.wal.readonly == 0
+                                    ? HdBtns()
+                                    : ReadonlyBtns()),
+                                Spacer(),
+                                Row(
+                                  children: List.generate(messageTypeList.length, (index) {
+                                        return Expanded(
+                                            child: GestureDetector(
+                                              child: Container(
+                                                alignment: Alignment.center,
+                                                decoration: BoxDecoration(
+                                                    border: Border(
+                                                        bottom: BorderSide(
+                                                            color: messageTypeList[index] == state.transferType ? CustomColor.primary : Colors.transparent,
+                                                            width: 2
+                                                        )
+                                                    )
+                                                ),
+                                                padding: EdgeInsets.only(bottom: 8),
+                                                child: CommonText(
+                                                  <String>[
+                                                    'all'.tr,
+                                                    'in'.tr,
+                                                    'out'.tr,
+                                                  ][index],
+                                                  size: 16,
+                                                  color: messageTypeList[index] ==
+                                                      state.transferType
+                                                      ? CustomColor.primary
+                                                      : Colors.black,
+                                                  weight: messageTypeList[index] ==
+                                                      state.transferType
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                              onTap: () {
+                                                int type = messageTypeList[index];
+                                                BlocProvider.of<MainBloc>(context).add(updateTransferTypeEvent(type));
+                                              },
+                                            )
+                                        );
+                                      }).toList(),
+                                )
+                              ],
                             ),
                           ),
-                          SizedBox(
-                            height: 10,
-                          ),
-                          Obx(
-                            () => CommonText(
-                              formatFil($store.wal.balance),
-                              size: 30,
-                              weight: FontWeight.w800,
-                            ),
-                          ),
-                          SizedBox(
-                            height: 12,
-                          ),
-                          Obx(() => CommonText(
-                              getMarketPrice($store.wal.balance, rate))),
-                          SizedBox(
-                            height: 15,
-                          ),
-                          Obx(() => CopyAddress($store.wal.addrWithNet)),
-                          SizedBox(
-                            height: 15,
-                          ),
-                          Obx(() => $store.wal.readonly == 0
-                              ? HdService()
-                              : ReadonlyService()),
-                          Spacer(),
-                          Row(
-                            children: List.generate([0, 1, 2].length, (index) {
-                              return Expanded(
-                                  child: genMethodSelectItem(
-                                      type: index,
-                                      active: index == selectType));
-                            }).toList(),
-                          )
-                        ],
-                      ),
-                    ),
-                    maxHeight: 280,
-                    minHeight: 280)),
-            noData
-                ? SliverToBoxAdapter(child: NoData())
-                : SliverList(
+                          maxHeight: 280,
+                          minHeight: 280)),
+                  noData
+                      ? SliverToBoxAdapter(child: NoData())
+                      : SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       var date = keys[index];
                       var l = mesMap[date];
@@ -488,7 +367,7 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
                                 if (decodeArgs != null &&
                                     (decodeArgs is Map) &&
                                     decodeArgs['AmountRequested'] != null) {
-                                  message.value = decodeArgs['AmountRequested'];
+                                  message.value = decodeArgs['AmountRequested'] as String;
                                 }
                               }
                               return MessageItem(message);
@@ -498,9 +377,15 @@ class OnlineWalletState extends State<OnlineWallet> with RouteAware {
                       );
                     }, childCount: keys.length),
                   )
-          ],
-        ),
-        onRefresh: onRefresh);
+                ],
+              ),
+              onRefresh: (){
+                onRefresh(context);
+              }
+          );
+        })
+    );
+
   }
 }
 
@@ -673,10 +558,10 @@ Future checkCreateMessages() async {
           if (returns != null && returns['IDAddress'] != null) {
             try {
               var res =
-                  await Global.provider.getMultiInfo(returns['IDAddress']);
+                  await Global.provider.getMultiInfo(returns['IDAddress'] as String);
               if (res.signerMap != null && res.signerMap.keys.isNotEmpty) {
                 box.delete(wal.cid);
-                copy.id = returns['IDAddress'];
+                copy.id = returns['IDAddress'] as String;
                 copy.signerMap = res.signerMap;
                 copy.robustAddress = res.robustAddress;
                 box.put(returns['IDAddress'], copy);

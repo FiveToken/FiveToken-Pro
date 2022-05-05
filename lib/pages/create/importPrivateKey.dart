@@ -1,10 +1,32 @@
-import 'package:fil/index.dart';
+import 'dart:convert';
+import 'package:bls/bls.dart';
+import 'package:fil/api/update.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/private.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/pages/other/scan.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flotus/flotus.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+
 /// import wallet by private key
 class ImportPrivateKeyPage extends StatefulWidget {
   @override
   State createState() => ImportPrivateKeyPageState();
 }
 
+/// page of import privateKey
 class ImportPrivateKeyPageState extends State<ImportPrivateKeyPage> {
   TextEditingController inputControl = TextEditingController();
   TextEditingController nameControl = TextEditingController();
@@ -37,11 +59,13 @@ class ImportPrivateKeyPageState extends State<ImportPrivateKeyPage> {
           walletType: 0,
           type: type);
       Get.toNamed(passwordSetPage, arguments: {'wallet': wallet});
+      addOperation('import_private_key');
     } catch (e) {
       showCustomError('wrongPk'.tr);
     }
   }
 
+  /// hanlde import privateKey
   void _handleImport(BuildContext context) {
     var inputStr = inputControl.text.trim();
     var name = nameControl.text;
@@ -54,7 +78,8 @@ class ImportPrivateKeyPageState extends State<ImportPrivateKeyPage> {
       return;
     }
     try {
-      PrivateKey privateKey = PrivateKey.fromMap(jsonDecode(hex2str(inputStr)));
+      PrivateKey privateKey = PrivateKey.fromMap(
+          jsonDecode(hex2str(inputStr)) as Map<String, dynamic>);
       var type = privateKey.type;
       var key = privateKey.privateKey;
       if (type == 'secp256k1') {
@@ -69,11 +94,12 @@ class ImportPrivateKeyPageState extends State<ImportPrivateKeyPage> {
     }
   }
 
+  /// handle scan
   void handleScan() {
     Get.toNamed(scanPage, arguments: {'scene': ScanScene.PrivateKey})
         .then((value) {
       try {
-        inputControl.text = value;
+        inputControl.text = value as String;
       } catch (e) {
         showCustomError('wrongPk'.tr);
       }
@@ -121,7 +147,8 @@ class ImportPrivateKeyPageState extends State<ImportPrivateKeyPage> {
                     size: 14,
                   ),
                   GestureDetector(
-                    child: Image(width: 20, image: AssetImage('images/cop.png')),
+                    child:
+                        Image(width: 20, image: AssetImage('images/cop.png')),
                     onTap: () async {
                       var data = await Clipboard.getData(Clipboard.kTextPlain);
                       inputControl.text = data.text;

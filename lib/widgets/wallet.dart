@@ -1,6 +1,14 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+import 'card.dart';
+import 'dialog.dart';
 
-typedef void SelectWalletCb(String type);
+typedef SelectWalletCb = void Function(String type);
 
 class WalletType extends StatefulWidget {
   WalletType({@required this.onChange});
@@ -23,7 +31,10 @@ class WalletTypeState extends State<WalletType> {
       height: 200,
       child: Column(
         children: [
-          CommonTitle('selectAddrType'.tr,showDelete: true,),
+          CommonTitle(
+            'selectAddrType'.tr,
+            showDelete: true,
+          ),
           Container(
             child: Column(
               children: [

@@ -1,6 +1,10 @@
-import 'package:fil/index.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/wallet.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 import '../constant.dart';
 
 void main() {

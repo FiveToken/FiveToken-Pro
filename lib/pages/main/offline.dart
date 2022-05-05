@@ -1,6 +1,15 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
 import 'package:fil/pages/main/widgets/service.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
+/// page of offline wallet
 class OfflineWallet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -23,16 +32,14 @@ class OfflineWallet extends StatelessWidget {
         SizedBox(
           height: 18,
         ),
-        OfflineService(),
+        OfflineBtns(),
         Container(
           padding: EdgeInsets.symmetric(vertical: 20),
           child: Divider(),
         ),
         Container(
           child: CommonText.center('notOnline'.tr),
-          padding: EdgeInsets.symmetric(
-            horizontal: 20
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 20),
         ),
       ],
     );

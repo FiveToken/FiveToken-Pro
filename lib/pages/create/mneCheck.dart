@@ -1,12 +1,33 @@
-import 'package:fil/common/index.dart';
-import 'package:fil/index.dart';
+import 'package:bls/bls.dart';
+import 'package:fil/api/update.dart';
 import 'package:bip39/bip39.dart' as bip39;
+import 'package:fil/bloc/check/check_bloc.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:fil/widgets/wallet.dart';
+import 'package:flotus/flotus.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+import 'mne.dart';
+
 /// check if user has remembered the mne
 class MneCheckPage extends StatefulWidget {
   @override
   State createState() => MneCheckPageState();
 }
 
+/// page of check mne
 class MneCheckPageState extends State<MneCheckPage> {
   List<String> unSelectedList = [];
   List<String> selectedList = [];
@@ -15,21 +36,20 @@ class MneCheckPageState extends State<MneCheckPage> {
   void initState() {
     super.initState();
     var list = mne.split(' ');
-    print(mne);
     list.shuffle();
     unSelectedList = list;
   }
 
-  void handleSelect(num index) {
-    var rm = unSelectedList.removeAt(index);
-    selectedList.add(rm);
-    setState(() {});
+  void handleSelect(BuildContext context, num index) {
+    BlocProvider.of<CheckBloc>(context).add(UpdateEvent(type: index.toInt()));
+    // var rm = unSelectedList.removeAt(index.toInt());
+    // selectedList.add(rm);
   }
 
-  void handleRemove(num index) {
-    var rm = selectedList.removeAt(index);
-    unSelectedList.add(rm);
-    setState(() {});
+  void handleRemove(BuildContext context, num index) {
+    BlocProvider.of<CheckBloc>(context).add(DeleteEvent(type: index.toInt()));
+    // var rm = selectedList.removeAt(index.toInt());
+    // unSelectedList.add(rm);
   }
 
   String get mneCk {
@@ -67,6 +87,7 @@ class MneCheckPageState extends State<MneCheckPage> {
           type: type);
       Get.toNamed(passwordSetPage,
           arguments: {'wallet': activeWallet, 'create': true});
+      addOperation('create_mne');
     } catch (e) {
       showCustomError('checkMneFail'.tr);
     }
@@ -74,93 +95,99 @@ class MneCheckPageState extends State<MneCheckPage> {
 
   @override
   Widget build(BuildContext context) {
-    return CommonScaffold(
-      onPressed: () {
-        var str = selectedList.join(' ');
-        if (str != mne || selectedList.length < 12) {
-          showCustomError('wrongMne'.tr);
-          return;
-        }
-        showWalletSelector(context, (String type) {
-          //print(type);
-          createWallet(context, type);
-        });
-      },
-      footerText: 'next'.tr,
-      body: SingleChildScrollView(
-        physics: BouncingScrollPhysics(),
-        child: Column(
-          children: [
-            Container(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CommonText(
-                    'checkMne'.tr,
-                    size: 14,
-                    weight: FontWeight.w500,
+    return BlocProvider(
+      create: (context) =>
+          CheckBloc()..add(SetCheckEvent(unSelectedList: unSelectedList)),
+      child: BlocBuilder<CheckBloc, CheckState>(builder: (context, state) {
+        return CommonScaffold(
+          onPressed: () {
+            var str = state.selectedList.join(' ');
+            if (str != mne || state.selectedList.length < 12) {
+              showCustomError('wrongMne'.tr);
+              return;
+            }
+            showWalletSelector(context, (String type) {
+              createWallet(context, type);
+            });
+          },
+          footerText: 'next'.tr,
+          body: SingleChildScrollView(
+            physics: BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                Container(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CommonText(
+                        'checkMne'.tr,
+                        size: 14,
+                        weight: FontWeight.w500,
+                      ),
+                      CommonText(
+                        'clickMne'.tr,
+                        size: 14,
+                        color: Color(0xffB4B5B7),
+                      ),
+                    ],
                   ),
-                  CommonText(
-                    'clickMne'.tr,
-                    size: 14,
-                    color: Color(0xffB4B5B7),
+                  width: double.infinity,
+                ),
+                SizedBox(height: 20),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white,
                   ),
-                ],
-              ),
-              width: double.infinity,
-            ),
-            SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.white,
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: 200),
-                child: GridView.count(
-                  padding: EdgeInsets.all(10),
-                  physics: NeverScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: 200),
+                    child: GridView.count(
+                      padding: EdgeInsets.all(10),
+                      physics: NeverScrollableScrollPhysics(),
+                      crossAxisCount: 3,
+                      shrinkWrap: true,
+                      childAspectRatio: 2.1,
+                      mainAxisSpacing: 15,
+                      crossAxisSpacing: 15,
+                      children:
+                          List.generate(state.selectedList.length, (index) {
+                        return MneItem(
+                          remove: true,
+                          label: state.selectedList[index],
+                          onTap: () {
+                            handleRemove(context, index);
+                          },
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  height: 20,
+                ),
+                GridView.count(
                   crossAxisCount: 3,
+                  physics: NeverScrollableScrollPhysics(),
                   shrinkWrap: true,
                   childAspectRatio: 2.1,
                   mainAxisSpacing: 15,
                   crossAxisSpacing: 15,
-                  children: List.generate(selectedList.length, (index) {
+                  children: List.generate(state.unSelectedList.length, (index) {
                     return MneItem(
-                      remove: true,
-                      label: selectedList[index],
+                      label: state.unSelectedList[index],
+                      bg: CustomColor.primary,
                       onTap: () {
-                        handleRemove(index);
+                        handleSelect(context, index);
                       },
                     );
                   }),
-                ),
-              ),
+                )
+              ],
             ),
-            SizedBox(
-              height: 20,
-            ),
-            GridView.count(
-              crossAxisCount: 3,
-              physics: NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              childAspectRatio: 2.1,
-              mainAxisSpacing: 15,
-              crossAxisSpacing: 15,
-              children: List.generate(unSelectedList.length, (index) {
-                return MneItem(
-                  label: unSelectedList[index],
-                  bg: CustomColor.primary,
-                  onTap: () {
-                    handleSelect(index);
-                  },
-                );
-              }),
-            )
-          ],
-        ),
-        padding: EdgeInsets.fromLTRB(12, 20, 12, 100),
-      ),
+            padding: EdgeInsets.fromLTRB(12, 20, 12, 100),
+          ),
+        );
+      }),
     );
   }
 }

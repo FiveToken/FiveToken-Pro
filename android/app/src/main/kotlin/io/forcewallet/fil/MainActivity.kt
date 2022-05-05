@@ -1,4 +1,4 @@
-package io.fivetokenpro.fil
+package io.forcewallet.fil
 
 import androidx.annotation.NonNull;
 import io.flutter.embedding.android.FlutterFragmentActivity

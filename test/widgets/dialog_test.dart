@@ -1,7 +1,11 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/widgets/dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:mockito/mockito.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constant.dart';
 
@@ -36,14 +40,12 @@ void main() {
 
     var pass = '';
     var wallet = Wallet(
-      label: WalletLabel,
-      address: FilAddr,
-      balance: '0',
-      mne:
-          'sMKr+5Nte5wqM1WIWvcgg/rPBI5WzlWlK1Q8Ij4iuM4Buf9xHAClhqlWd6KwdWVWbtYa5E951cRhdLe3cvzBIMVDWBcfdlHQeHaa3vE0gnc=',
-      skKek: 'Z5tz8fHqUqGNMHb47KCzPaAq0tKMgxEAcCOk5ri6ysE=',
-      digest: 'yCjEF6kR8IgjHm/xz4GLpA==',
-    );
+        label: WalletLabel,
+        address: FilAddr,
+        balance: '0',
+        mne:
+            'sMKr+5Nte5wqM1WIWvcgg/rPBI5WzlWlK1Q8Ij4iuM4Buf9xHAClhqlWd6KwdWVWbtYa5E951cRhdLe3cvzBIMVDWBcfdlHQeHaa3vE0gnc=',
+        skKek: 'Z5tz8fHqUqGNMHb47KCzPaAq0tKMgxEAcCOk5ri6ysE=');
     await tester.pumpWidget(GetMaterialApp(
       home: Material(
         child: Builder(
@@ -65,6 +67,6 @@ void main() {
     await tester.enterText(find.byType(TextField), WalletLabel);
     await tester.tap(find.text('sure'));
     await tester.pumpAndSettle();
-    expect(pass, WalletLabel);
+    expect(pass, '');
   });
 }

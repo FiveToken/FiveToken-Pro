@@ -1,23 +1,22 @@
 import 'dart:io';
-
-import 'package:fil/index.dart';
 import 'package:fil/store/store.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:fil/data/preferences_manager.dart';
+import 'app.dart';
+import 'chain/provider.dart';
+import 'init/hive.dart';
+import 'init/prefer.dart';
 
 void main() async {
   Get.put(StoreController());
   await initHive();
+  await PreferencesManager.init();
   var initialRoute = await initSharedPreferences();
+  await fetchPing();
   runApp(App(initialRoute));
-  // runZonedGuarded<Future<void>>(() async {
-  //   runApp(App(initialRoute));
-  // }, (Object error, StackTrace stack) {
-  //   addAppError(error.toString());
-  //   addAppError(stack.toString());
-  // });
-  // FlutterError.onError=(error)async{
-  //   addAppError(error.toString());
-  // };
   SystemUiOverlayStyle style =
       SystemUiOverlayStyle(statusBarIconBrightness: Brightness.light);
   SystemChrome.setSystemUIOverlayStyle(style);

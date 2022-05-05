@@ -1,4 +1,4 @@
-import 'package:fil/index.dart';
+import 'dart:convert';
 import 'package:hive/hive.dart';
 part 'cacheMessage.g.dart';
 
@@ -41,28 +41,28 @@ class MessageDetail {
       this.returns,
       this.signedCid = ''});
   MessageDetail.fromJson(Map<String, dynamic> json)
-      : this.version = json['version'],
-        this.to = json['to'],
-        this.from = json['from'],
-        this.value = json['value'],
-        this.gasPrice = json['gas_price'],
-        this.gasLimit = json['gas_limit'],
-        this.params = json['params'],
-        this.nonce = json['nonce'],
-        this.method = json['method'],
-        this.methodName = json['method_name'],
-        this.gasFeeCap = json['gas_fee_cap'],
-        this.gasPremium = json['gas_premium'],
-        this.minerTip = json['miner_tip'],
-        this.baseFeeBurn = json['base_fee_burn'],
-        this.overEstimationBurn = json['over_estimation_burn'],
-        this.blockTime = json['block_time'],
-        this.height = json['block_epoch'],
-        this.signedCid = json['cid'],
-        this.exitCode = json['exit_code'],
-        this.allGasFee = json['gas_fee'] ?? '0',
-        this.returns = jsonDecode(json['return_json'] ?? '{}'),
-        this.args = jsonDecode(json['params_json'] ?? '{}');
+      : this.version = json['version'] as int,
+        this.to = json['to'] as String,
+        this.from = json['from'] as String,
+        this.value = json['value'] as String,
+        this.gasPrice = json['gas_price'] as String,
+        this.gasLimit = json['gas_limit'] as num,
+        this.params = json['params'] as String,
+        this.nonce = json['nonce'] as int,
+        this.method = json['method'] as num,
+        this.methodName = json['method_name'] as String,
+        this.gasFeeCap = json['gas_fee_cap'] as String,
+        this.gasPremium = json['gas_premium'] as String,
+        this.minerTip = json['miner_tip'] as String,
+        this.baseFeeBurn = json['base_fee_burn'] as String,
+        this.overEstimationBurn = json['over_estimation_burn'] as String,
+        this.blockTime = json['block_time'] as num,
+        this.height = json['block_epoch'] as num,
+        this.signedCid = json['cid'] as String,
+        this.exitCode = json['exit_code'] as num,
+        this.allGasFee = json['gas_fee'] as String ?? '0',
+        this.returns = jsonDecode(json['return_json'] as String ?? '{}'),
+        this.args = jsonDecode(json['params_json'] as String ?? '{}');
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       "to": this.to,
@@ -122,19 +122,19 @@ class StoreMessage {
       this.multiMethod = '',
       this.methodName = ''});
   StoreMessage.fromJson(Map<dynamic, dynamic> json)
-      : this.signedCid = json['cid'],
-        this.to = json['to'],
-        this.from = json['from'],
-        this.value = json['value'],
-        this.blockTime = json['block_time'],
-        this.exitCode = json['exit_code'] ?? 0,
-        this.owner = json['owner'],
-        this.args = json['params_json'],
-        this.pending = json['pending'],
-        this.methodName = json['method_name'],
-        this.nonce = json['nonce'],
-        this.mid = json['mid'],
-        this.multiMethod = json['mock'] ?? "";
+      : this.signedCid = json['cid'] as String,
+        this.to = json['to'] as String,
+        this.from = json['from'] as String,
+        this.value = json['value'] as String,
+        this.blockTime = json['block_time'] as num,
+        this.exitCode = json['exit_code'] as num ?? 0,
+        this.owner = json['owner'] as String,
+        this.args = json['params_json'] as String,
+        this.pending = json['pending'] as num,
+        this.methodName = json['method_name'] as String,
+        this.nonce = json['nonce'] as num,
+        this.mid = json['mid'] as String,
+        this.multiMethod = json['mock'] as String ?? "";
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'signed_cid': this.signedCid,
@@ -211,21 +211,21 @@ class StoreMultiMessage {
       this.nonce = 0,
       this.msigSuccess = false});
   StoreMultiMessage.fromJson(Map<dynamic, dynamic> json)
-      : this.signedCid = json['signed_cid'],
-        this.to = json['to'],
-        this.from = json['from'],
-        this.value = json['value'],
-        this.blockTime = json['block_time'],
-        this.exitCode = json['exit_code'] ?? 0,
-        this.owner = json['owner'],
-        this.pending = json['pending'],
-        this.msigValue = json['msig_value'],
-        this.msigApproved = json['msig_approved'],
-        this.msigRequired = json['msig_required'],
-        this.msigSuccess = json['msig_success'],
-        this.methodName = json['method_name'],
-        this.nonce = json['nonce'],
-        this.msigTo = json['msig_to'];
+      : this.signedCid = json['signed_cid'] as String,
+        this.to = json['to'] as String,
+        this.from = json['from'] as String,
+        this.value = json['value'] as String,
+        this.blockTime = json['block_time'] as num,
+        this.exitCode = json['exit_code'] as num ?? 0,
+        this.owner = json['owner'] as String,
+        this.pending = json['pending'] as num,
+        this.msigValue = json['msig_value'] as String,
+        this.msigApproved = json['msig_approved'] as int,
+        this.msigRequired = json['msig_required'] as int,
+        this.msigSuccess = json['msig_success'] as bool,
+        this.methodName = json['method_name'] as String,
+        this.nonce = json['nonce'] as int,
+        this.msigTo = json['msig_to'] as String;
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'signed_cid': this.signedCid,
@@ -299,24 +299,25 @@ class CacheMultiMessage {
       this.type = 0, // 0 propose 1 send
       this.exitCode = 0});
   CacheMultiMessage.fromJson(Map<dynamic, dynamic> json) {
-    this.cid = json['cid'] ?? '';
-    this.blockTime = json['block_time'] ?? 0;
-    this.to = json['to'] ?? "";
-    this.from = json['from'] ?? '';
-    this.status = json['status'] ?? '';
-    this.fee = json['gas_fee'] ?? '0';
-    this.params = json['params_json'];
-    this.method = json['params_method'] ?? '';
-    this.innerParams = json['params_params'];
-    this.owner = json['owner'] ?? '';
-    this.nonce = json['nonce'] ?? 0;
-    this.mid = json['mid'] ?? '';
-    this.txId = json['params_txnid'] ?? 0;
-    this.exitCode = json['exit_code'] ?? 0;
-    this.value = json['value'] ?? '0';
+    this.cid = json['cid'] as String ?? '';
+    this.blockTime = json['block_time'] as num ?? 0;
+    this.to = json['to'] as String ?? "";
+    this.from = json['from'] as String ?? '';
+    this.status = json['status'] as String ?? '';
+    this.fee = json['gas_fee'] as String ?? '0';
+    this.params = json['params_json'] as String;
+    this.method = json['params_method'] as String ?? '';
+    this.innerParams = json['params_params'] as String;
+    this.owner = json['owner'] as String ?? '';
+    this.nonce = json['nonce'] as int ?? 0;
+    this.mid = json['mid'] as String ?? '';
+    this.txId = json['params_txnid'] as int ?? 0;
+    this.exitCode = json['exit_code'] as int ?? 0;
+    this.value = json['value'] as String ?? '0';
     if (json['approves'] != null && json['approves'] is List) {
       this.approves = (json['approves'] as List)
-          .map((app) => MultiApproveMessage.fromJson(app))
+          .map((app) =>
+              MultiApproveMessage.fromJson(app as Map<String, dynamic>))
           .toList();
     } else {
       this.approves = [];
@@ -325,7 +326,7 @@ class CacheMultiMessage {
 
   Map<String, dynamic> get decodeParams {
     try {
-      var p = jsonDecode(params);
+      var p = jsonDecode(params) as Map<String, dynamic>;
       return p;
     } catch (e) {
       return {'To': '', 'Value': '0'};
@@ -375,11 +376,11 @@ class MultiApproveMessage {
       this.txId = 0,
       this.pending = 1});
   MultiApproveMessage.fromJson(Map<String, dynamic> json) {
-    this.from = json['from'];
-    this.fee = json['gas_fee'];
-    this.time = json['block_time'];
-    this.nonce = json['nonce'];
-    this.cid = json['cid'];
-    this.exitCode = json['exit_code'];
+    this.from = json['from'] as String;
+    this.fee = json['gas_fee'] as String;
+    this.time = json['block_time'] as num;
+    this.nonce = json['nonce'] as int;
+    this.cid = json['cid'] as String;
+    this.exitCode = json['exit_code'] as int;
   }
 }

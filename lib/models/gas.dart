@@ -1,4 +1,4 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/utils.dart';
 
 class Gas {
   String feeCap, premium, baseFee;
@@ -12,11 +12,11 @@ class Gas {
       this.level = 0,
       this.baseFee = '0'});
   Gas.fromJson(Map<String, dynamic> json) {
-    this.feeCap = json['feeCap'];
-    this.gasLimit = json['gasLimit'];
-    this.premium = json['premium'];
-    this.gasUsed = json['gas_used'];
-    this.baseFee = json['base_fee'];
+    this.feeCap = json['feeCap'] as String;
+    this.gasLimit = json['gasLimit'] as num;
+    this.premium = json['premium'] as String;
+    this.gasUsed = json['gas_used'] as num;
+    this.baseFee = json['base_fee'] as String;
   }
   Map<String, dynamic> toJson() {
     return <String, dynamic>{

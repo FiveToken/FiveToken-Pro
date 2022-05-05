@@ -1,5 +1,20 @@
-import 'package:fil/index.dart';
+import 'package:fil/api/update.dart';
+import 'package:fil/chain/constant.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/pages/other/scan.dart';
+import 'package:fil/routes/path.dart';
 import 'package:fil/store/store.dart';
+import 'package:fil/utils/enum.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 import 'package:oktoast/oktoast.dart';
 
 /// import miner address
@@ -8,6 +23,7 @@ class MinerPage extends StatefulWidget {
   State createState() => MinerPageState();
 }
 
+/// page of miner
 class MinerPageState extends State<MinerPage> {
   final TextEditingController addressCtrl = TextEditingController();
   final TextEditingController labelCtrl = TextEditingController();
@@ -43,10 +59,11 @@ class MinerPageState extends State<MinerPage> {
           label: label,
           count: 0,
           readonly: 1,
-          walletType: 2,
+          walletType: WalletsType.miner,
           type: address[1]);
       OpenedBox.addressInsance.put(address, activeWallet);
       Global.store.setString('activeWalletAddress', address);
+      addOperation('add_miner');
       $store.setWallet(activeWallet);
       Get.offAllNamed(mainPage);
     } catch (e) {
@@ -69,7 +86,7 @@ class MinerPageState extends State<MinerPage> {
                 Get.toNamed(scanPage, arguments: {'scene': ScanScene.Address})
                     .then((scanResult) {
                   if (scanResult != '') {
-                    addressCtrl.text = scanResult;
+                    addressCtrl.text = scanResult as String;
                   }
                 });
               },
@@ -87,7 +104,7 @@ class MinerPageState extends State<MinerPage> {
             ),
             Field(
               controller: addressCtrl,
-              label: 'walletAddr'.tr,
+              label: 'walletAddress'.tr,
               append: GestureDetector(
                 child: Image(width: 20, image: AssetImage('images/cop.png')),
                 onTap: () async {

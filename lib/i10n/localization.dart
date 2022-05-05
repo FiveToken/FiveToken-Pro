@@ -14,6 +14,7 @@ class ChineseCupertinoLocalizations implements CupertinoLocalizations {
     ml = await materialDelegate.load(local);
     print(ml.pasteButtonLabel);
   }
+
   @override
   String get alertDialogLabel => ml.alertDialogLabel;
 
@@ -42,9 +43,10 @@ class ChineseCupertinoLocalizations implements CupertinoLocalizations {
   }
 
   @override
-  String tabSemanticsLabel({int tabIndex, int tabCount}){
+  String tabSemanticsLabel({int tabIndex, int tabCount}) {
     return '第$tabIndex页，共$tabCount页';
   }
+
   @override
   String datePickerHour(int hour) {
     return hour.toString().padLeft(2, "0");
@@ -127,6 +129,22 @@ class ChineseCupertinoLocalizations implements CupertinoLocalizations {
     await localizaltions.init();
     return SynchronousFuture<CupertinoLocalizations>(localizaltions);
   }
+
+  @override
+  // TODO: implement searchTextFieldPlaceholderLabel
+  String get searchTextFieldPlaceholderLabel => throw UnimplementedError();
+
+  @override
+  // TODO: implement timerPickerHourLabels
+  List<String> get timerPickerHourLabels => throw UnimplementedError();
+
+  @override
+  // TODO: implement timerPickerMinuteLabels
+  List<String> get timerPickerMinuteLabels => throw UnimplementedError();
+
+  @override
+  // TODO: implement timerPickerSecondLabels
+  List<String> get timerPickerSecondLabels => throw UnimplementedError();
 }
 
 class _ChineseDelegate extends LocalizationsDelegate<CupertinoLocalizations> {

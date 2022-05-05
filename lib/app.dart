@@ -1,12 +1,23 @@
+import 'dart:async';
 import 'package:connectivity/connectivity.dart';
 import 'package:fil/common/navigation.dart';
 import 'package:fil/i10n/localization.dart';
-import 'package:fil/index.dart';
 import 'package:fil/lang/index.dart';
+import 'package:fil/routes/index.dart';
+import 'package:fil/store/store.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:get/get_navigation/src/routes/transitions_type.dart';
 import 'package:oktoast/oktoast.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
-import './routes/routes.dart';
+import 'api/update.dart';
+import 'common/global.dart';
+import 'common/utils.dart';
+import 'event/index.dart';
+import 'init/device.dart';
+import 'init/hive.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
@@ -21,6 +32,7 @@ class App extends StatefulWidget {
 
 class AppState extends State<App> with WidgetsBindingObserver {
   Timer timer;
+  // final JPush jpush = new JPush();
   @override
   void initState() {
     super.initState();
@@ -41,14 +53,14 @@ class AppState extends State<App> with WidgetsBindingObserver {
   void deletePushList() async {
     var now = getSecondSinceEpoch();
     var wal = $store.wal;
-    var source = wal.addrWithNet;
+    var source = wal.addressWithNet;
     var list = OpenedBox.pushInsance.values.where((mes) {
       if (wal.walletType != 2) {
-        return mes.from == $store.wal.addrWithNet;
+        return mes.from == $store.wal.addressWithNet;
       } else {
         var list = OpenedBox.minerAddressInstance.values
-            .where(
-                (addr) => addr.miner == wal.addrWithNet && addr.type == 'owner')
+            .where((addr) =>
+                addr.miner == wal.addressWithNet && addr.type == 'owner')
             .toList();
         if (list.isNotEmpty) {
           source = list[0].address;
@@ -94,14 +106,57 @@ class AppState extends State<App> with WidgetsBindingObserver {
     if (list.isNotEmpty) {
       for (var i = 0; i < list.length; i++) {
         var wal = list[i];
-        await OpenedBox.addressBookInsance.put(wal.addrWithNet, wal);
+        await OpenedBox.addressBookInsance.put(wal.addressWithNet, wal);
       }
-      OpenedBox.addressInsance.deleteAll(list.map((wal) => wal.addrWithNet));
+      OpenedBox.addressInsance.deleteAll(list.map((wal) => wal.addressWithNet));
     }
   }
+
+  // Future<void> initPlatformState() async {
+  //   try {
+  //     jpush.addEventHandler(
+  //         onReceiveNotification: (Map<String, dynamic> message) async {
+  //           print("flutter onReceiveNotification: $message");
+  //         },
+  //         onOpenNotification: (Map<String, dynamic> message) async {},
+  //         onReceiveMessage: (Map<String, dynamic> message) async {
+  //           print("flutter onReceiveMessage: $message");
+  //         },
+  //         onReceiveNotificationAuthorization:
+  //             (Map<String, dynamic> message) async {
+  //           print("flutter onReceiveNotificationAuthorization: $message");
+  //         });
+  //   } on PlatformException {
+  //     print('error');
+  //   }
+
+  //   jpush.setup(
+  //     appKey: "ca9f7f0f57a10c8a7637bcbb",
+  //     channel: "developer-default",
+  //     production: Global.isRelease,
+  //     debug: !Global.isRelease,
+  //   );
+  //   var rid = Global.store.getString('registerId');
+  //   if (rid == null) {
+  //     jpush.getRegistrationID().then((id) {
+  //       if (id != '') {
+  //         Global.store.setString('registerId', id);
+  //         registerJpushId(id);
+  //       }
+  //     });
+  //   }
+  // }
+
   void initDevice() async {
     await initDeviceInfo();
     await listenNetwork();
+    // initPlatformState();
+    registerDevice();
+    // if (Global.store.getString('register') == null) {
+    //   await registerDevice();
+    //   Global.store.setString('register', '1');
+    // }
+    pushAction(page: '', type: 'open');
   }
 
   Future listenNetwork() async {
@@ -124,7 +179,7 @@ class AppState extends State<App> with WidgetsBindingObserver {
         dismissOtherOnShow: true,
         child: GetMaterialApp(
             title: "FiveToken Pro",
-            getPages: initRoutes(),
+            getPages: routes,
             locale: Locale(Global.langCode ?? 'en'),
             translations: Messages(),
             debugShowCheckedModeBanner: false,

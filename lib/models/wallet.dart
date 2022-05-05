@@ -1,4 +1,4 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/global.dart';
 import 'package:hive/hive.dart';
 part 'wallet.g.dart';
 
@@ -29,8 +29,6 @@ class Wallet {
   @HiveField(11)
   String skKek;
   @HiveField(12)
-  String digest;
-  @HiveField(13)
   String mne;
   Wallet(
       {int count = 1,
@@ -44,7 +42,6 @@ class Wallet {
       String owner = '',
       bool push = false,
       bool inAddressBook = true,
-      String digest = '',
       String mne = '',
       String skKek = ''}) {
     this.count = count;
@@ -59,10 +56,9 @@ class Wallet {
     this.inAddressBook = inAddressBook;
     this.push = push;
     this.skKek = skKek;
-    this.digest = digest;
     this.mne = mne;
   }
-  Wallet.fromJson(Map<dynamic, dynamic> json) {
+  Wallet.fromJson(Map<String, dynamic> json) {
     this.count = json['count'] as int;
     this.ck = json['ck'] as String;
     this.label = json['label'] as String;
@@ -73,7 +69,6 @@ class Wallet {
     this.owner = json['owner'] as String;
     this.balance = json['balance'] as String;
     this.skKek = json['skKek'] as String;
-    this.digest = json['digest'] as String;
     this.mne = json['mne'] as String;
     this.push = json['push'] as bool;
   }
@@ -89,7 +84,6 @@ class Wallet {
       'owner': this.owner,
       'balance': this.balance,
       'skKek': this.skKek,
-      'digest': this.digest,
       'inAddressBook': this.inAddressBook,
       'mne': mne,
       'push': push
@@ -100,7 +94,7 @@ class Wallet {
     return address;
   }
 
-  String get addrWithNet {
+  String get addressWithNet {
     if (addr == '') {
       return '';
     }
@@ -154,16 +148,16 @@ class MultiSignWallet {
       this.robustAddress,
       this.signers});
   MultiSignWallet.fromJson(Map<String, dynamic> json) {
-    label = json['label'];
-    id = json['id'];
-    owner = json['owner'];
-    balance = json['balance'];
-    threshold = json['threshold'];
-    signers = json['signers'];
-    status = json['status'];
-    cid = json['cid'];
-    robustAddress = json['robustAddress'];
-    signerMap = json['signerMap'];
+    label = json['label'] as String;
+    id = json['id'] as String;
+    owner = json['owner'] as String;
+    balance = json['balance'] as String;
+    threshold = json['threshold'] as int;
+    signers = json['signers'] as List<String>;
+    status = json['status'] as int;
+    cid = json['cid'] as String;
+    robustAddress = json['robustAddress'] as String;
+    signerMap = json['signerMap'] as Map<String, String>;
   }
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -180,7 +174,7 @@ class MultiSignWallet {
     };
   }
 
-  String get addrWithNet {
+  String get addressWithNet {
     return Global.netPrefix + id.substring(1);
   }
 }
@@ -203,24 +197,5 @@ class MultiWalletInfo {
       'signers': signers,
       'approveRequired': approveRequired
     };
-  }
-}
-
-class FilPrice {
-  double usd;
-  double cny;
-  FilPrice({this.usd = 0.0, this.cny = 0.0});
-  FilPrice.fromJson(Map<String, dynamic> json) {
-    usd = json['usd'] + 0.0 as double;
-    cny = json['cny'] + 0.0 as double;
-  }
-  double get rate {
-    //var lang = Global.langCode;
-    var lang = 'en';
-    return lang == 'en' ? usd : cny;
-  }
-
-  Map<String, double> toJson() {
-    return <String, double>{"usd": usd, "cny": cny};
   }
 }

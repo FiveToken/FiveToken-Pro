@@ -1,9 +1,42 @@
+import 'dart:async';
 import 'package:day/day.dart';
-import 'package:fil/index.dart';
+import 'package:fbutton/fbutton.dart';
+import 'package:fil/bloc/multi/multi_bloc.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/time.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/event/index.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/cacheMessage.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/models/wallet.dart';
 import 'package:fil/pages/main/index.dart';
 import 'package:fil/pages/main/online.dart';
+import 'package:fil/pages/message/method.dart';
 import 'package:fil/pages/multi/widgets/multiMessageItem.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/style/index.dart';
+import 'package:fil/utils/enum.dart';
+import 'package:fil/widgets/bottomSheet.dart';
+import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/fresh.dart';
+import 'package:fil/widgets/icon.dart';
+import 'package:fil/widgets/layout.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_rx/src/rx_workers/rx_workers.dart';
+import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
+
+import '../../app.dart';
 
 /// display balance and messages of the multi-sig wallet
 class MultiMainPage extends StatefulWidget {
@@ -13,40 +46,21 @@ class MultiMainPage extends StatefulWidget {
   }
 }
 
+/// page of multi main
 class MultiMainPageState extends State<MultiMainPage> with RouteAware {
-  MultiSignWallet get wallet => $store.multiWal;
-  var box = OpenedBox.multiInsance;
-  var mesBox = OpenedBox.multiProposeInstance;
-  List<CacheMultiMessage> messageList = [];
   Map<String, List<CacheMultiMessage>> mesMap = {};
   Worker worker;
   StreamSubscription sub;
   int signerNonce;
-  bool enablePullUp = false;
   RefreshController rc;
-  int selectType = 0;
-  void getBalance() async {
-    try {
-      var info = await Global.provider.getMultiInfo(wallet.id);
-      if (wallet.balance != info.balance) {
-        wallet.balance = info.balance;
-        box.put(wallet.id, wallet);
-        $store.changeMultiWalletBalance(wallet.balance);
-      }
-    } catch (e) {
-      print(e);
-    }
-  }
+
+  List<int> tabsList = [MultiTabs.proposal, MultiTabs.collection];
 
   @override
   void initState() {
     super.initState();
-    messageList = getWalletSortedMessages();
     worker = ever($store.multiWallet, (wal) {
-      setState(() {
-        messageList = getWalletSortedMessages();
-        enablePullUp = false;
-      });
+      BlocProvider.of<MultiBloc>(_context)..add(getWalletSortedMessagesEvent(MultiTabs.proposal));
       nextTick(() {
         rc.requestRefresh();
       });
@@ -59,15 +73,13 @@ class MultiMainPageState extends State<MultiMainPage> with RouteAware {
   @override
   void didPopNext() {
     super.didPopNext();
-    setState(() {
-      messageList = getWalletSortedMessages();
-    });
+    BlocProvider.of<MultiBloc>(_context)..add(getWalletSortedMessagesEvent(MultiTabs.proposal));
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    routeObserver.subscribe(this, ModalRoute.of(context));
+    routeObserver.subscribe(this, ModalRoute.of(context) as PageRoute<dynamic>);
   }
 
   @override
@@ -78,380 +90,260 @@ class MultiMainPageState extends State<MultiMainPage> with RouteAware {
     sub.cancel();
   }
 
-  Future onRefresh() async {
-    getBalance();
-    await getLatestMessages();
+  Future onRefresh(BuildContext context) async {
+    BlocProvider.of<MultiBloc>(context)
+      ..add(getLatestMessagesEvent(MultiTabs.proposal))
+      ..add(getMultiInfoEvent($store.multiWal.id));
   }
 
-  Future getLatestMessages() async {
-    var resList = await getMessages(
-      direction: 'down',
-    );
-
-    if (resList.isNotEmpty && mounted) {
-      var list = getWalletSortedMessages();
-      setState(() {
-        messageList = list;
-        enablePullUp = resList.length >= 20;
-      });
-    }
+  Future onLoading(BuildContext context, int selectType, String mid) async {
+    BlocProvider.of<MultiBloc>(context).add(getMessagesBeforeLastCompletedMessageEvent(selectType, mid, 'up'));
   }
 
-  Future getMessagesBeforeLastCompletedMessage() async {
-    var completeList = messageList.where((mes) => mes.mid != '').toList();
-    var mid = completeList.last.mid;
-    var lis = await getMessages(mid: mid);
-    if (mounted) {
-      if (lis.isNotEmpty) {
-        setState(() {
-          messageList = getWalletSortedMessages();
-          enablePullUp = lis.length >= 20;
-        });
-      } else {
-        setState(() {
-          enablePullUp = false;
-        });
-      }
-    }
-  }
-
-  Widget genMethodSelectItem({Noop onTap, bool active, int type = 0}) {
-    return GestureDetector(
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-            border: Border(
-                bottom: BorderSide(
-                    color: active ? CustomColor.primary : Colors.transparent,
-                    width: 2))),
-        padding: EdgeInsets.only(bottom: 8),
-        child: CommonText(
-          <String>[
-            'propose'.tr,
-            'receive'.tr,
-          ][type],
-          size: 16,
-          color: active ? CustomColor.primary : Colors.black,
-          weight: active ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      onTap: () {
-        setState(() {
-          selectType = type;
-          messageList = getWalletSortedMessages(type: type);
-        });
-        getLatestMessages();
-      },
-    );
-  }
-
-  Future<List<CacheMultiMessage>> getMessages(
-      {String direction = 'up', String mid = ''}) async {
-    try {
-      var handle = selectType == 0
-          ? Global.provider.getMultiMessageList
-          : Global.provider.getMultiReceiveMessages;
-      var list = await handle(actor: wallet.id, direction: direction, mid: mid);
-      if (list.isNotEmpty) {
-        var maxNonce = 0;
-        var messages = list.map((e) {
-          var mes = CacheMultiMessage.fromJson(e);
-          mes.pending = 0;
-          mes.owner = $store.addr;
-          mes.type = selectType;
-          if (mes.nonce != null &&
-              mes.nonce > maxNonce &&
-              mes.from == $store.addr) {
-            maxNonce = mes.nonce;
-          }
-          return mes;
-        }).toList();
-
-        var pendingList = messageList.where((mes) => mes.pending == 1).toList();
-        if (pendingList.isNotEmpty) {
-          for (var k = 0; k < pendingList.length; k++) {
-            var mes = pendingList[k];
-            if (mes.nonce <= maxNonce && mes.owner == $store.addr) {
-              await mesBox.delete(mes.cid);
-            }
-          }
-        }
-        if (direction == 'down') {
-          var completeKeys = messageList
-              .where((mes) => mes.pending == 0)
-              .map((mes) => mes.cid);
-          await mesBox.deleteAll(completeKeys);
-        }
-        for (var i = 0; i < messages.length; i++) {
-          var m = messages[i];
-          var approves = OpenedBox.multiApproveInstance.values
-              .where((apr) => apr.proposeCid == m.cid)
-              .toList();
-          if (m.approves.isNotEmpty && approves.isNotEmpty) {
-            List<String> deleteKeys = [];
-            m.approves.forEach((apr) {
-              var from = apr.from;
-              var relatedApproves =
-                  approves.where((ap) => ap.from == from).toList();
-              relatedApproves.forEach((ap) async {
-                if (apr.nonce != null && ap.nonce != null) {
-                  if (apr.nonce >= ap.nonce) {
-                    deleteKeys.add(ap.cid);
-                  }
-                } else {
-                  deleteKeys.add(ap.cid);
-                }
-              });
-            });
-            if (deleteKeys.isNotEmpty) {
-              await OpenedBox.multiApproveInstance.deleteAll(deleteKeys);
-            }
-          }
-          OpenedBox.multiProposeInstance.put(m.cid, m);
-        }
-        return messages.toList();
-      } else {
-        return [];
-      }
-    } catch (e) {
-      print(e);
-      return [];
-    }
-  }
-
-  List<CacheMultiMessage> getWalletSortedMessages({int type}) {
-    if (type == null) {
-      type = selectType;
-    }
-    var list = <CacheMultiMessage>[];
-    var resList = <CacheMultiMessage>[];
-    var address = wallet.id;
-    var robustAddress = wallet.robustAddress;
-    list = mesBox.values
-        .where((message) =>
-            (message.to == address || message.to == robustAddress) &&
-            message.type == type)
-        .toList();
-    var pendingList = <CacheMultiMessage>[];
-    var completeList = <CacheMultiMessage>[];
-    list.forEach((mes) {
-      if (mes.pending == 0) {
-        completeList.add(mes);
-      } else {
-        pendingList.add(mes);
-      }
-    });
-    pendingList.sort((a, b) {
-      if (a.nonce != null && b.nonce != null) {
-        return b.blockTime.compareTo(a.blockTime);
-      } else {
-        return 1;
-      }
-    });
-    completeList.sort((a, b) {
-      if (a.nonce != null && b.nonce != null) {
-        return b.blockTime.compareTo(a.blockTime);
-      } else {
-        return 1;
-      }
-    });
-    resList..addAll(pendingList)..addAll(completeList);
-    return resList;
-  }
+  BuildContext _context;
 
   @override
   Widget build(BuildContext context) {
-    mesMap = {};
-    var filterList = messageList;
-    var today = Day();
-    var formatStr = 'YYYY-MM-DD';
-    var todayStr = today.format(formatStr);
-    var yestoday = today.subtract(1, 'd') as Day;
-    var yestodayStr = yestoday.format(formatStr);
-    filterList.forEach((mes) {
-      var time = formatTimeByStr(mes.blockTime, str: formatStr);
+    return BlocProvider(
+        create: (context) => MultiBloc()
+          ..add(getWalletSortedMessagesEvent(MultiTabs.proposal)),
+        child: BlocBuilder<MultiBloc, MultiState>(builder: (context, state) {
+          _context = context;
+          mesMap = {};
+          var filterList = state.messageList;
+          var today = Day();
+          var formatStr = 'YYYY-MM-DD';
+          var todayStr = today.format(formatStr);
+          var yestoday = today.subtract(1, 'd') as Day;
+          var yestodayStr = yestoday.format(formatStr);
+          filterList.forEach((mes) {
+            var time = formatTimeByStr(mes.blockTime, str: formatStr);
 
-      var item = mesMap[time];
-      if (item == null) {
-        mesMap[time] = [];
-      }
-      mesMap[time].add(mes);
-    });
-    var keys = mesMap.keys.toList();
-    var noData = filterList.isEmpty;
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(NavHeight),
-        child: AppBar(
-          centerTitle: true,
-          backgroundColor: Colors.white,
-          elevation: NavElevation,
-          title: Obx(() => DropdownFButton(
-                title: $store.multiWal.addrWithNet,
-                onTap: () {
-                  showMultiWalletSelector(context, null);
-                },
-              )),
-          leading: IconButton(
-            onPressed: () {
-              Get.back();
-            },
-            icon: IconNavBack,
-            alignment: NavLeadingAlign,
-          ),
-        ),
-      ),
-      backgroundColor: Colors.white,
-      body: CustomRefreshWidget(
-        onRefresh: onRefresh,
-        enablePullUp: enablePullUp,
-        refreshKey: multiMainPage,
-        onLoading: getMessagesBeforeLastCompletedMessage,
-        onInit: (rc) {
-          this.rc = rc;
-        },
-        initRefresh: true,
-        child: CustomScrollView(
-          slivers: [
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: SliverDelegate(
-                  minHeight: 280,
-                  maxHeight: 280,
-                  child: Container(
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: 16,
-                          ),
-                          Layout.rowCenter([
-                            Obx(
-                              () => CommonText(
-                                $store.multiWal.label,
-                                size: 16,
-                              ),
-                            ),
-                            SizedBox(
-                              width: 5,
-                            ),
-                            GestureDetector(
-                              child: Image(
-                                image: AssetImage('images/edit.png'),
-                                width: 16,
-                              ),
-                              onTap: () {
-                                var ctrl = TextEditingController();
-                                ctrl.text = $store.multiWal.label;
-                                showCustomDialog(
-                                    context,
-                                    ChangeNameDialog(
-                                      controller: ctrl,
+            var item = mesMap[time];
+            if (item == null) {
+              mesMap[time] = [];
+            }
+            mesMap[time].add(mes);
+          });
+          var keys = mesMap.keys.toList();
+          var noData = filterList.isEmpty;
+          return Scaffold(
+            appBar: PreferredSize(
+              preferredSize: Size.fromHeight(NavHeight),
+              child: AppBar(
+                centerTitle: true,
+                backgroundColor: Colors.white,
+                elevation: NavElevation,
+                title: Obx(() => DropdownFButton(
+                      title: $store.multiWal.addressWithNet,
+                      onTap: () {
+                        showMultiWalletSelector(context, null);
+                      },
+                    )),
+                leading: IconButton(
+                  onPressed: () {
+                    Get.back();
+                  },
+                  icon: IconNavBack,
+                  alignment: NavLeadingAlign,
+                ),
+              ),
+            ),
+            backgroundColor: Colors.white,
+            body: CustomRefreshWidget(
+              onRefresh: () {
+                onRefresh(context);
+              },
+              enablePullUp: state.enablePullUp,
+              refreshKey: multiMainPage,
+              onLoading: () {
+                onLoading(context, state.selectType, state.mid);
+              },
+              onInit: (rc) {
+                this.rc = rc;
+              },
+              initRefresh: true,
+              child: CustomScrollView(
+                slivers: [
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: SliverDelegate(
+                        minHeight: 280,
+                        maxHeight: 280,
+                        child: Container(
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  height: 16,
+                                ),
+                                Layout.rowCenter([
+                                  Obx(
+                                    () => CommonText(
+                                      $store.multiWal.label,
+                                      size: 16,
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 5,
+                                  ),
+                                  GestureDetector(
+                                    child: Image(
+                                      image: AssetImage('images/edit.png'),
+                                      width: 16,
+                                    ),
+                                    onTap: () {
+                                      var ctrl = TextEditingController();
+                                      ctrl.text = $store.multiWal.label;
+                                      showCustomDialog(
+                                          context,
+                                          ChangeNameDialog(
+                                            controller: ctrl,
+                                            onTap: () {
+                                              var v = ctrl.text;
+                                              v = v.trim();
+                                              if (v == "") {
+                                                showCustomError('enterName'.tr);
+                                                return;
+                                              }
+                                              if (v.length > 20) {
+                                                showCustomError(
+                                                    'nameTooLong'.tr);
+                                                return;
+                                              }
+                                              var wallet = $store.multiWal;
+                                              wallet.label = v;
+                                              OpenedBox.multiInsance.put(
+                                                  wallet.addressWithNet,
+                                                  wallet);
+                                              $store.changeMultiWalletName(v);
+                                              unFocusOf(context);
+                                              Get.back();
+                                              showCustomToast(
+                                                  'changeNameSucc'.tr);
+                                            },
+                                          ));
+                                    },
+                                  )
+                                ]),
+                                SizedBox(
+                                  height: 10,
+                                ),
+                                Obx(() => CommonText(
+                                      formatFil($store.multiWal.balance,
+                                          size: 6),
+                                      size: 30,
+                                      weight: FontWeight.w800,
+                                    )),
+                                SizedBox(
+                                  height: 12,
+                                ),
+                                Obx(() => CommonText(
+                                      getMarketPrice($store.multiWal.balance,
+                                          Global.price),
+                                    )),
+                                SizedBox(
+                                  height: 18,
+                                ),
+                                Obx(() => CopyAddress(
+                                    $store.multiWal.addressWithNet)),
+                                SizedBox(
+                                  height: 18,
+                                ),
+                                MultiWalletBtns(),
+                                Spacer(),
+                                Row(
+                                  children:
+                                      List.generate(tabsList.length, (index) {
+                                    return Expanded(
+                                        child: GestureDetector(
+                                      child: Container(
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                            border: Border(
+                                                bottom: BorderSide(
+                                                    color: tabsList[index] ==
+                                                            state.selectType
+                                                        ? CustomColor.primary
+                                                        : Colors.transparent,
+                                                    width: 2))),
+                                        padding: EdgeInsets.only(bottom: 8),
+                                        child: CommonText(
+                                          <String>[
+                                            'propose'.tr,
+                                            'receive'.tr,
+                                          ][index],
+                                          size: 16,
+                                          color: tabsList[index] ==
+                                                  state.selectType
+                                              ? CustomColor.primary
+                                              : Colors.black,
+                                          weight: tabsList[index] ==
+                                                  state.selectType
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
                                       onTap: () {
-                                        var v = ctrl.text;
-                                        v = v.trim();
-                                        if (v == "") {
-                                          showCustomError('enterName'.tr);
-                                          return;
-                                        }
-                                        if (v.length > 20) {
-                                          showCustomError('nameTooLong'.tr);
-                                          return;
-                                        }
-                                        var wallet = $store.multiWal;
-                                        wallet.label = v;
-                                        OpenedBox.multiInsance
-                                            .put(wallet.addrWithNet, wallet);
-                                        $store.changeMultiWalletName(v);
-                                        unFocusOf(context);
-                                        Get.back();
-                                        showCustomToast('changeNameSucc'.tr);
+                                        BlocProvider.of<MultiBloc>(context).add(
+                                            updateSelectTypeEvent(tabsList[index]));
+                                        BlocProvider.of<MultiBloc>(context).add(
+                                            getWalletSortedMessagesEvent(tabsList[index]));
+                                        BlocProvider.of<MultiBloc>(context).add(
+                                            getLatestMessagesEvent(tabsList[index]));
                                       },
                                     ));
-                              },
-                            )
-                          ]),
-                          SizedBox(
-                            height: 10,
-                          ),
-                          Obx(() => CommonText(
-                                formatFil(
-                                  $store.multiWal.balance,
-                                  size: 6
-                                ),
-                                size: 30,
-                                weight: FontWeight.w800,
-                              )),
-                          SizedBox(
-                            height: 12,
-                          ),
-                          Obx(() => CommonText(
-                                getMarketPrice($store.multiWal.balance,
-                                    Global.price?.rate),
-                              )),
-                          SizedBox(
-                            height: 18,
-                          ),
-                          Obx(() => CopyAddress($store.multiWal.addrWithNet)),
-                          SizedBox(
-                            height: 18,
-                          ),
-                          MultiWalletService(),
-                          Spacer(),
-                          Row(
-                            children: List.generate([0, 1].length, (index) {
-                              return Expanded(
-                                  child: genMethodSelectItem(
-                                      type: index,
-                                      active: index == selectType));
-                            }).toList(),
-                          )
-                        ],
-                      ),
-                      color: Colors.white)),
-            ),
-            noData
-                ? SliverToBoxAdapter(
-                    child: NoData(),
-                  )
-                : SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                    var date = keys[index];
-                    var l = mesMap[date];
-                    if (date == yestodayStr) {
-                      date = 'yestoday'.tr;
-                    } else if (date == todayStr) {
-                      date = 'today'.tr;
-                    }
-                    return Column(
-                      children: [
-                        Container(
-                          height: 20,
-                          padding: EdgeInsets.only(left: 12),
-                          width: double.infinity,
-                          alignment: Alignment.centerLeft,
-                          child: CommonText(
-                            date,
-                            size: 10,
-                            color: CustomColor.grey,
-                          ),
-                          color: CustomColor.bgGrey,
-                        ),
-                        Column(
-                          children: List.generate(l.length, (i) {
-                            var message = l[i];
-                            return MultiMessageItem(
-                              mes: message,
-                              threshold: wallet.threshold,
-                            );
-                          }),
+                                  }).toList(),
+                                )
+                              ],
+                            ),
+                            color: Colors.white)),
+                  ),
+                  noData
+                      ? SliverToBoxAdapter(
+                          child: NoData(),
                         )
-                      ],
-                    );
-                  }, childCount: keys.length))
-          ],
-        ),
-      ),
-    );
+                      : SliverList(
+                          delegate:
+                              SliverChildBuilderDelegate((context, index) {
+                          var date = keys[index];
+                          var l = mesMap[date];
+                          if (date == yestodayStr) {
+                            date = 'yestoday'.tr;
+                          } else if (date == todayStr) {
+                            date = 'today'.tr;
+                          }
+                          return Column(
+                            children: [
+                              Container(
+                                height: 20,
+                                padding: EdgeInsets.only(left: 12),
+                                width: double.infinity,
+                                alignment: Alignment.centerLeft,
+                                child: CommonText(
+                                  date,
+                                  size: 10,
+                                  color: CustomColor.grey,
+                                ),
+                                color: CustomColor.bgGrey,
+                              ),
+                              Column(
+                                children: List.generate(l.length, (i) {
+                                  var message = l[i];
+                                  return MultiMessageItem(
+                                    mes: message,
+                                    threshold: $store.multiWal.threshold,
+                                  );
+                                }),
+                              )
+                            ],
+                          );
+                        }, childCount: keys.length))
+                ],
+              ),
+            ),
+          );
+          ;
+        }));
   }
 }
 
@@ -461,7 +353,7 @@ class MultiWalletSelect extends StatelessWidget {
   List<MultiSignWallet> get list {
     return OpenedBox.multiInsance.values
         .where((wal) =>
-            wal.status == 1 && wal.signers.contains($store.wal.addrWithNet))
+            wal.status == 1 && wal.signers.contains($store.wal.addressWithNet))
         .toList();
   }
 
@@ -479,9 +371,10 @@ class MultiWalletSelect extends StatelessWidget {
                 var wallet = list[index];
                 return GestureDetector(
                   onTap: () {
-                    if (wallet.addrWithNet != $store.multiWal.addrWithNet) {
-                      Global.store
-                          .setString('activeMultiAddress', wallet.addrWithNet);
+                    if (wallet.addressWithNet !=
+                        $store.multiWal.addressWithNet) {
+                      Global.store.setString(
+                          'activeMultiAddress', wallet.addressWithNet);
                       $store.setMultiWallet(wallet);
                     }
                     Get.back();
@@ -500,14 +393,15 @@ class MultiWalletSelect extends StatelessWidget {
                       children: [
                         CommonText.white(wallet.label, size: 16),
                         CommonText.white(
-                          wallet.addrWithNet,
+                          wallet.addressWithNet,
                           size: 12,
                         ),
                       ],
                     ),
                     decoration: BoxDecoration(
                         borderRadius: CustomRadius.b8,
-                        color: wallet.addrWithNet == $store.multiWal.addrWithNet
+                        color: wallet.addressWithNet ==
+                                $store.multiWal.addressWithNet
                             ? CustomColor.primary
                             : Color(0xff8297B0)),
                   ),
@@ -557,7 +451,7 @@ class MultiWalletSelect extends StatelessWidget {
   }
 }
 
-class MultiWalletService extends StatelessWidget {
+class MultiWalletBtns extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(

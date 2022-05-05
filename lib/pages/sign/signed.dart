@@ -1,4 +1,20 @@
-import 'package:fil/index.dart';
+import 'dart:convert';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/models/message.dart';
+import 'package:fil/pages/sign/signBody.dart';
+import 'package:fil/widgets/bottomSheet.dart';
+import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/layout.dart';
+import 'package:fil/widgets/qr.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+
 /// signed message
 class SignedMessageBody extends StatelessWidget {
   final SignedMessage signedMessage;

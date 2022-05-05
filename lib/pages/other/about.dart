@@ -1,5 +1,14 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
 import 'package:fil/pages/other/webview.dart';
+import 'package:fil/style/index.dart';
+import 'package:fil/widgets/icon.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
 const _textStyle = TextStyle(
   fontSize: 15,
@@ -65,7 +74,7 @@ class AboutPage extends StatelessWidget {
               ListTile(
                 onTap: () {
                   goWebviewPage(
-                      url: "https://fivetoken.io", title: 'Fivetoken');
+                      url: "https://fivetoken.co", title: 'Fivetoken');
                 },
                 title: Row(
                   children: <Widget>[

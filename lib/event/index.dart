@@ -1,5 +1,10 @@
 class AppStateChangeEvent {}
-class ShouldRefreshEvent{
+
+class ShouldRefreshEvent {
   String refreshKey;
   ShouldRefreshEvent({this.refreshKey});
 }
+
+class GasConfirmEvent {}
+
+class AccountChangeEvent {}

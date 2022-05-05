@@ -1,7 +1,6 @@
 import 'dart:io';
-
 import 'package:device_info/device_info.dart';
-import 'package:fil/index.dart';
+import 'package:fil/common/global.dart';
 
 /// get uuid, platform and os version of the device
 Future initDeviceInfo() async {

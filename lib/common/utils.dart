@@ -1,11 +1,20 @@
+import 'dart:convert';
 import 'package:decimal/decimal.dart';
-import 'package:fil/index.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:crypto/crypto.dart';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:bip32/bip32.dart' as bip32;
+import 'package:fil/models/gas.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/models/private.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
+import 'package:hive/hive.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:zxcvbn/zxcvbn.dart';
 import 'dart:math';
+
+import 'global.dart';
 
 const psalt = "vFIzIawYOU";
 
@@ -41,7 +50,7 @@ String tokenify(String str, {String salt = psalt}) {
   var key = utf8.encode(salt);
   var bytes = utf8.encode(str.trim());
 
-  var hmacSha = new Hmac(sha1, key); // HMAC-SHA1
+  var hmacSha = Hmac(sha1, key); // HMAC-SHA1
   var digest = hmacSha.convert(bytes);
   return digest.toString();
 }
@@ -86,34 +95,29 @@ bool isDecimal(String input) {
   return false;
 }
 
-/// verify if [input] is a valid filecoin address
-bool isValidAddress(String input) {
-  if (input.indexOf(' ') != -1) {
-    return false;
-  }
-  var addr = input.trim().toLowerCase();
-  if (addr == '') {
-    return false;
-  }
-  var net = addr[0];
-  if (net != Global.netPrefix) {
-    return false;
-  }
-  var protocol = addr[1];
-  if (!RegExp(r"^0|1|2|3$").hasMatch(protocol)) {
-    return false;
-  }
-  var raw = addr.substring(2);
-  if (protocol == "0") {
-    if (raw.length > 20) {
-      return false;
-    }
-  }
-  if (protocol == "3") {
-    if (raw.length < 30 || raw.length > 120) {
-      return false;
-    }
-  }
+/*
+* verify if [input] is a valid filecoin address
+* @param {string} address:address
+* @returns {Boolean}
+*/
+
+bool isValidAddress(String address) {
+  if (!address.isNotEmpty) return false;
+  if (address.length < 3) return false;
+  String network = address[0];
+  if (network != 'f' && network != 't') return false;
+  var map = {"ID": '0', "secP256K1": '1', "ACTOR": '2', "BLS": '3'};
+
+  String protocol = address[1] as String;
+
+  if (protocol == map['ID'] && address.length as int > 22) return false;
+
+  if (protocol == map['secP256K1'] && address.length != 41) return false;
+
+  if (protocol == map['ACTOR'] && address.length != 41) return false;
+
+  if (protocol == map['BLS'] && address.length != 86) return false;
+
   return true;
 }
 
@@ -155,17 +159,17 @@ String formatFil(String attoFil,
       var unit = BigInt.from(pow(10, 9));
       var res = v / unit;
       return fixed
-          ? '${res.toStringAsFixed(size)} nanoFIL'
+          ? '${res.toStringAsFixed(size.toInt())} nanoFIL'
           : '${truncate(res)} nanoFIL';
     } else {
       var unit = BigInt.from(pow(10, 18));
       var res = v / unit;
       if (returnRaw) {
-        return double.parse(res.toStringAsFixed(8)).toString() + ' FIL';
+        return double.parse(res.toStringAsFixed(10)).toString() + ' FIL';
       }
       return fixed
-          ? '${res.toStringAsFixed(size)} FIL'
-          : '${truncate(res, size: size)} FIL';
+          ? '${res.toStringAsFixed(size.toInt())} FIL'
+          : '${truncate(res, size: size.toInt())} FIL';
     }
   } catch (e) {
     return attoFil;
@@ -177,7 +181,7 @@ String fil2Atto(String fil) {
   if (fil == null || fil == '') {
     fil = '0';
   }
-  return (Decimal.parse(fil) * Decimal.fromInt(pow(10, 18))).toString();
+  return (Decimal.parse(fil) * Decimal.fromInt(pow(10, 18).toInt())).toString();
 }
 
 /// convert bytes to different units
@@ -210,7 +214,7 @@ String unitConversion(String byteStr, num length) {
     if (c < 0) {
       res = '';
     } else {
-      res = (byte / pow(k, c)).toStringAsFixed(length) + " " + sizes[c];
+      res = (byte / pow(k, c)).toStringAsFixed(length.toInt()) + " " + sizes[c];
     }
 
     return positive ? res : '-$res';
@@ -258,6 +262,7 @@ void nextTick(Noop callback) {
   });
 }
 
+// get service charge
 String getMaxFee(Gas gas) {
   var feeCap = gas.feeCap;
   var gasLimit = gas.gasLimit;
@@ -267,11 +272,12 @@ String getMaxFee(Gas gas) {
 }
 
 String truncate(double value, {int size = 4}) {
-  var unit = Decimal.fromInt(pow(10, size));
+  var unit = Decimal.fromInt(pow(10, size).toInt());
   var d = Decimal.parse(value.toString()) * unit;
   return (d.truncate() / unit).toString();
 }
 
+// Get current timestamp
 int getSecondSinceEpoch() {
   return (DateTime.now().millisecondsSinceEpoch / 1000).truncate();
 }
@@ -291,4 +297,10 @@ String formatDouble(String str, {bool truncate = false, int size = 4}) {
   } catch (e) {
     return '0';
   }
+}
+
+num zxcvbnLevel(String password) {
+  final zxcvbnFn = Zxcvbn();
+  final result = zxcvbnFn.evaluate(password);
+  return result.score as num;
 }

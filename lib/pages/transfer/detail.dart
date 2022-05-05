@@ -1,6 +1,22 @@
-import 'package:fil/index.dart';
+import 'dart:convert';
+import 'package:fil/bloc/detail/detail_bloc.dart';
+import 'package:fil/chain/constant.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/time.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/models/cacheMessage.dart';
 import 'package:fil/pages/other/webview.dart';
-import 'package:oktoast/oktoast.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// display detail of a transaction
 class FilDetailPage extends StatefulWidget {
@@ -8,72 +24,31 @@ class FilDetailPage extends StatefulWidget {
   State createState() => FilDetailPageState();
 }
 
+/// page of transfer detail
 class FilDetailPageState extends State<FilDetailPage> {
-  MessageDetail msgDetail =
-      MessageDetail(value: '0', methodName: '', allGasFee: '0');
-  StoreMessage mes = Get.arguments;
-  String amount;
-  void getMessageDetailInfo() async {
-    if (mes.pending == 1 || mes.exitCode == -1 || mes.exitCode == -2) {
-      setState(() {
-        msgDetail = MessageDetail(
-            from: mes.from,
-            to: mes.to,
-            value: mes.value,
-            methodName: '',
-            signedCid: mes.signedCid);
-        amount = mes.value;
-      });
-      return;
-    }
-    showCustomLoading('Loading');
-    var res = await Global.provider.getMessageDetail(mes.signedCid);
-    dismissAllToast();
-    if (res.height != null) {
-      setState(() {
-        if (mes.multiMethod == '') {
-          msgDetail = res;
-          if (res.methodName == FilecoinMethod.withdraw && res.args is Map) {
-            amount = res.args['AmountRequested'];
-          }
-        } else {
-          msgDetail
-            ..from = mes.from
-            ..value = mes.value
-            ..methodName = FilecoinMethod.send
-            ..signedCid = mes.signedCid
-            ..height = res.height
-            ..allGasFee = res.allGasFee
-            ..to = mes.to;
-        }
-      });
-    }
-  }
-
-  String get methodName => msgDetail.methodName;
+  StoreMessage mes = Get.arguments as StoreMessage;
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero).then((value) => getMessageDetailInfo());
   }
 
-  void goFilScan(MessageDetail m) {
+  void goFilScan(String cid) {
     var url =
-        "$filscanWeb/tipset/message-detail?cid=${m.signedCid}&utm_source=filwallet_app";
-
+        "$filscanWeb/tipset/message-detail?cid=${cid}&utm_source=filwallet_app";
     goWebviewPage(url: url, title: 'detail'.tr);
   }
 
-  Widget get withdrawWidget {
-    if (methodName == FilecoinMethod.withdraw) {
-      amount = msgDetail.args['AmountRequested'];
+  Widget withdrawWidget(context, state) {
+    if (state.methodName == FilecoinMethod.withdraw) {
+      String amount = state.args['AmountRequested'] as String;
+      String to = state.to as String;
       return Column(
         children: [
           CommonCard(Column(
             children: [
               MessageRow(
                 label: 'minerAddr'.tr,
-                value: msgDetail.to,
+                value: to,
               ),
               MessageRow(
                 label: 'withdrawNum'.tr,
@@ -91,24 +66,21 @@ class FilDetailPageState extends State<FilDetailPage> {
     }
   }
 
-  Widget get changeOwnerWidget {
-    if (methodName == FilecoinMethod.changeOwner) {
+  Widget changeOwnerWidget(context, state) {
+    if (state.methodName == FilecoinMethod.changeOwner) {
+      String to = state.to as String;
       return Column(
         children: [
           CommonCard(Column(
             children: [
               MessageRow(
                 label: 'minerAddr'.tr,
-                value: msgDetail.to,
+                value: to,
               ),
               MessageRow(
                 label: 'newOwner'.tr,
-                value: msgDetail.args.toString(),
+                value: state.args.toString(),
               ),
-              // MessageRow(
-              //   label: 'oldOwner'.tr,
-              //   value: msgDetail.from.toString(),
-              // ),
             ],
           )),
           SizedBox(
@@ -121,25 +93,25 @@ class FilDetailPageState extends State<FilDetailPage> {
     }
   }
 
-  Widget get createMinerWidget {
-    if (msgDetail.methodName == FilecoinMethod.createMiner &&
-        msgDetail.args is Map &&
-        msgDetail.returns is Map) {
+  Widget createminerWalletidget(context, state) {
+    if (state.methodName == FilecoinMethod.createMiner &&
+        state.args is Map &&
+        state.returns is Map) {
       return Column(
         children: [
           CommonCard(Column(
             children: [
               MessageRow(
                 label: 'minerAddr'.tr,
-                value: msgDetail.returns['IDAddress'],
+                value: state.returns['IDAddress'] as String,
               ),
               MessageRow(
                 label: 'owner'.tr,
-                value: msgDetail.args['Owner'],
+                value: state.args['Owner'] as String,
               ),
               MessageRow(
                 label: 'worker'.tr,
-                value: msgDetail.args['Worker'],
+                value: state.args['Worker'] as String,
               ),
             ],
           )),
@@ -153,12 +125,12 @@ class FilDetailPageState extends State<FilDetailPage> {
     }
   }
 
-  Widget get execWidget {
+  Widget execWidget(context, state) {
     var miner = '';
-    if (methodName == FilecoinMethod.exec &&
-        msgDetail.returns is Map &&
-        msgDetail.returns['IDAddress'] != null) {
-      miner = msgDetail.returns['IDAddress'];
+    if (state.methodName == FilecoinMethod.exec &&
+        state.returns is Map &&
+        state.returns['IDAddress'] != null) {
+      miner = state.returns['IDAddress'] as String;
       return Column(
         children: [
           CommonCard(MessageRow(
@@ -175,9 +147,9 @@ class FilDetailPageState extends State<FilDetailPage> {
     }
   }
 
-  Widget get amountWidget {
-    var amount = msgDetail.value;
-    if (methodName == FilecoinMethod.send) {
+  Widget amountWidget(context, state) {
+    String amount = state.value as String;
+    if (state.methodName == FilecoinMethod.send) {
       return Column(
         children: [
           CommonCard(MessageRow(
@@ -194,12 +166,13 @@ class FilDetailPageState extends State<FilDetailPage> {
     }
   }
 
-  Widget get changeWorkerParam {
-    var args = msgDetail.args;
-    if (methodName == FilecoinMethod.changeWorker && args is Map) {
+  Widget changeWorkerParam(context, state) {
+    var args = state.args;
+    String to = state.to as String;
+    if (state.methodName == FilecoinMethod.changeWorker && args is Map) {
       var newWorker = args['NewWorker'];
-      List conaddrs =
-          args['NewControlAddrs'] is List ? args['NewControlAddrs'] : [];
+      var newControllerAddress = args['NewControlAddrs'] as List<dynamic>;
+      List conaddrs = newControllerAddress is List ? newControllerAddress : [];
 
       return Column(
         children: [
@@ -207,7 +180,7 @@ class FilDetailPageState extends State<FilDetailPage> {
             children: [
               MessageRow(
                 label: 'minerAddr'.tr,
-                value: msgDetail.to,
+                value: to,
               ),
               MessageRow(
                 label: 'worker'.tr,
@@ -248,86 +221,92 @@ class FilDetailPageState extends State<FilDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return CommonScaffold(
-      title: 'detail'.tr,
-      hasFooter: false,
-      body: SingleChildScrollView(
-        physics: BouncingScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(12, 30, 12, 40),
-        child: Column(
-          children: [
-            Container(
-              child: MessageStatusHeader(mes),
-              width: double.infinity,
-            ),
-            SizedBox(
-              height: 25,
-            ),
-            Visibility(
-                child: Column(
-                  children: [
-                    createMinerWidget,
-                    withdrawWidget,
-                    amountWidget,
-                    changeWorkerParam,
-                    execWidget,
-                    changeOwnerWidget,
-                  ],
-                ),
-                visible: mes.pending == 0),
-            Visibility(
-                visible: mes.pending != 1,
-                child: CommonCard(MessageRow(
-                  label: 'fee'.tr,
-                  value: formatFil(BigInt.parse(msgDetail.allGasFee).toString(),
-                      size: 5),
-                ))),
-            SizedBox(
-              height: 7,
-            ),
-            Visibility(
-              child: CommonCard(Column(
+    return BlocProvider(
+        create: (context) => DetailBloc()..add(getMessageDetailEvent(mes)),
+        child: BlocBuilder<DetailBloc, DetailState>(builder: (context, state) {
+          return CommonScaffold(
+            title: 'detail'.tr,
+            hasFooter: false,
+            body: SingleChildScrollView(
+              physics: BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(12, 30, 12, 40),
+              child: Column(
                 children: [
-                  MessageRow(
-                    label: 'from'.tr,
-                    selectable: true,
-                    value: msgDetail.from,
+                  Container(
+                    child: MessageStatusHeader(mes),
+                    width: double.infinity,
                   ),
-                  MessageRow(
-                    label: 'to'.tr,
-                    selectable: true,
-                    value: msgDetail.to,
+                  SizedBox(
+                    height: 25,
                   ),
-                  MessageRow(
-                    label: 'Nonce',
-                    value: mes.nonce.toString(),
+                  Visibility(
+                      child: Column(
+                        children: [
+                          createminerWalletidget(context, state),
+                          withdrawWidget(context, state),
+                          amountWidget(context, state),
+                          changeWorkerParam(context, state),
+                          execWidget(context, state),
+                          changeOwnerWidget(context, state),
+                        ],
+                      ),
+                      visible: state.pending == 0),
+                  Visibility(
+                      visible: state.pending != 1,
+                      child: CommonCard(MessageRow(
+                        label: 'fee'.tr,
+                        value: formatFil(
+                            BigInt.parse(state.allGasFee).toString(),
+                            size: 5),
+                      ))),
+                  SizedBox(
+                    height: 7,
                   ),
+                  Visibility(
+                    child: CommonCard(Column(
+                      children: [
+                        MessageRow(
+                          label: 'from'.tr,
+                          selectable: true,
+                          value: state.from,
+                        ),
+                        MessageRow(
+                          label: 'to'.tr,
+                          selectable: true,
+                          value: state.to,
+                        ),
+                        MessageRow(
+                          label: 'Nonce',
+                          value: state.nonce.toString(),
+                        ),
+                      ],
+                    )),
+                    visible: state.methodName != FilecoinMethod.changeOwner,
+                  ),
+                  SizedBox(
+                    height: 7,
+                  ),
+                  mes.pending != 1
+                      ? ChainMeta(
+                          cid: state.signedCid,
+                          height: state.height == null
+                              ? ''
+                              : state.height.toString(),
+                          params: null)
+                      : CommonCard(MessageRow(
+                          label: 'cid'.tr,
+                          selectable: true,
+                          value: state.signedCid,
+                        )),
                 ],
-              )),
-              visible: methodName != FilecoinMethod.changeOwner,
+              ),
             ),
-            SizedBox(
-              height: 7,
-            ),
-            mes.pending != 1
-                ? ChainMeta(
-                    cid: msgDetail.signedCid,
-                    height: msgDetail.height == null
-                        ? ''
-                        : msgDetail.height.toString(),
-                    params: null)
-                : CommonCard(MessageRow(
-                    label: 'cid'.tr,
-                    selectable: true,
-                    value: msgDetail.signedCid,
-                  )),
-          ],
-        ),
-      ),
-    );
+          );
+        }));
   }
 }
 
+/// widget of message status
 class MessageStatusHeader extends StatelessWidget {
   final StoreMessage mes;
   MessageStatusHeader(this.mes);
@@ -413,11 +392,12 @@ class MessageRow extends StatelessWidget {
   }
 }
 
+/// widget of chain meta
 class ChainMeta extends StatelessWidget {
   final String cid;
   final String height;
   final dynamic params;
-  void goFilScan() {
+  void goFilScan(cid) {
     var url =
         "$filscanWeb/tipset/message-detail?cid=$cid&utm_source=filwallet_app";
     goWebviewPage(url: url, title: 'detail'.tr);
@@ -450,7 +430,7 @@ class ChainMeta extends StatelessWidget {
             )),
         GestureDetector(
           onTap: () {
-            goFilScan();
+            goFilScan(cid);
           },
           child: Container(
             width: double.infinity,

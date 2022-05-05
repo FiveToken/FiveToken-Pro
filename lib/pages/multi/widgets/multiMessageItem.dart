@@ -1,6 +1,20 @@
-import 'package:fil/index.dart';
+import 'dart:convert';
+import 'package:fil/chain/constant.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/cacheMessage.dart';
+import 'package:fil/pages/main/index.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
+/// widget of multi message
 class MultiMessageItem extends StatelessWidget {
   final CacheMultiMessage mes;
   final int threshold;
@@ -22,17 +36,25 @@ class MultiMessageItem extends StatelessWidget {
   String get addr {
     var str =
         isReceive ? mes.from : (isPropose ? mes.decodeParams['To'] : mes.to);
-    return '${isPropose ? 'to'.tr : 'from'.tr}: ${dotString(str: str)}';
+    return '${isPropose ? 'to'.tr : 'from'.tr}: ${dotString(str: str as String)}';
   }
 
   bool get complete => mes.status == MultiMessageStatus.applied;
   bool get isReceive => mes.type == 1;
   Widget get progress {
     return complete
-        ? Container(
-            width: threshold * 15.0,
-            height: 6,
-            color: Color(0xff67C23A),
+        ? Row(
+            children: List.generate(
+                threshold,
+                (index) => Container(
+                      width: 15,
+                      height: 5,
+                      decoration: BoxDecoration(
+                          color: Color(0xff67C23A),
+                          border: Border(
+                              right:
+                                  BorderSide(color: Colors.white, width: 1))),
+                    )),
           )
         : Container(
             height: 6,
@@ -63,12 +85,12 @@ class MultiMessageItem extends StatelessWidget {
     try {
       var value = '0';
       if (mes.method == FilecoinMethod.send) {
-        value = mes.decodeParams['Value'];
+        value = mes.decodeParams['Value'] as String;
       }
       if (mes.method == FilecoinMethod.withdraw) {
         var innerParams = jsonDecode(mes.innerParams);
         if (innerParams is Map) {
-          value = innerParams['AmountRequested'];
+          value = innerParams['AmountRequested'] as String;
         }
       }
       var v = formatFil(value, returnRaw: true);
