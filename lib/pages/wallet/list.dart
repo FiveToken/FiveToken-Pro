@@ -30,7 +30,9 @@ class WalletListPageState extends State<WalletListPage> {
         footerHeight: 120,
         onTap: (Wallet wal) {
           Global.cacheWallet = wal;
-          Get.toNamed(walletMangePage);
+          Get.toNamed(walletMangePage).then((value) => {
+            setState(() {})
+          });
         },
       ),
       footerText: 'addWallet'.tr,

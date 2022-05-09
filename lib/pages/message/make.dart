@@ -64,6 +64,7 @@ class MesMakePageState extends State<MesMakePage> {
   bool showTips = false;
   int fromNonce = -1;
   StreamSubscription sub;
+  String methods = '16';
   void addController(BuildContext context) {
     TextEditingController worker = TextEditingController();
     BlocProvider.of<MakeBloc>(context).add(AddEvent(worker));
@@ -403,6 +404,7 @@ class MesMakePageState extends State<MesMakePage> {
           toCtrl.text = Get.arguments['to'] as String;
           // valueCtrl.text = '0';
           String method = Get.arguments['method'] as String;
+          methods = Get.arguments['method'] as String;
           showTips = true;
           if (method == '16') {
             getMinerBalance(Get.arguments['to'] as String);
@@ -478,7 +480,7 @@ class MesMakePageState extends State<MesMakePage> {
   Widget build(BuildContext context) {
     var keyH = MediaQuery.of(context).viewInsets.bottom;
     return BlocProvider(
-        create: (context) => MakeBloc()..add(SetMakeEvent()),
+        create: (context) => MakeBloc()..add(SetMakeEvent(method: methods)),
         child: BlocBuilder<MakeBloc, MakeState>(builder: (context, state) {
           return CommonScaffold(
             title: 'first'.tr,
