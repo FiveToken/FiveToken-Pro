@@ -1,5 +1,21 @@
-import 'package:fil/index.dart';
 import 'dart:convert';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/models/message.dart';
+import 'package:fil/pages/sign/signBody.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/widgets/bottomSheet.dart';
+import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/layout.dart';
+import 'package:fil/widgets/qr.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
 /// display a qrcode of unsigned message
 class MesBodyPage extends StatefulWidget {
@@ -7,17 +23,16 @@ class MesBodyPage extends StatefulWidget {
   State createState() => MesBodyPageState();
 }
 
+/// page of message page
 class MesBodyPageState extends State<MesBodyPage> {
   TMessage message = TMessage();
 
   @override
   void initState() {
     super.initState();
-    message = Get.arguments['mes'] as TMessage;
-    // setState(() {
-    //   message = Get.arguments['mes'];
-    //   message.args = Get.arguments['args'] ?? '';
-    // });
+    if(Get.arguments!=null) {
+      message = Get.arguments['mes'] as TMessage;
+    }
   }
 
   void showDetail() {
@@ -44,10 +59,10 @@ class MesBodyPageState extends State<MesBodyPage> {
                           border: Border.all(color: Colors.grey[200]),
                           borderRadius: CustomRadius.b6),
                       child: CommonText(JsonEncoder.withIndent(' ')
-                          .convert(message.toJson())),
+                          .convert(message.toLotusMessage())),
                     ),
                     onTap: () {
-                      copyText(jsonEncode(message.toJson()));
+                      copyText(jsonEncode(message.toLotusMessage()));
                       showCustomToast('copySucc'.tr);
                     },
                   ),

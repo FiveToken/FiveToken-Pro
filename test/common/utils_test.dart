@@ -1,5 +1,5 @@
-import 'package:fil/common/index.dart';
-import 'package:fil/index.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/models/gas.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../constant.dart';
@@ -104,6 +104,6 @@ void main() {
   test('format double', () {
     var value = '1.23456';
     expect(formatDouble(value), '1.23456');
-    expect(formatDouble(value,truncate: true), '1.2345');
+    expect(formatDouble(value, truncate: true), '1.2345');
   });
 }

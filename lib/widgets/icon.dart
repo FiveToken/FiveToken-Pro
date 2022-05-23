@@ -1,4 +1,5 @@
-import 'package:fil/index.dart';
+import 'package:flutter/cupertino.dart';
+
 const Image ListTrailingRight = Image(
   width: 8,
   image: AssetImage("images/right_arrow.png"),

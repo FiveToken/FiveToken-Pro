@@ -1,4 +1,5 @@
-import 'package:fil/index.dart';
+import 'package:fil/models/noop.dart';
+import 'package:flutter/cupertino.dart';
 
 class ScanAction extends StatelessWidget {
   final Noop handleScan;

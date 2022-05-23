@@ -1,4 +1,11 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+
 /// language set page
 class LangPage extends StatefulWidget {
   @override
@@ -7,6 +14,7 @@ class LangPage extends StatefulWidget {
   }
 }
 
+/// page of language
 class LangPageState extends State<LangPage> {
   void selectLang(String lang) async {
     Locale locale = Locale(lang);

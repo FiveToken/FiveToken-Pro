@@ -1,7 +1,16 @@
-import 'package:fil/index.dart';
 import 'package:bip39/bip39.dart' as bip39;
+import 'package:fil/models/noop.dart';
 import 'package:fil/pages/create/warn.dart';
+import 'package:fil/routes/path.dart';
 import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
 /// generate mne
 class MneCreatePage extends StatefulWidget {
@@ -11,12 +20,12 @@ class MneCreatePage extends StatefulWidget {
   }
 }
 
+/// page of create mne
 class MneCreatePageState extends State<MneCreatePage> {
   String mne;
   @override
   void initState() {
     super.initState();
-    genMne();
     Future.delayed(Duration.zero).then((value) {
       showCustomDialog(
           context,
@@ -57,14 +66,9 @@ class MneCreatePageState extends State<MneCreatePage> {
     });
   }
 
-  void genMne() {
-    setState(() {
-      mne = bip39.generateMnemonic();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    mne = bip39.generateMnemonic();
     return CommonScaffold(
       footerText: 'next'.tr,
       onPressed: () {
@@ -122,6 +126,7 @@ class MneCreatePageState extends State<MneCreatePage> {
     );
   }
 
+  /// widget of grids mne
   Widget mneGrids() {
     List mneList = mne.split(' ');
     if (mneList.length != 12) {
@@ -130,7 +135,7 @@ class MneCreatePageState extends State<MneCreatePage> {
     var itemList = mneList.asMap().entries.map((entry) {
       var v = entry.value;
       return MneItem(
-        label: v,
+        label: v as String,
         index: (entry.key + 1).toString() + '.',
       );
     }).toList();
@@ -147,6 +152,7 @@ class MneCreatePageState extends State<MneCreatePage> {
   }
 }
 
+/// widget of mne Item
 class MneItem extends StatelessWidget {
   final String label;
   final Noop onTap;

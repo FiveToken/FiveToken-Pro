@@ -1,5 +1,43 @@
-import 'package:fil/index.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'package:fbutton/fbutton.dart';
+import 'package:fil/api/update.dart';
+import 'package:fil/bloc/make/make_bloc.dart';
+import 'package:fil/chain/constant.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/event/index.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/gas.dart';
+import 'package:fil/models/message.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/pages/other/scan.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/widgets/button.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:fil/widgets/icon.dart';
+import 'package:fil/widgets/layout.dart';
+import 'package:fil/widgets/other.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_instance/src/extension_instance.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 import 'package:oktoast/oktoast.dart';
+
+import 'deposit.dart';
+import 'method.dart';
 
 enum MessageType { MinerManage, OwnerTransfer, MinerRecharge }
 
@@ -9,6 +47,7 @@ class MesMakePage extends StatefulWidget {
   State createState() => MesMakePageState();
 }
 
+/// page of message make
 class MesMakePageState extends State<MesMakePage> {
   StoreController controller = Get.find();
   TextEditingController fromCtrl = TextEditingController();
@@ -16,31 +55,26 @@ class MesMakePageState extends State<MesMakePage> {
   TextEditingController valueCtrl = TextEditingController();
   bool valueEnabled = true;
   final TextEditingController ownerCtrl = TextEditingController();
-  String method = '0';
   bool showFrom = true;
   Wallet wallet = $store.wal;
   TextEditingController worker = TextEditingController();
-  List<TextEditingController> controllers = [TextEditingController()];
-  String sealType = '8';
   bool preventNext = false;
-  Timer timer;
   BigInt fromBalance = BigInt.zero;
   BigInt minerBalance = BigInt.zero;
   bool showTips = false;
   int fromNonce = -1;
-  void addController() {
-    setState(() {
-      controllers.add(TextEditingController());
-    });
+  StreamSubscription sub;
+  String methods = '16';
+  void addController(BuildContext context) {
+    TextEditingController worker = TextEditingController();
+    BlocProvider.of<MakeBloc>(context).add(AddEvent(worker));
   }
 
-  void removeController(int index) {
-    setState(() {
-      controllers.removeAt(index);
-    });
+  void removeController(BuildContext context, int index) {
+    BlocProvider.of<MakeBloc>(context).add(DeleteEvent(type: index));
   }
 
-  void makeNewOrSpeed() {
+  void makeNewOrSpeed(state) {
     showModalBottomSheet(
         shape: RoundedRectangleBorder(borderRadius: CustomRadius.top),
         context: Get.context,
@@ -86,7 +120,7 @@ class MesMakePageState extends State<MesMakePage> {
                             label: 'makeNew'.tr,
                             onTap: () {
                               Get.back();
-                              makeNew();
+                              makeNew(context, state);
                             },
                           )
                         ],
@@ -100,18 +134,24 @@ class MesMakePageState extends State<MesMakePage> {
         });
   }
 
-  void handleSubmit(BuildContext context) async {
-    var res = await makeMessage();
+  void handleSubmit(BuildContext context, state) async {
+    var res = await makeMessage(state);
     if (res is TMessage) {
+      addOperation('make_mes');
       unFocusOf(context);
-      $store.setPushBackPage(mainPage);
-      Get.toNamed(mesBodyPage, arguments: {
-        'mes': res,
-      });
+      goConfirm(res);
+      // $store.setPushBackPage(mainPage);
+      // Get.toNamed(mesBodyPage, arguments: {
+      //   'mes': res,
+      // });
     }
   }
 
-  Future<dynamic> makeMessage() async {
+  Future<dynamic> makeMessage(state) async {
+    String method = state.method as String;
+    String sealType = state.sealType as String;
+    List<TextEditingController> controllers =
+        state.controllers as List<TextEditingController>;
     var from = fromCtrl.text.trim();
     var to = toCtrl.text.trim();
     var value = valueCtrl.text.trim();
@@ -281,12 +321,13 @@ class MesMakePageState extends State<MesMakePage> {
 
   List<StoreSignedMessage> getPushList() {
     var wal = $store.wal;
+
     return OpenedBox.pushInsance.values.where((mes) {
-      var source = $store.wal.addrWithNet;
+      var source = $store.wal.addressWithNet;
       if (wal.walletType == 2) {
         var list = OpenedBox.minerAddressInstance.values
-            .where(
-                (addr) => addr.miner == wal.addrWithNet && addr.type == 'owner')
+            .where((addr) =>
+                addr.miner == wal.addressWithNet && addr.type == 'owner')
             .toList();
         if (list.isNotEmpty) {
           source = list[0].address;
@@ -304,24 +345,32 @@ class MesMakePageState extends State<MesMakePage> {
     });
   }
 
-  void makeNew() async {
+  void makeNew(BuildContext context, state) async {
     var list = OpenedBox.pushInsance.values
         .where((mes) => mes.from == fromCtrl.text.trim());
     var nonce = fromNonce;
     list.forEach((mes) {
       if (mes.nonce != null && mes.nonce > nonce) {
-        nonce = mes.nonce;
+        nonce = mes.nonce as int;
       }
     });
-    var res = await makeMessage();
+    var res = await makeMessage(state);
     if (res is TMessage) {
       res.nonce = nonce + 1;
+      addOperation('make_mes');
       unFocusOf(context);
-      $store.setPushBackPage(mainPage);
-      Get.toNamed(mesBodyPage, arguments: {
-        'mes': res,
-      });
+      goConfirm(res);
+      // $store.setPushBackPage(mainPage);
+      // Get.toNamed(mesBodyPage, arguments: {
+      //   'mes': res,
+      // });
     }
+  }
+
+  void goConfirm(TMessage mes) {
+    $store.setConfirmMessage(mes);
+    Get.toNamed(mesConfirmPage,
+        arguments: {'title': 'first'.tr, 'footer': 'build'.tr});
   }
 
   @override
@@ -330,16 +379,17 @@ class MesMakePageState extends State<MesMakePage> {
 
     var args = Get.arguments;
     if (args != null) {
-      var mesType = args['type'];
+      var mesType = args['type'] as MessageType;
       switch (mesType) {
         case MessageType.OwnerTransfer:
-          fromCtrl.text = Get.arguments['from'];
+          fromCtrl.text = Get.arguments['from'] as String;
           break;
         case MessageType.MinerManage:
           //fromCtrl.text = Get.arguments['from'];
           var list = OpenedBox.minerAddressInstance.values
               .where((addr) =>
-                  addr.type == 'owner' && addr.miner == $store.wal.addrWithNet)
+                  addr.type == 'owner' &&
+                  addr.miner == $store.wal.addressWithNet)
               .toList();
           if (list.isNotEmpty) {
             var owner = list[0].address;
@@ -351,12 +401,13 @@ class MesMakePageState extends State<MesMakePage> {
             }
             fromCtrl.text = list[0].address;
           }
-          toCtrl.text = Get.arguments['to'];
+          toCtrl.text = Get.arguments['to'] as String;
           // valueCtrl.text = '0';
-          method = Get.arguments['method'];
+          String method = Get.arguments['method'] as String;
+          methods = Get.arguments['method'] as String;
           showTips = true;
           if (method == '16') {
-            getMinerBalance(Get.arguments['to']);
+            getMinerBalance(Get.arguments['to'] as String);
           }
           break;
         default:
@@ -364,7 +415,7 @@ class MesMakePageState extends State<MesMakePage> {
       var origin = args['origin'];
       if (origin != null) {
         this.showFrom = false;
-        fromCtrl.text = wallet.addrWithNet;
+        fromCtrl.text = wallet.addressWithNet;
       }
       if (fromCtrl.text != '') {
         var addr = fromCtrl.text;
@@ -374,16 +425,22 @@ class MesMakePageState extends State<MesMakePage> {
         }
       }
     }
+    sub = Global.eventBus.on<GasConfirmEvent>().listen((event) {
+      $store.setPushBackPage(mainPage);
+      Get.toNamed(mesBodyPage, arguments: {
+        'mes': $store.confirmMes,
+      });
+    });
   }
 
-  void changeMethod(String method) {
-    this.method = method;
-  }
+  // void changeMethod(String method) {
+  //   this.method = method;
+  // }
 
   @override
   void dispose() {
     super.dispose();
-    timer?.cancel();
+    sub.cancel();
   }
 
   Future getFromBalance(String addr) async {
@@ -391,7 +448,7 @@ class MesMakePageState extends State<MesMakePage> {
     try {
       var balance = BigInt.tryParse(res.balance);
       fromBalance = balance ?? BigInt.zero;
-      fromNonce = res.nonce;
+      fromNonce = res.nonce as int;
     } catch (e) {
       print(e);
       rethrow;
@@ -422,185 +479,200 @@ class MesMakePageState extends State<MesMakePage> {
   @override
   Widget build(BuildContext context) {
     var keyH = MediaQuery.of(context).viewInsets.bottom;
-    return CommonScaffold(
-      title: 'first'.tr,
-      footerText: 'next'.tr,
-      actions: [
-        ScanAction(handleScan: () {
-          Get.toNamed(scanPage, arguments: {'scene': ScanScene.Address})
-              .then((scanResult) {
-            if (scanResult != '') {
-              if (!isValidAddress(scanResult)) {
-                showCustomError('wrongAddr'.tr);
-              }
-              toCtrl.text = scanResult;
-            }
-          });
-        })
-      ],
-      body: Column(
-        children: [
-          Expanded(
-              child: SingleChildScrollView(
-            padding:
-                EdgeInsets.fromLTRB(12, 20, 12, method == '3' ? keyH + 20 : 20),
-            child: Column(
+    return BlocProvider(
+        create: (context) => MakeBloc()..add(SetMakeEvent(method: methods)),
+        child: BlocBuilder<MakeBloc, MakeState>(builder: (context, state) {
+          return CommonScaffold(
+            title: 'first'.tr,
+            footerText: 'next'.tr,
+            actions: [
+              ScanAction(handleScan: () {
+                Get.toNamed(scanPage, arguments: {'scene': ScanScene.Address})
+                    .then((scanResult) {
+                  if (scanResult != '') {
+                    if (!isValidAddress(scanResult as String)) {
+                      showCustomError('wrongAddr'.tr);
+                    }
+                    toCtrl.text = scanResult as String;
+                  }
+                });
+              })
+            ],
+            body: Column(
               children: [
-                Column(
-                  children: [
-                    AdvancedSet(
-                      method: method,
-                      label: 'messageType'.tr,
-                      onChange: (String v) {
-                        setState(() {
-                          this.method = v;
-                          if (method == '3' || method == '23') {
-                            valueCtrl.text = '0';
-                          }
-                        });
-                      },
-                    ),
-                    SizedBox(
-                      height: 12,
-                    ),
-                    Visibility(
-                        visible: showFrom,
-                        child: Field(
-                          label: 'from'.tr,
-                          controller: fromCtrl,
-                          onChanged: (addr) {
-                            if (isValidAddress(addr)) {
-                              getFromBalance(addr);
-                              if (addr[1] == '0') {
-                                this.getFromType(addr);
-                              }
-                            }
-                          },
-                          extra: GestureDetector(
-                            child: Padding(
-                              child: Image(
-                                  width: 20,
-                                  image: AssetImage('images/book.png')),
-                              padding: EdgeInsets.symmetric(horizontal: 12),
-                            ),
-                            onTap: () {
-                              Get.toNamed(addressSelectPage).then((value) {
-                                if (value != null) {
-                                  fromCtrl.text = (value as Wallet).address;
-                                  if (isValidAddress(fromCtrl.text)) {
-                                    var addr = fromCtrl.text;
+                Expanded(
+                    child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                      12, 20, 12, state.method == '3' ? keyH + 20 : 20),
+                  child: Column(
+                    children: [
+                      Column(
+                        children: [
+                          AdvancedSet(
+                            method: state.method,
+                            label: 'messageType'.tr,
+                            onChange: (String v) {
+                              BlocProvider.of<MakeBloc>(context)
+                                  .add(SetMakeEvent(method: v));
+                              setState(() {
+                                if (state.method == '3' ||
+                                    state.method == '23') {
+                                  valueCtrl.text = '0';
+                                }
+                              });
+                            },
+                          ),
+                          SizedBox(
+                            height: 12,
+                          ),
+                          Visibility(
+                              visible: showFrom,
+                              child: Field(
+                                label: 'from'.tr,
+                                controller: fromCtrl,
+                                onChanged: (addr) {
+                                  if (isValidAddress(addr)) {
                                     getFromBalance(addr);
                                     if (addr[1] == '0') {
                                       this.getFromType(addr);
                                     }
                                   }
-                                }
-                              });
-                            },
-                          ),
-                        )),
-                    Visibility(
-                        visible: method != '2',
-                        child: Field(
-                          label: method == '0' ? 'to'.tr : 'minerAddr'.tr,
-                          controller: toCtrl,
-                          extra: GestureDetector(
-                            child: Padding(
-                              child: Image(
-                                  width: 20,
-                                  image: AssetImage('images/book.png')),
-                              padding: EdgeInsets.symmetric(horizontal: 12),
-                            ),
-                            onTap: () {
-                              Get.toNamed(addressSelectPage).then((value) {
-                                if (value != null) {
-                                  toCtrl.text = (value as Wallet).address;
-                                }
-                              });
-                            },
-                          ),
-                        )),
-                    Visibility(
-                      child: Field(
-                          label: 'amount'.tr,
-                          controller: valueCtrl,
-                          type: TextInputType.numberWithOptions(decimal: true),
-                          // append: CommonText(
-                          //     formatFil($store.wal.balance)),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp("[0-9.]"))
-                          ]),
-                      visible: method == '0' || method == '16',
-                    ),
-                    SizedBox(
-                      height: 10,
-                    ),
-                    Column(
-                      children: [
-                        Visibility(
-                          visible: method == '23',
-                          child: Field(
-                            label: 'owner'.tr,
-                            controller: ownerCtrl,
-                          ),
-                        ),
-                        Visibility(
-                          child: ChangeWorkerAddress(
-                            worker: worker,
-                            controllers: controllers,
-                            add: addController,
-                            remove: removeController,
-                          ),
-                          visible: method == '3',
-                        ),
-                        Visibility(
-                            visible: method == '2',
-                            child: CreateMiner(
-                                workerController: worker,
-                                onChange: (v) {
-                                  setState(() {
-                                    this.sealType = v;
-                                  });
                                 },
-                                sealType: sealType))
-                      ],
-                    ),
-                    Visibility(
-                      child: Tips(['minerManageTip'.tr]),
-                      visible: showTips,
-                    ),
-                    SizedBox(
-                      height: 12,
-                    ),
-                    DocButton(
-                      method: method,
-                      page: mesMakePage,
-                    )
-                  ],
+                                extra: GestureDetector(
+                                  child: Padding(
+                                    child: Image(
+                                        width: 20,
+                                        image: AssetImage('images/book.png')),
+                                    padding:
+                                        EdgeInsets.symmetric(horizontal: 12),
+                                  ),
+                                  onTap: () {
+                                    Get.toNamed(addressSelectPage)
+                                        .then((value) {
+                                      if (value != null) {
+                                        fromCtrl.text =
+                                            (value as Wallet).address;
+                                        if (isValidAddress(fromCtrl.text)) {
+                                          var addr = fromCtrl.text;
+                                          getFromBalance(addr);
+                                          if (addr[1] == '0') {
+                                            this.getFromType(addr);
+                                          }
+                                        }
+                                      }
+                                    });
+                                  },
+                                ),
+                              )),
+                          Visibility(
+                              visible: state.method != '2',
+                              child: Field(
+                                label: state.method == '0'
+                                    ? 'to'.tr
+                                    : 'minerAddr'.tr,
+                                controller: toCtrl,
+                                extra: GestureDetector(
+                                  child: Padding(
+                                    child: Image(
+                                        width: 20,
+                                        image: AssetImage('images/book.png')),
+                                    padding:
+                                        EdgeInsets.symmetric(horizontal: 12),
+                                  ),
+                                  onTap: () {
+                                    Get.toNamed(addressSelectPage)
+                                        .then((value) {
+                                      if (value != null) {
+                                        toCtrl.text = (value as Wallet).address;
+                                      }
+                                    });
+                                  },
+                                ),
+                              )),
+                          Visibility(
+                            child: Field(
+                                label: 'amount'.tr,
+                                controller: valueCtrl,
+                                type: TextInputType.numberWithOptions(
+                                    decimal: true),
+                                // append: CommonText(
+                                //     formatFil($store.wal.balance)),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                      RegExp("[0-9.]"))
+                                ]),
+                            visible:
+                                state.method == '0' || state.method == '16',
+                          ),
+                          SizedBox(
+                            height: 10,
+                          ),
+                          Column(
+                            children: [
+                              Visibility(
+                                visible: state.method == '23',
+                                child: Field(
+                                  label: 'owner'.tr,
+                                  controller: ownerCtrl,
+                                ),
+                              ),
+                              Visibility(
+                                child: ChangeWorkerAddress(
+                                  worker: worker,
+                                  controllers: state.controllers,
+                                  add: () => addController(context),
+                                  remove: (index) =>
+                                      removeController(context, index),
+                                ),
+                                visible: state.method == '3',
+                              ),
+                              Visibility(
+                                  visible: state.method == '2',
+                                  child: CreateMiner(
+                                      workerController: worker,
+                                      onChange: (v) {
+                                        BlocProvider.of<MakeBloc>(context)
+                                            .add(SetMakeEvent(sealType: v));
+                                      },
+                                      sealType: state.sealType))
+                            ],
+                          ),
+                          Visibility(
+                            child: Tips(['minerManageTip'.tr]),
+                            visible: showTips,
+                          ),
+                          SizedBox(
+                            height: 12,
+                          ),
+                          DocButton(
+                            method: state.method,
+                            page: mesMakePage,
+                          )
+                        ],
+                      )
+                    ],
+                  ),
+                )),
+                SizedBox(
+                  height: 120,
                 )
               ],
             ),
-          )),
-          SizedBox(
-            height: 120,
-          )
-        ],
-      ),
-      onPressed: () async {
-        if (preventNext) {
-          showCustomError('ownerIsMulti'.tr);
-          return;
-        }
+            onPressed: () async {
+              if (preventNext) {
+                showCustomError('ownerIsMulti'.tr);
+                return;
+              }
 
-        var list = getPushList();
-        if (list.isNotEmpty) {
-          makeNewOrSpeed();
-        } else {
-          handleSubmit(context);
-        }
-        //handleSubmit(context);
-      },
-    );
+              var list = getPushList();
+              if (list.isNotEmpty) {
+                makeNewOrSpeed(state);
+              } else {
+                handleSubmit(context, state);
+              }
+            },
+          );
+        }));
   }
 }
 
@@ -650,8 +722,8 @@ class AdvancedSet extends StatelessWidget {
         }).then((value) {
           if (value != null) {
             try {
-              int.parse(value);
-              onChange(value);
+              int.parse(value as String);
+              onChange(value as String);
             } catch (e) {}
           }
         });
@@ -664,7 +736,7 @@ class ChangeWorkerAddress extends StatelessWidget {
   final TextEditingController worker;
   final List<TextEditingController> controllers;
   final Noop add;
-  final SingleParamCallback<int> remove;
+  final ValueChanged<int> remove;
   ChangeWorkerAddress(
       {@required this.worker,
       @required this.controllers,
@@ -682,8 +754,9 @@ class ChangeWorkerAddress extends StatelessWidget {
               onTap: () {
                 Get.toNamed(scanPage, arguments: {'scene': ScanScene.Address})
                     .then((scanResult) {
-                  if (scanResult != '' && isValidAddress(scanResult)) {
-                    worker.text = scanResult;
+                  if (scanResult != '' &&
+                      isValidAddress(scanResult as String)) {
+                    worker.text = scanResult as String;
                   }
                 });
               },
@@ -711,8 +784,9 @@ class ChangeWorkerAddress extends StatelessWidget {
                         Get.toNamed(scanPage,
                                 arguments: {'scene': ScanScene.Address})
                             .then((scanResult) {
-                          if (scanResult != '' && isValidAddress(scanResult)) {
-                            ctrl.text = scanResult;
+                          if (scanResult != '' &&
+                              isValidAddress(scanResult as String)) {
+                            ctrl.text = scanResult as String;
                           }
                         });
                       },
@@ -759,7 +833,7 @@ class ChangeWorkerAddress extends StatelessWidget {
 class CreateMiner extends StatelessWidget {
   final TextEditingController workerController;
   final String sealType;
-  final SingleParamCallback<String> onChange;
+  final ValueChanged<String> onChange;
   CreateMiner({this.workerController, this.sealType, this.onChange});
   @override
   Widget build(BuildContext context) {
@@ -771,8 +845,8 @@ class CreateMiner extends StatelessWidget {
             onTap: () {
               Get.toNamed(scanPage, arguments: {'scene': ScanScene.Address})
                   .then((scanResult) {
-                if (scanResult != '' && isValidAddress(scanResult)) {
-                  workerController.text = scanResult;
+                if (scanResult != '' && isValidAddress(scanResult as String)) {
+                  workerController.text = scanResult as String;
                 }
               });
             },

@@ -28,8 +28,7 @@ class WalletAdapter extends TypeAdapter<Wallet> {
       owner: fields[7] as String,
       push: fields[10] as bool,
       inAddressBook: fields[9] as bool,
-      digest: fields[12] as String,
-      mne: fields[13] as String,
+      mne: fields[12] as String,
       skKek: fields[11] as String,
     );
   }
@@ -37,7 +36,7 @@ class WalletAdapter extends TypeAdapter<Wallet> {
   @override
   void write(BinaryWriter writer, Wallet obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.count)
       ..writeByte(1)
@@ -63,8 +62,6 @@ class WalletAdapter extends TypeAdapter<Wallet> {
       ..writeByte(11)
       ..write(obj.skKek)
       ..writeByte(12)
-      ..write(obj.digest)
-      ..writeByte(13)
       ..write(obj.mne);
   }
 

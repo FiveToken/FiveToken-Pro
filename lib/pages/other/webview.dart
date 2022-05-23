@@ -1,5 +1,10 @@
-import 'package:fil/index.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/style.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class WebviewPage extends StatefulWidget {
@@ -9,6 +14,7 @@ class WebviewPage extends StatefulWidget {
   }
 }
 
+/// page of webview
 class WebviewPageState extends State<WebviewPage> {
   WebViewController controller;
   String url = '';
@@ -20,8 +26,8 @@ class WebviewPageState extends State<WebviewPage> {
     super.initState();
     var args = Get.arguments;
     if (args != null) {
-      url = args['url'];
-      title = args['title'];
+      url = args['url'] as String;
+      title = args['title'] as String;
     }
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       setState(() {

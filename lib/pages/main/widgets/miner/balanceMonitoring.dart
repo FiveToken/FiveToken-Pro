@@ -1,8 +1,32 @@
+import 'dart:async';
 import 'package:fbutton/fbutton.dart';
-import 'package:fil/index.dart';
+import 'package:fil/bloc/main/main_bloc.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/miner.dart';
+import 'package:fil/models/wallet.dart';
 import 'package:fil/pages/main/miner.dart';
+import 'package:fil/pages/message/make.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/utils/enum.dart';
+import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:fil/widgets/fresh.dart';
+import 'package:fil/widgets/icon.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_rx/src/rx_workers/rx_workers.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
+/// widget of balance monitor
 class BalanceMonitoring extends StatefulWidget {
   BalanceMonitoring();
   @override
@@ -24,60 +48,24 @@ class BalanceMonitoringState extends State<BalanceMonitoring> {
   @override
   void initState() {
     super.initState();
-    var list = box.values.where((m) => m.miner == $store.addr).toList();
-    if (list.isNotEmpty) {
-      this.list = list;
-    }
-    getRelatedList($store.addr);
-    worker = ever($store.wallet, (Wallet wal) {
-      if (wal.walletType == 2) {
-        var list = box.values.where((m) => m.miner == wal.addr).toList();
-        if (list.isNotEmpty) {
-          setState(() {
-            this.list = list;
-          });
-        }
-        getRelatedList(wal.addr);
-      }
-    });
-    sub = Global.eventBus.on<RefreshEvent>().listen((event) {
-      getRelatedList($store.addr);
-    });
+    // worker = ever($store.wallet, (Wallet wal) {
+    //   if (wal.walletType == WalletsType.miner) {
+    //     BlocProvider.of<MainBloc>(context).add(getMinerRelatedListEvent($store.addr));
+    //   }
+    // });
+    // sub = Global.eventBus.on<RefreshEvent>().listen((event) {
+    //   BlocProvider.of<MainBloc>(context).add(getMinerRelatedListEvent($store.addr));
+    // });
   }
 
   @override
   void dispose() {
     super.dispose();
-    worker.dispose();
-    sub.cancel();
-  }
-
-  void getRelatedList(String addr) async {
-    try {
-      var res = await Global.provider.getMinerRelatedAddressBalance(addr);
-      Map<String, String> labelMap = {};
-      box.values.where((element) => element.miner == addr).forEach((e) {
-        labelMap[e.address + e.type] = e.label;
-      });
-      await box.deleteAll(labelMap.keys);
-      for (var i = 0; i < res.length; i++) {
-        var addr = res[i];
-        var key = addr.address + addr.type;
-        if (labelMap.containsKey(key)) {
-          var label = labelMap[key];
-          addr.label = label;
-        } else {
-          addr.label = addr.type;
-        }
-        box.put(key, addr);
-      }
-      if (mounted) {
-        setState(() {
-          list = res;
-        });
-      }
-    } catch (e) {
-      print(e);
+    if(worker!=null) {
+      worker.dispose();
+    }
+    if(sub!=null) {
+      sub.cancel();
     }
   }
 
@@ -99,60 +87,62 @@ class BalanceMonitoringState extends State<BalanceMonitoring> {
         }
       } catch (e) {
         Get.back();
-        showCustomError(e);
+        showCustomError(e as String);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    var ownerIndex = list.indexWhere((element) => element.type == 'owner');
-    if (ownerIndex >= 0) {
-      var owner = list.removeAt(ownerIndex);
-      list.add(owner);
-    }
-    return MinerBoard(Column(
-      children: [
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-              border: Border(
-                  bottom: BorderSide(color: Colors.grey[200], width: .5))),
-          child: Row(
+    return BlocProvider(
+        create: (context) =>
+            MainBloc()..add(getMinerRelatedListEvent($store.addr)),
+        child: BlocBuilder<MainBloc, MainState>(builder: (context, state) {
+          return MinerBoard(Column(
             children: [
-              IconMonitor,
-              SizedBox(
-                width: 5,
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                    border: Border(
+                        bottom:
+                            BorderSide(color: Colors.grey[200], width: .5))),
+                child: Row(
+                  children: [
+                    IconMonitor,
+                    SizedBox(
+                      width: 5,
+                    ),
+                    BoldText(
+                      'monitorTitle'.tr,
+                      color: Color(0xff5CC1CB),
+                    ),
+                  ],
+                ),
+                height: 40,
               ),
-              BoldText(
-                'monitorTitle'.tr,
-                color: Color(0xff5CC1CB),
+              Column(
+                children: state.nodeList.map((v) {
+                  return AddressItem(
+                    source: v,
+                    title: getTitleByTypeAndAddress(v),
+                    onEdit: (String label) async {
+                      v.label = label;
+                      await box.put(v.address + v.type, v);
+                      BlocProvider.of<MainBloc>(context)
+                          .add(getMinerRelatedListEvent($store.addr));
+                    },
+                  );
+                }).toList(),
               ),
             ],
-          ),
-          height: 40,
-        ),
-        Column(
-          children: list.map((v) {
-            return AddressItem(
-              source: v,
-              title: getTitleByTypeAndAddress(v),
-              onEdit: (String label) async {
-                v.label = label;
-                await box.put(v.address + v.type, v);
-                setState(() {});
-              },
-            );
-          }).toList(),
-        ),
-      ],
-    ));
+          ));
+        }));
   }
 }
 
 class AddressItem extends StatelessWidget {
   final String title;
-  final SingleParamCallback<String> onEdit;
+  final ValueChanged<String> onEdit;
   final MinerAddress source;
   final TextEditingController controller = TextEditingController();
   AddressItem({

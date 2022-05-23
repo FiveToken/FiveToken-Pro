@@ -1,6 +1,6 @@
-import 'package:fil/index.dart';
 import 'package:hive/hive.dart';
 part 'nonce.g.dart';
+
 @HiveType(typeId: 5)
 class Nonce {
   @HiveField(0)
@@ -9,13 +9,14 @@ class Nonce {
   int value;
   Nonce({this.time, this.value});
   Nonce.fromJson(Map<dynamic, dynamic> json) {
-    time = json['time'];
-    value = json['value'];
+    time = json['time'] as int;
+    value = json['value'] as int;
   }
   Map<String, dynamic> toJson() {
     return <String, int>{'time': time, 'value': value};
   }
 }
+
 @HiveType(typeId: 16)
 class CacheGas {
   @HiveField(0)

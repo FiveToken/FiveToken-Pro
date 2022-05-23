@@ -1,0 +1,18 @@
+<component name="libraryTable">
+  <library name="Gradle: cn.jiguang.sdk:jpush:4.6.0@aar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/f36c5ba184206e2c3e3af424fcb7b7f1/jetified-jpush-4.6.0/jars/classes.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/f36c5ba184206e2c3e3af424fcb7b7f1/jetified-jpush-4.6.0/jars/libs/jpush-android-4.6.0.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/f36c5ba184206e2c3e3af424fcb7b7f1/jetified-jpush-4.6.0/res" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/f36c5ba184206e2c3e3af424fcb7b7f1/jetified-jpush-4.6.0/AndroidManifest.xml" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/5a51315e7d0153ac88915b9a848ae441/jetified-jpush-4.6.0/res" />
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/5a51315e7d0153ac88915b9a848ae441/jetified-jpush-4.6.0/jars/classes.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/5a51315e7d0153ac88915b9a848ae441/jetified-jpush-4.6.0/jars/libs/jpush-android-4.6.0.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/5a51315e7d0153ac88915b9a848ae441/jetified-jpush-4.6.0/AndroidManifest.xml" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/cn.jiguang.sdk/jpush/4.6.0/8b87535d77b7132e005c77668e6aea19b494c3ef/jpush-4.6.0-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

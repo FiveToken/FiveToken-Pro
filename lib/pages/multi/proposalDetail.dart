@@ -1,5 +1,34 @@
-import 'package:fil/index.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'package:fil/chain/constant.dart';
+import 'package:fil/chain/provider.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/libsodium.dart';
+import 'package:fil/common/time.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/event/index.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/cacheMessage.dart';
+import 'package:fil/models/message.dart';
+import 'package:fil/models/wallet.dart';
 import 'package:fil/pages/other/webview.dart';
+import 'package:fil/pages/transfer/detail.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/utils/enum.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flotus/flotus.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+import 'package:oktoast/oktoast.dart';
 
 /// display infomation of the proposal or approval
 class MultiProposalDetailPage extends StatefulWidget {
@@ -9,8 +38,9 @@ class MultiProposalDetailPage extends StatefulWidget {
   }
 }
 
+/// page of mutil proposal detail
 class MultiProposalDetailPageState extends State<MultiProposalDetailPage> {
-  CacheMultiMessage msg;
+  CacheMultiMessage msg = CacheMultiMessage();
   bool needApprove = false;
   List<MultiApproveMessage> approves = [];
   String proposer;
@@ -22,6 +52,7 @@ class MultiProposalDetailPageState extends State<MultiProposalDetailPage> {
   int method = 0;
   dynamic params;
   String footerText = 'approve'.tr;
+  StreamSubscription sub;
   @override
   void initState() {
     super.initState();
@@ -55,14 +86,21 @@ class MultiProposalDetailPageState extends State<MultiProposalDetailPage> {
         if (failList.isNotEmpty) {
           footerText = 'reapprove'.tr;
         }
-        Global.provider
-            .getNonceAndGas(to: wallet.id, method: 3, methodName: 'Approve');
+        Global.provider.prepareNonce();
+        sub = Global.eventBus.on<GasConfirmEvent>().listen((event) {
+          handleConfirm();
+        });
       }
     }
   }
 
-  Future<TMessage> genMsg() async {
-    var ctrl = $store;
+  @override
+  void dispose() {
+    super.dispose();
+    sub?.cancel();
+  }
+
+  Future<String> genParams() async {
     var transactionInput = {
       'tx_id': msg.txId,
       'requester': actorId,
@@ -74,24 +112,14 @@ class MultiProposalDetailPageState extends State<MultiProposalDetailPage> {
     var str = jsonEncode(transactionInput);
     var p = await Flotus.genApprovalV3(str);
     var decodeParams = jsonDecode(p);
-    var message = TMessage(
-        version: 0,
-        method: 3,
-        nonce: $store.nonce,
-        from: $store.wal.addr,
-        to: wallet.id,
-        params: decodeParams['param'],
-        value: '0',
-        gasFeeCap: ctrl.gas.value.feeCap,
-        gasLimit: ctrl.gas.value.gasLimit,
-        gasPremium: ctrl.gas.value.premium);
-    return message;
+    return decodeParams['param'] as String;
   }
 
   void pushMessage(String pass, {bool increaseNonce}) async {
-    var message = await genMsg();
+    var message = $store.confirmMes;
     var wal = $store.wal;
-    var private = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
+    var address = wal.addressWithNet;
+    var private = await decryptSodium(wal.skKek, address, pass);
     try {
       await Global.provider.sendMessage(
           message: message,
@@ -107,11 +135,10 @@ class MultiProposalDetailPageState extends State<MultiProposalDetailPage> {
                     from: $store.addr,
                     txId: txid,
                     fee: message.maxFee.toString(),
-                    nonce: message.nonce,
+                    nonce: message.nonce as int,
                     time: getSecondSinceEpoch()));
-            Get.back();
-            // Get.offNamedUntil(
-            //     multiMainPage, (route) => route.settings.name == mainPage);
+            Navigator.popUntil(
+                context, (route) => route.settings.name == multiMainPage);
           });
     } catch (e) {
       print(e);
@@ -119,44 +146,10 @@ class MultiProposalDetailPageState extends State<MultiProposalDetailPage> {
     }
   }
 
-  Future getActor(String addr) async {
-    try {
-      var id = await Global.provider.getActorId(addr);
-      actorId = id;
-    } catch (e) {
-      print(e);
-    }
-  }
-
-  void hanldeConfirm() async {
-    if (proposer.substring(1) == $store.wal.addr.substring(1)) {
-      showCustomError('sameAsSigner'.tr);
-      return;
-    }
-    if (!$store.canPush) {
-      var valid =
-          await Global.provider.getNonceAndGas(to: wallet.id, method: 3);
-      if (!valid) {
-        showCustomError('errorSetGas'.tr);
-        return;
-      }
-    }
-    var balanceNum = BigInt.tryParse($store.wal.balance);
-    var feeNum = $store.gas.value.feeNum;
-    if (balanceNum < feeNum) {
-      showCustomError('errorLowBalance'.tr);
-      return;
-    }
-    if (actorId == '') {
-      if (!wallet.signerMap.containsKey(proposer)) {
-        showCustomError('getActorFailed'.tr);
-        return;
-      } else {
-        actorId = wallet.signerMap[proposer];
-      }
-    }
+  void handleConfirm() {
     if ($store.wal.readonly == 1) {
-      var msg = await genMsg();
+      var msg = $store.confirmMes;
+      msg.args = this.msg.cid;
       $store.setPushBackPage(multiMainPage);
       Get.toNamed(mesBodyPage, arguments: {'mes': msg});
     } else {
@@ -171,13 +164,11 @@ class MultiProposalDetailPageState extends State<MultiProposalDetailPage> {
           onSpeedup: () {
             showPassDialog(context, (String pass) async {
               var wal = $store.wal;
-              var private =
-                  await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
+              var address = wal.addressWithNet;
+              var private = await decryptSodium(wal.skKek, address, pass);
               try {
                 await Global.provider.speedup(
-                    private: private,
-                    gas: $store.chainGas,
-                    methodName: FilecoinMethod.approve);
+                    private: private, methodName: FilecoinMethod.approve);
                 Get.back();
               } catch (e) {
                 showCustomError(e.toString());
@@ -187,15 +178,74 @@ class MultiProposalDetailPageState extends State<MultiProposalDetailPage> {
     }
   }
 
+  void handleNext() async {
+    if (proposer.substring(1) == $store.wal.addr.substring(1)) {
+      showCustomError('sameAsSigner'.tr);
+      return;
+    }
+    if (!$store.canPush) {
+      var valid = await Global.provider.prepareNonce();
+      if (!valid) {
+        showCustomError('errorGetNonce'.tr);
+        return;
+      }
+    }
+
+    if (actorId == '') {
+      var res = await Global.provider.getMultiInfo($store.multiWallet.value.id);
+      if (!res.signerMap.containsKey(proposer)) {
+        showCustomError('getActorFailed'.tr);
+        return;
+      } else {
+        actorId = res.signerMap[proposer];
+      }
+    }
+    var params = await genParams();
+    try {
+      showCustomLoading('getGas'.tr);
+      var gas = await Global.provider.estimateGas({
+        'method': MethodTypeOfMessage.proposalDetail,
+        'from': $store.addr,
+        'to': wallet.id,
+        'params': params,
+        'value': '0',
+        'encoded': true
+      });
+      dismissAllToast();
+      var message = TMessage(
+        method: MethodTypeOfMessage.proposalDetail,
+        nonce: $store.nonce,
+        from: $store.wal.addr,
+        to: wallet.id,
+        params: params,
+        value: '0',
+      );
+      message.setGas(gas);
+      var balanceNum = BigInt.tryParse($store.wal.balance) ?? BigInt.zero;
+      var feeNum = message.maxFee;
+      if (balanceNum <= feeNum) {
+        showCustomError('errorLowBalance'.tr);
+        return;
+      }
+      $store.setConfirmMessage(message);
+      Get.toNamed(mesConfirmPage, arguments: {
+        'title': 'approve'.tr,
+        'footer': 'approve'.tr,
+      });
+    } catch (e) {
+      showCustomError('getGasFail'.tr);
+    }
+  }
+
   String get methodName => msg.method;
 
   @override
   Widget build(BuildContext context) {
     return CommonScaffold(
-      title: 'detail'.tr,
+      title: 'next'.tr,
       hasFooter: needApprove,
       onPressed: () {
-        hanldeConfirm();
+        handleNext();
       },
       body: Column(
         children: [
@@ -260,13 +310,6 @@ class MultiProposalDetailPageState extends State<MultiProposalDetailPage> {
                                   color: CustomColor.primary),
                             ),
                           )),
-                      Visibility(
-                        child: Obx(() => SetGas(
-                              maxFee: $store.maxFee,
-                              gas: $store.chainGas,
-                            )),
-                        visible: needApprove,
-                      )
                     ],
                   ))),
           SizedBox(
@@ -328,13 +371,13 @@ class MultiMessageStatusHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image(width: 53, image: AssetImage(data['image'])),
+        Image(width: 53, image: AssetImage(data['image'] as String)),
         Container(
           width: double.infinity,
           alignment: Alignment.center,
           child: CommonText(
-            data['label'],
-            color: data['color'],
+            data['label'] as String,
+            color: data['color'] as Color,
             size: 15,
             weight: FontWeight.w500,
           ),
@@ -462,11 +505,11 @@ class MultiParams extends StatelessWidget {
               proposeType,
               MultiMessageRow(
                 label: 'minerAddr'.tr,
-                value: msg.decodeParams['To'],
+                value: msg.decodeParams['To'] as String,
               ),
               MultiMessageRow(
                 label: 'withdrawNum'.tr,
-                value: formatFil(amount),
+                value: formatFil(amount as String),
               )
             ],
           )),
@@ -490,11 +533,11 @@ class MultiParams extends StatelessWidget {
               proposeType,
               MultiMessageRow(
                 label: 'to'.tr,
-                value: msg.decodeParams['To'],
+                value: msg.decodeParams['To'] as String,
               ),
               MultiMessageRow(
                 label: 'amount'.tr,
-                value: formatFil(amount, returnRaw: true),
+                value: formatFil(amount as String, returnRaw: true),
               )
             ],
           )),
@@ -517,10 +560,10 @@ class MultiParams extends StatelessWidget {
               proposeType,
               MultiMessageRow(
                 label: 'minerAddr'.tr,
-                value: msg.decodeParams['To'],
+                value: msg.decodeParams['To'] as String,
               ),
               MultiMessageRow(
-                  label: 'newOwner'.tr, value: msg.decodeInnerParams),
+                  label: 'newOwner'.tr, value: msg.decodeInnerParams as String),
               // MultiMessageRow(
               //   label: 'oldOwner'.tr,
               //   value: msg.to,
@@ -541,16 +584,15 @@ class MultiParams extends StatelessWidget {
     var args = msg.decodeInnerParams;
     if (methodName == FilecoinMethod.changeWorker && args is Map) {
       var newWorker = args['NewWorker'];
-      List conaddrs =
-          args['NewControlAddrs'] is List ? args['NewControlAddrs'] : [];
-
+      var NewControlAddrs = args['NewControlAddrs'] as List<dynamic>;
+      List conaddrs = NewControlAddrs is List ? NewControlAddrs : [];
       return Column(
         children: [
           CommonCard(Column(
             children: [
               MessageRow(
                 label: 'minerAddr'.tr,
-                value: msg.decodeParams['To'],
+                value: msg.decodeParams['To'] as String,
               ),
               MessageRow(
                 label: 'worker'.tr,

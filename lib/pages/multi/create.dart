@@ -1,6 +1,35 @@
-import 'package:fil/common/index.dart';
-import 'package:fil/index.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'package:fbutton/fbutton.dart';
+import 'package:fil/chain/constant.dart';
+import 'package:fil/chain/provider.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/libsodium.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/event/index.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/message.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/pages/other/scan.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/utils/enum.dart';
+import 'package:fil/widgets/button.dart';
+import 'package:fil/widgets/card.dart';
 import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:fil/widgets/icon.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flotus/flotus.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+import 'package:oktoast/oktoast.dart';
 
 /// create a multi-sig wallet
 class MultiCreatePage extends StatefulWidget {
@@ -10,25 +39,34 @@ class MultiCreatePage extends StatefulWidget {
   }
 }
 
+/// page of multi create
 class MultiCreatePageState extends State<MultiCreatePage> {
   TextEditingController labelCtrl = TextEditingController();
   TextEditingController signerCtrl = TextEditingController();
   TextEditingController thresholdCtrl = TextEditingController();
   List<TextEditingController> signers = [TextEditingController()];
-  var nonceBoxInstance = OpenedBox.nonceInsance;
   int singerNum = 0;
   int nonce;
-  Gas chainGas = Gas();
+  StreamSubscription sub;
+  String params;
   @override
   void initState() {
     super.initState();
     signerCtrl.text = $store.wal.address;
-    Global.provider
-        .getNonceAndGas(to: FilecoinAccount.f01, method: 2, methodName: 'Exec');
+    Global.provider.prepareNonce();
+    sub = Global.eventBus.on<GasConfirmEvent>().listen((event) {
+      handleConfirm();
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    sub.cancel();
   }
 
   String get from {
-    return $store.wal.addrWithNet;
+    return $store.wal.addressWithNet;
   }
 
   List<String> get signerAddrs {
@@ -40,9 +78,7 @@ class MultiCreatePageState extends State<MultiCreatePage> {
     return signerAddrs;
   }
 
-  Future<TMessage> genMsg() async {
-    var g = $store.gas.value;
-    var value = '0';
+  Future getSerializeParams() async {
     var threshold = int.parse(thresholdCtrl.text.trim());
     var params = {
       'signers': signerAddrs,
@@ -52,31 +88,15 @@ class MultiCreatePageState extends State<MultiCreatePage> {
 
     /// serialize create params
     var p = await Global.provider.getSerializeParams(params);
-    var msg = TMessage(
-        version: 0,
-        method: 2,
-        nonce: $store.nonce,
-        from: from,
-        to: FilecoinAccount.f01,
-        params: p,
-        value: value,
-        gasFeeCap: g.feeCap,
-        gasLimit: g.gasLimit,
-        gasPremium: g.premium);
-    return msg;
+    this.params = p;
   }
 
   void pushMessage(String pass) async {
     var threshold = int.parse(thresholdCtrl.text.trim());
-    TMessage msg;
-    try {
-      msg = await genMsg();
-    } catch (e) {
-      showCustomError('createFail'.tr);
-      return;
-    }
+    TMessage msg = $store.confirmMes;
     var wal = $store.wal;
-    var private = await getPrivateKey(wal.addrWithNet, pass, wal.skKek);
+    var address = wal.addressWithNet;
+    var private = await decryptSodium(wal.skKek, address, pass);
     try {
       await Global.provider.sendMessage(
           message: msg,
@@ -91,7 +111,8 @@ class MultiCreatePageState extends State<MultiCreatePage> {
                     label: labelCtrl.text.trim(),
                     threshold: threshold,
                     signers: signerAddrs));
-            Get.offAllNamed(mainPage);
+            Navigator.popUntil(
+                context, (route) => route.settings.name == mainPage);
           });
     } catch (e) {
       print(e);
@@ -100,61 +121,10 @@ class MultiCreatePageState extends State<MultiCreatePage> {
   }
 
   void handleConfirm() async {
-    var label = labelCtrl.text.trim();
-    var threshold = thresholdCtrl.text.trim();
-    var thresholdNum = 0;
-    if (label == '') {
-      showCustomError('enterName'.tr);
-      return;
-    }
-    try {
-      var n = int.parse(threshold);
-      thresholdNum = n;
-    } catch (e) {
-      showCustomError('errorThreshold'.tr);
-      return;
-    }
-    if (thresholdNum > signers.length + 1) {
-      showCustomError('bigThreshold'.tr);
-      return;
-    }
-    var allAddrValid = true;
-    for (var i = 0; i < signers.length; i++) {
-      var addr = signers[i].text.trim();
-      if (!isValidAddress(addr)) {
-        allAddrValid = false;
-        break;
-      }
-    }
-    var balanceNum = BigInt.tryParse($store.wal.balance);
-    var feeNum = this.chainGas.feeNum;
-    if (balanceNum <= feeNum) {
-      showCustomError('errorLowBalance'.tr);
-      return;
-    }
-    if (!allAddrValid) {
-      showCustomError('errorSigner'.tr);
-      return;
-    }
-    if (!$store.canPush) {
-      var valid = await Global.provider.getNonceAndGas(
-          to: FilecoinAccount.f01, method: 2, methodName: 'Exec');
-      if (!valid) {
-        showCustomError('errorSetGas'.tr);
-        return;
-      }
-    }
-
     if ($store.wal.readonly == 1) {
-      TMessage msg;
-      try {
-        msg = await genMsg();
-      } catch (e) {
-        showCustomError('createFail'.tr);
-        return;
-      }
+      TMessage msg = $store.confirmMes;
       $store.setPushBackPage(mainPage);
-      var cid = await Flotus.genCid(msg: jsonEncode(msg));
+      var cid = await Flotus.genCid(msg: jsonEncode(msg.toLotusMessage()));
       Get.toNamed(mesBodyPage, arguments: {'mes': msg});
       OpenedBox.multiInsance.put(
           cid,
@@ -171,6 +141,82 @@ class MultiCreatePageState extends State<MultiCreatePage> {
     }
   }
 
+  bool checkValid() {
+    var label = labelCtrl.text.trim();
+    var threshold = thresholdCtrl.text.trim();
+    var thresholdNum = 0;
+    if (label == '') {
+      showCustomError('enterName'.tr);
+      return false;
+    }
+    try {
+      var n = int.parse(threshold);
+      thresholdNum = n;
+    } catch (e) {
+      showCustomError('errorThreshold'.tr);
+      return false;
+    }
+    if (thresholdNum > signers.length + 1) {
+      showCustomError('bigThreshold'.tr);
+      return false;
+    }
+    var allAddrValid = true;
+    for (var i = 0; i < signers.length; i++) {
+      var addr = signers[i].text.trim();
+      if (!isValidAddress(addr)) {
+        allAddrValid = false;
+        break;
+      }
+    }
+    return allAddrValid;
+  }
+
+  void handleNext() async {
+    if (!checkValid()) {
+      return;
+    }
+    var handle = () async {
+      try {
+        showCustomLoading('getGas'.tr);
+        await getSerializeParams();
+        var gas = await Global.provider.estimateGas({
+          'from': from,
+          'to': FilecoinAccount.f01,
+          'value': '0',
+          'method': MethodTypeOfMessage.proposal,
+          'params': this.params,
+          'encoded': true
+        });
+        dismissAllToast();
+        var msg = TMessage(
+          method: MethodTypeOfMessage.proposal,
+          nonce: $store.nonce,
+          from: from,
+          to: FilecoinAccount.f01,
+          params: this.params,
+          value: '0',
+        );
+        msg.setGas(gas);
+        var balance = BigInt.tryParse($store.wal.balance) ?? BigInt.zero;
+        if (msg.maxFee >= balance) {
+          showCustomError('errorLowBalance'.tr);
+          return;
+        }
+        $store.setConfirmMessage(msg);
+        Get.toNamed(mesConfirmPage,
+            arguments: {'title': 'createMulti'.tr, 'footer': 'create'.tr});
+      } catch (e) {
+        showCustomLoading('getGasFail'.tr);
+      }
+    };
+    if (!$store.canPush) {
+      await Global.provider.prepareNonce();
+      handle();
+    } else {
+      handle();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     var keyH = MediaQuery.of(context).viewInsets.bottom;
@@ -178,7 +224,7 @@ class MultiCreatePageState extends State<MultiCreatePage> {
       title: 'createMulti'.tr,
       footerText: 'create'.tr,
       onPressed: () {
-        handleConfirm();
+        handleNext();
       },
       body: Column(
         children: [
@@ -208,7 +254,7 @@ class MultiCreatePageState extends State<MultiCreatePage> {
                       ),
                     ),
                     CommonCard(Container(
-                      height: 45,
+                      height: 55,
                       padding: EdgeInsets.fromLTRB(12, 0, 15, 0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -260,8 +306,10 @@ class MultiCreatePageState extends State<MultiCreatePage> {
                                           'scene': ScanScene.Address
                                         }).then((scanResult) {
                                           if (scanResult != '' &&
-                                              isValidAddress(scanResult)) {
-                                            signers[index].text = scanResult;
+                                              isValidAddress(
+                                                  scanResult as String)) {
+                                            signers[index].text =
+                                                scanResult as String;
                                           }
                                         });
                                       },
@@ -312,13 +360,6 @@ class MultiCreatePageState extends State<MultiCreatePage> {
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       controller: thresholdCtrl,
                     ),
-                    SizedBox(
-                      height: 15,
-                    ),
-                    Obx(() => SetGas(
-                          maxFee: $store.maxFee,
-                          gas: $store.chainGas,
-                        )),
                     SizedBox(
                       height: 20,
                     ),

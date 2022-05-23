@@ -1,4 +1,8 @@
-import 'package:fil/index.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dialog.dart';
 
 class Field extends StatelessWidget {
   final String label;
@@ -12,6 +16,8 @@ class Field extends StatelessWidget {
   final Widget append;
   final String hintText;
   final FocusNode focusNode;
+  final Color fieldColor;
+  final Color textColor;
   final SingleStringParamFn onChanged;
   Field(
       {this.label = '',
@@ -25,6 +31,8 @@ class Field extends StatelessWidget {
       this.hintText = '',
       this.focusNode,
       this.onChanged,
+      this.fieldColor,
+      this.textColor,
       this.inputFormatters = const []});
   @override
   Widget build(BuildContext context) {
@@ -67,6 +75,7 @@ class Field extends StatelessWidget {
                         controller: controller,
                         keyboardType: type ?? TextInputType.multiline,
                         maxLines: null,
+                        style: TextStyle(color: textColor ?? Colors.black),
                         inputFormatters: inputFormatters,
                         textInputAction: inputAction ?? TextInputAction.done,
                         decoration: InputDecoration.collapsed(
@@ -81,7 +90,7 @@ class Field extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
-                      color: Colors.white),
+                      color: fieldColor ?? Colors.white),
                 )
               ],
             )),

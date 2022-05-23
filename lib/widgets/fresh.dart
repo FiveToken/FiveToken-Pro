@@ -1,5 +1,11 @@
-import 'package:fil/index.dart';
+import 'dart:async';
+
+import 'package:fil/common/global.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/event/index.dart';
+import 'package:fil/widgets/style.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 typedef FreshCallback = Future Function();
@@ -13,7 +19,7 @@ class CustomRefreshWidget extends StatefulWidget {
   final FreshCallback onRefresh;
   final FreshCallback onLoading;
   final String refreshKey;
-  final SingleParamCallback<RefreshController> onInit;
+  final ValueChanged<RefreshController> onInit;
   CustomRefreshWidget(
       {@required this.child,
       this.enablePullUp = true,
@@ -29,6 +35,8 @@ class CustomRefreshWidget extends StatefulWidget {
     return CustomRefreshWidgetState();
   }
 }
+
+class SingleParamCallback<T> {}
 
 class CustomRefreshWidgetState extends State<CustomRefreshWidget> {
   final RefreshController controller = RefreshController();

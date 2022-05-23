@@ -1,77 +1,88 @@
-import 'package:fil/index.dart';
+import 'package:fil/bloc/address/address_bloc.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_swipe_action_cell/flutter_swipe_action_cell.dart';
-/// display all address in address book 
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+/// display all address in address book
 class AddressBookIndexPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
     return AddressBookIndexPageState();
   }
 }
-
+/// page of index address book
 class AddressBookIndexPageState extends State<AddressBookIndexPage> {
-  var box = OpenedBox.addressBookInsance;
-  List<Wallet> list = [];
-  void setList() {
-    setState(() {
-      list = box.values.toList();
-    });
-  }
 
   @override
   void initState() {
     super.initState();
-    setList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return CommonScaffold(
-      title: 'addrBook'.tr,
-      hasFooter: false,
-      actions: [
-        GestureDetector(
-          child: Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: Icon(Icons.add_circle_outline,color: Colors.black,),
-          ),
-          onTap: () {
-            Get.toNamed(addressAddPage).then((value) {
-              setList();
-            });
-          },
-        )
-      ],
-      body: SingleChildScrollView(
-        child: Column(
-          children: List.generate(list.length, (index) {
-            var wallet = list[index];
-            return SwiperItem(
-              wallet: wallet,
-              onDelete: () {
-                showDeleteDialog(context,
-                    title: 'deleteAddr'.tr,
-                    content: 'confirmDelete'.tr, onDelete: () {
-                  box.delete(wallet.addr);
-                  list.removeAt(index);
-                  setList();
-                  showCustomToast('deleteSucc'.tr);
-                });
-              },
+    return BlocProvider(
+      create: (context)=> AddressBloc()..add(SetAddressEvent()),
+      child:  BlocBuilder<AddressBloc, AddressState>(builder:(context, state){
+        return CommonScaffold(
+          title: 'addrBook'.tr,
+          hasFooter: false,
+          actions: [
+            GestureDetector(
+              child: Padding(
+                padding: EdgeInsets.only(right: 12),
+                child: Icon(Icons.add_circle_outline,color: Colors.black,),
+              ),
               onTap: () {
-                copyText(wallet.address);
-                showCustomToast('copyAddr'.tr);
-              },
-              onSet: () {
-                Get.toNamed(addressAddPage,
-                    arguments: {'mode': 1, 'wallet': wallet}).then((value) {
-                  setList();
+                Get.toNamed(addressAddPage).then((value) => {
+                  BlocProvider.of<AddressBloc>(context).add(SetAddressEvent())
                 });
               },
-            );
-          }),
-        ),
-      ),
+            )
+          ],
+          body: SingleChildScrollView(
+            child: Column(
+              children: List.generate(state.list.length, (index) {
+                var wallet = state.list[index];
+                return SwiperItem(
+                  wallet: wallet,
+                  onDelete: () {
+                    showDeleteDialog(context,
+                        title: 'deleteAddr'.tr,
+                        content: 'confirmDelete'.tr, onDelete: () {
+                          BlocProvider.of<AddressBloc>(context).add(DeleteEvent(wallet: wallet));
+                          showCustomToast('deleteSucc'.tr);
+                        });
+                  },
+                  onTap: () {
+                    copyText(wallet.address);
+                    showCustomToast('copyAddr'.tr);
+                  },
+                  onSet: () {
+                    Get.toNamed(addressAddPage, arguments: {'mode': 1, 'wallet': wallet}).then((value) {
+                      BlocProvider.of<AddressBloc>(context).add(SetAddressEvent());
+                    });;
+                  },
+                );
+              }),
+            ),
+          ),
+        );
+      }),
     );
+
   }
 }
 
@@ -81,7 +92,7 @@ Widget _getIconButton(Color color, Widget icon) {
     height: 50,
     padding: EdgeInsets.all(12),
     margin: EdgeInsets.only(
-      top: 20
+        top: 20
     ),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(25),
@@ -99,10 +110,10 @@ class SwiperItem extends StatelessWidget {
   final bool showBalance;
   SwiperItem(
       {this.onDelete,
-      this.onSet,
-      this.wallet,
-      this.onTap,
-      this.showBalance = false});
+        this.onSet,
+        this.wallet,
+        this.onTap,
+        this.showBalance = false});
   @override
   Widget build(BuildContext context) {
     return SwipeActionCell(
@@ -147,7 +158,7 @@ class SwiperItem extends StatelessWidget {
                     Visibility(
                       child: CommonText.white(
                           formatDouble(wallet.balance,
-                                  truncate: true, size: 4) +
+                              truncate: true, size: 4) +
                               ' Fil',
                           size: 16),
                       visible: showBalance,
@@ -155,7 +166,7 @@ class SwiperItem extends StatelessWidget {
                   ],
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 ),
-                
+
                 CommonText.white(
                   dotString(str: wallet.address),
                   size: 12,
@@ -165,9 +176,9 @@ class SwiperItem extends StatelessWidget {
             decoration: BoxDecoration(
                 borderRadius: CustomRadius.b8,
                 color:
-                    wallet.addrWithNet == $store.wal.addrWithNet
-                        ? CustomColor.primary
-                        : Color(0xff8297B0)),
+                wallet.addressWithNet == $store.wal.addressWithNet
+                    ? CustomColor.primary
+                    : Color(0xff8297B0)),
           ),
           onTap: onTap,
         ),

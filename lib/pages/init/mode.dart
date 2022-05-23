@@ -1,11 +1,25 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/widgets/button.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/icon.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+
 /// run mode set
+/// page of wallet mode
 class WalletModePage extends StatelessWidget {
-  void setMode(bool mode){
-    Global.onlineMode=mode;
+  void setMode(bool mode) {
+    Global.onlineMode = mode;
     Global.store.setBool('runMode', mode);
     Get.toNamed(initWalletPage);
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -84,7 +98,10 @@ class WalletModePage extends StatelessWidget {
               ),
             ),
             Spacer(),
-            DocButton(page: initModePage,color: Colors.white,),
+            DocButton(
+              page: initModePage,
+              color: Colors.white,
+            ),
             SizedBox(
               height: 10,
             ),

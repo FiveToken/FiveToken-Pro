@@ -1,4 +1,18 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/pages/create/mne.dart';
+import 'package:fil/widgets/qr.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenshot_events/flutter_screenshot_events.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+
 /// display mne of the wallet
 class WalletMnePage extends StatefulWidget {
   @override
@@ -7,19 +21,36 @@ class WalletMnePage extends StatefulWidget {
   }
 }
 
+/// page of wallet mne
 class WalletMnePageState extends State<WalletMnePage> {
   int index = 0;
   bool showCode = false;
+  String _message = "";
+
+  @override
+  void initState() {
+    super.initState();
+    // Screenshots are prohibited
+    if (mounted) {
+      FlutterScreenshotEvents.disableScreenshots(true);
+      FlutterScreenshotEvents.statusStream?.listen((event) {
+        setState(() {
+          _message = event.toString();
+          showCustomToast(_message);
+        });
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     var mne = Get.arguments['mne'] as String;
     return CommonScaffold(
       title: 'exportMne'.tr,
       onPressed: () {
-        copyText(mne);
-        showCustomToast('copySucc'.tr);
+        Get.back();
       },
-      footerText: 'copy'.tr,
+      footerText: 'cancel'.tr,
       body: Column(
         children: [
           Row(
@@ -28,38 +59,14 @@ class WalletMnePageState extends State<WalletMnePage> {
                   child: TabItem(
                 active: index == 0,
                 label: 'mne'.tr,
-                onTap: () {
-                  setState(() {
-                    index = 0;
-                  });
-                },
-              )),
-              Expanded(
-                  child: TabItem(
-                active: index == 1,
-                label: 'code'.tr,
-                onTap: () {
-                  setState(() {
-                    index = 1;
-                  });
-                },
+                onTap: () {},
               )),
             ],
           ),
-          index == 0
-              ? KeyString(
-                  data: mne,
-                  isMne: true,
-                )
-              : KeyCode(
-                  data: mne,
-                  showCode: showCode,
-                  onView: () {
-                    setState(() {
-                      showCode = true;
-                    });
-                  },
-                )
+          KeyString(
+            data: mne,
+            isMne: true,
+          )
         ],
       ),
     );
@@ -156,10 +163,7 @@ class KeyString extends StatelessWidget {
                       ),
                     ),
             ),
-            onTap: () {
-              copyText(data);
-              showCustomToast('copySucc'.tr);
-            },
+            onTap: () {},
           )
         ],
       ),
@@ -168,98 +172,98 @@ class KeyString extends StatelessWidget {
   }
 }
 
-class KeyCode extends StatelessWidget {
-  final bool showCode;
-  final Noop onView;
-  final String data;
-  KeyCode({this.showCode, this.onView, this.data});
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CommonText(
-                'onlyScan'.tr,
-                color: CustomColor.primary,
-                size: 14,
-              ),
-              CommonText(
-                'tip6'.tr,
-                color: CustomColor.grey,
-                size: 14,
-              ),
-              CommonText(
-                'useSafe'.tr,
-                color: CustomColor.primary,
-                size: 14,
-              ),
-              CommonText(
-                'tip7'.tr,
-                color: CustomColor.grey,
-                size: 14,
-              ),
-            ],
-          ),
-        ),
-        Container(
-          height: 244,
-          width: double.infinity,
-          margin: EdgeInsets.fromLTRB(65, 28, 65, 0),
-          decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(8)),
-          child: !showCode
-              ? GestureDetector(
-                  onTap: onView,
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: 56,
-                      ),
-                      Container(
-                        alignment: Alignment.center,
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(36),
-                          color: CustomColor.bgGrey,
-                        ),
-                        padding: EdgeInsets.all(20),
-                        child: Image(image: AssetImage('images/close-eye.png')),
-                      ),
-                      SizedBox(
-                        height: 22,
-                      ),
-                      CommonText(
-                        'noPerson'.tr,
-                        color: CustomColor.grey,
-                        weight: FontWeight.w500,
-                        size: 14,
-                      ),
-                      SizedBox(
-                        height: 12,
-                      ),
-                      CommonText(
-                        'view'.tr,
-                        weight: FontWeight.w500,
-                        size: 14,
-                        color: CustomColor.primary,
-                      )
-                    ],
-                  ),
-                )
-              : Container(
-                  height: 244,
-                  width: double.infinity,
-                  alignment: Alignment.center,
-                  child: QrImageView(
-                    data,
-                  )),
-        )
-      ],
-    );
-  }
-}
+// class KeyCode extends StatelessWidget {
+//   final bool showCode;
+//   final Noop onView;
+//   final String data;
+//   KeyCode({this.showCode, this.onView, this.data});
+//   @override
+//   Widget build(BuildContext context) {
+//     return Column(
+//       children: [
+//         Padding(
+//           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               CommonText(
+//                 'onlyScan'.tr,
+//                 color: CustomColor.primary,
+//                 size: 14,
+//               ),
+//               CommonText(
+//                 'tip6'.tr,
+//                 color: CustomColor.grey,
+//                 size: 14,
+//               ),
+//               CommonText(
+//                 'useSafe'.tr,
+//                 color: CustomColor.primary,
+//                 size: 14,
+//               ),
+//               CommonText(
+//                 'tip7'.tr,
+//                 color: CustomColor.grey,
+//                 size: 14,
+//               ),
+//             ],
+//           ),
+//         ),
+//         Container(
+//           height: 244,
+//           width: double.infinity,
+//           margin: EdgeInsets.fromLTRB(65, 28, 65, 0),
+//           decoration: BoxDecoration(
+//               color: Colors.white, borderRadius: BorderRadius.circular(8)),
+//           child: !showCode
+//               ? GestureDetector(
+//                   onTap: onView,
+//                   child: Column(
+//                     children: [
+//                       SizedBox(
+//                         height: 56,
+//                       ),
+//                       Container(
+//                         alignment: Alignment.center,
+//                         width: 72,
+//                         height: 72,
+//                         decoration: BoxDecoration(
+//                           borderRadius: BorderRadius.circular(36),
+//                           color: CustomColor.bgGrey,
+//                         ),
+//                         padding: EdgeInsets.all(20),
+//                         child: Image(image: AssetImage('images/close-eye.png')),
+//                       ),
+//                       SizedBox(
+//                         height: 22,
+//                       ),
+//                       CommonText(
+//                         'noPerson'.tr,
+//                         color: CustomColor.grey,
+//                         weight: FontWeight.w500,
+//                         size: 14,
+//                       ),
+//                       SizedBox(
+//                         height: 12,
+//                       ),
+//                       CommonText(
+//                         'view'.tr,
+//                         weight: FontWeight.w500,
+//                         size: 14,
+//                         color: CustomColor.primary,
+//                       )
+//                     ],
+//                   ),
+//                 )
+//               : Container(
+//                   height: 244,
+//                   width: double.infinity,
+//                   alignment: Alignment.center,
+//                   child: QrImageView(
+//                     data,
+//                   )),
+//         )
+//       ],
+//     );
+//   }
+// }

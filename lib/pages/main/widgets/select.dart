@@ -1,12 +1,31 @@
-import 'package:fil/index.dart';
+import 'package:fil/bloc/main/main_bloc.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/utils/enum.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
 class WalletSelect extends StatefulWidget {
   final double bottom;
-  final SingleParamCallback<Wallet> onTap;
+  final ValueChanged<Wallet> onTap;
   final bool more;
   final String filterType;
-  final double footerHeight; 
-  WalletSelect({this.bottom, this.onTap, this.more = false, this.filterType,this.footerHeight=0});
+  final double footerHeight;
+
+  WalletSelect(
+      {this.bottom,
+      this.onTap,
+      this.more = false,
+      this.filterType,
+      this.footerHeight = 0});
   @override
   State<StatefulWidget> createState() {
     return WalletSelectState();
@@ -14,19 +33,11 @@ class WalletSelect extends StatefulWidget {
 }
 
 class WalletSelectState extends State<WalletSelect> {
-  String selectType = 'all';
-
-  void handleSelect(String type) {
-    setState(() {
-      selectType = type;
-    });
-  }
-
   @override
   void initState() {
     super.initState();
     if (widget.filterType != null) {
-      this.selectType = widget.filterType;
+      widget.filterType;
     }
   }
 
@@ -54,24 +65,24 @@ class WalletSelectState extends State<WalletSelect> {
     ];
   }
 
-  List<TypedList> get list {
+  Widget walletList(String selectType) {
     var hdList = TypedList(
         title: Global.onlineMode ? 'commonAccount'.tr : 'offlineW'.tr,
         type: 'hd',
         list: []);
     var readonlyList =
-        TypedList(title: 'readonlyW'.tr, type: 'readonly', list: []);
-    var minerList = TypedList(title: 'minerW'.tr, type: 'miner', list: []);
+        TypedList(title: 'readonlyWallet'.tr, type: 'readonly', list: []);
+    var minerList = TypedList(title: 'minerWallet'.tr, type: 'miner', list: []);
     OpenedBox.addressInsance.values
-        .where((wal) => wal.addrWithNet != '')
+        .where((wal) => wal.addressWithNet != '')
         .forEach((wal) {
-      if (wal.walletType == 0) {
+      if (wal.walletType == WalletsType.normal) {
         if (wal.readonly == 1) {
           readonlyList.list.add(wal);
         } else {
           hdList.list.add(wal);
         }
-      } else if (wal.walletType == 2) {
+      } else if (wal.walletType == WalletsType.miner) {
         minerList.list.add(wal);
       }
     });
@@ -79,71 +90,83 @@ class WalletSelectState extends State<WalletSelect> {
       ..addAll([hdList])
       ..addAll([readonlyList])
       ..addAll([minerList]);
-    // all = all.where((item) => item.list.length > 0).toList();
+    List<TypedList> list;
     switch (selectType) {
       case 'all':
-        return all;
+        list = all;
+        break;
       case 'hd':
-        return [hdList];
+        list = [hdList];
+        break;
       case 'readonly':
-        return [readonlyList];
+        list = [readonlyList];
+        break;
       case 'miner':
-        return [minerList];
+        list = [minerList];
+        break;
       default:
-        return all;
+        list = all;
     }
+    return Column(
+      children: List.generate(list.length, (index) {
+        var item = list[index];
+        return Padding(
+          child: TypedListWidget(
+            list: item.list,
+            title: item.title,
+            onTap: widget.onTap,
+            more: widget.more,
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: 12,
+          ),
+        );
+      }),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          children: List.generate(typeList.length, (index) {
-            var t = typeList[index];
-            return TypeItem(
-              label: t.label,
-              active: selectType == t.type,
-              onTap: () {
-                handleSelect(t.type);
-              },
-            );
-          }),
-        ),
-        SizedBox(
-          width: 10,
-        ),
-        Expanded(
-            child: Column(
+    return BlocProvider(
+      create: (context) => MainBloc(),
+      child: BlocBuilder<MainBloc, MainState>(builder: (context, state) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(bottom: widget.bottom ?? 20),
-                child: Column(
-                  children: List.generate(list.length, (index) {
-                    var item = list[index];
-                    return Padding(
-                      child: TypedListWidget(
-                        list: item.list,
-                        title: item.title,
-                        onTap: widget.onTap,
-                        more: widget.more,
-                      ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                      ),
-                    );
-                  }),
-                ),
-              ),
+            Column(
+              children: List.generate(typeList.length, (index) {
+                var t = typeList[index];
+                return TypeItem(
+                  label: t.label,
+                  active: state.selectType == t.type,
+                  onTap: () {
+                    BlocProvider.of<MainBloc>(context)
+                        .add(setSelectTypeEvent(t.type));
+                    //  handleSelect(t.type);
+                  },
+                );
+              }),
             ),
             SizedBox(
-              height: widget.footerHeight,
-            )
+              width: 10,
+            ),
+            Expanded(
+                child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(bottom: widget.bottom ?? 20),
+                    child: walletList(state.selectType),
+                  ),
+                ),
+                SizedBox(
+                  height: widget.footerHeight,
+                )
+              ],
+            )),
           ],
-        )),
-      ],
+        );
+      }),
     );
   }
 }
@@ -203,7 +226,7 @@ class TypedList {
 class TypedListWidget extends StatelessWidget {
   final String title;
   final List<Wallet> list;
-  final SingleParamCallback<Wallet> onTap;
+  final ValueChanged<Wallet> onTap;
   final bool more;
   TypedListWidget({this.title, this.list, this.onTap, this.more = false});
   @override
@@ -248,7 +271,8 @@ class TypedListWidget extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                             borderRadius: CustomRadius.b8,
-                            color: wallet.addrWithNet == $store.wal.addrWithNet
+                            color: wallet.addressWithNet ==
+                                    $store.wal.addressWithNet
                                 ? CustomColor.primary
                                 : Color(0xff8297B0)),
                       )),

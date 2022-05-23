@@ -1,5 +1,15 @@
-import 'package:fil/index.dart';
-/// create or import different wallet 
+import 'package:fil/common/global.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+
+/// create or import different wallet
+/// page of crate entrance
 class CreateEntrancePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -13,7 +23,7 @@ class CreateEntrancePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CommonText(
-                'hdW'.tr,
+                'generalWallet'.tr,
                 size: 14,
               ),
               SizedBox(
@@ -52,7 +62,7 @@ class CreateEntrancePage extends StatelessWidget {
                     Container(
                       padding: EdgeInsets.fromLTRB(0, 20, 0, 12),
                       child: CommonText(
-                        'readonlyW'.tr,
+                        'readonlyWallet'.tr,
                         size: 14,
                       ),
                     ),
@@ -68,7 +78,7 @@ class CreateEntrancePage extends StatelessWidget {
                     Container(
                       padding: EdgeInsets.fromLTRB(0, 20, 0, 12),
                       child: CommonText(
-                        'minerW'.tr,
+                        'minerWallet'.tr,
                         size: 14,
                       ),
                     ),

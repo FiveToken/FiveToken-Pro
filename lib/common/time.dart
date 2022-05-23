@@ -5,6 +5,6 @@ String formatTimeByStr(num timestamp, {String str = 'YYYY-MM-DD HH:mm:ss'}) {
   if (timestamp == null || timestamp == 0) {
     return '';
   }
-  var time = Day.fromUnix(timestamp * 1000);
+  var time = Day.fromUnix((timestamp * 1000).toInt());
   return time.format(str);
 }

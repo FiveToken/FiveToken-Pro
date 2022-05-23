@@ -1,6 +1,11 @@
-import 'package:fil/index.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+
+import 'dialog.dart';
+
 class QrImageView extends StatelessWidget {
   final String data;
   final double size;
@@ -27,7 +32,8 @@ class QrImageView extends StatelessWidget {
                 backgroundColor: Colors.white,
                 version: QrVersions.auto,
               ),
-            ),dismissible: true);
+            ),
+            dismissible: true);
       },
       child: child,
     );

@@ -1,5 +1,5 @@
-import 'package:fil/index.dart';
 import 'package:hive/hive.dart';
+import 'gas.dart';
 part 'message.g.dart';
 
 @HiveType(typeId: 1)
@@ -26,6 +26,7 @@ class TMessage {
   num gasLimit;
   @HiveField(10)
   String args;
+  String innerArgs;
 
   TMessage(
       {this.version = 0,
@@ -38,20 +39,22 @@ class TMessage {
       this.params = '',
       this.nonce = -1,
       this.args,
+      this.innerArgs,
       this.method = 0});
 
   TMessage.fromJson(Map<String, dynamic> json)
-      : this.version = json['Version'],
-        this.to = json['To'],
-        this.from = json['From'],
-        this.value = json['Value'],
-        this.gasFeeCap = json['GasFeeCap'],
-        this.gasLimit = json['GasLimit'],
-        this.gasPremium = json['GasPremium'],
-        this.params = json['Params'],
-        this.nonce = json['Nonce'],
-        this.args = json['Args'],
-        this.method = json['Method'];
+      : this.version = json['Version'] as int,
+        this.to = json['To'] as String,
+        this.from = json['From'] as String,
+        this.value = json['Value'] as String,
+        this.gasFeeCap = json['GasFeeCap'] as String,
+        this.gasLimit = json['GasLimit'] as num,
+        this.gasPremium = json['GasPremium'] as String,
+        this.params = json['Params'] as String,
+        this.nonce = json['Nonce'] as num,
+        this.args = json['Args'] as String,
+        this.innerArgs = json['InnerArgs'] as String,
+        this.method = json['Method'] as num;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -65,7 +68,8 @@ class TMessage {
       "Params": this.params,
       "Nonce": this.nonce,
       "Method": this.method,
-      "Args": this.args
+      "Args": this.args,
+      "InnerArgs": this.innerArgs
     };
   }
 
@@ -105,6 +109,15 @@ class TMessage {
       "Method": this.method,
     };
   }
+
+  void setGas(Gas gas) {
+    gasFeeCap = gas.feeCap;
+    gasLimit = gas.gasLimit;
+    gasPremium = gas.premium;
+  }
+
+  Gas get gas =>
+      Gas(gasLimit: gasLimit, feeCap: gasFeeCap, premium: gasPremium);
 }
 
 @HiveType(typeId: 2)
@@ -117,8 +130,8 @@ class Signature {
   Signature(this.type, this.data);
 
   Signature.fromJson(Map<String, dynamic> json)
-      : this.type = json['Type'],
-        this.data = json['Data'];
+      : this.type = json['Type'] as num,
+        this.data = json['Data'] as String;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -138,8 +151,10 @@ class SignedMessage {
   SignedMessage(this.message, this.signature);
 
   SignedMessage.fromJson(Map<String, dynamic> json)
-      : this.message = TMessage.fromJson(json['Message']),
-        this.signature = Signature.fromJson(json['Signature']);
+      : this.message =
+            TMessage.fromJson(json['Message'] as Map<String, dynamic>),
+        this.signature =
+            Signature.fromJson(json['Signature'] as Map<String, dynamic>);
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{

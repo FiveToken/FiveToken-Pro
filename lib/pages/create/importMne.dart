@@ -1,12 +1,32 @@
-import 'package:fil/common/index.dart';
-import 'package:fil/index.dart';
+import 'package:bls/bls.dart';
+import 'package:fil/api/update.dart';
+import 'package:fil/common/global.dart';
 import 'package:bip39/bip39.dart' as bip39;
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/pages/other/scan.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:fil/widgets/wallet.dart';
+import 'package:flotus/flotus.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+
 /// import wallet by mne
 class ImportMnePage extends StatefulWidget {
   @override
   State createState() => ImportMnePageState();
 }
 
+/// page of import mne
 class ImportMnePageState extends State<ImportMnePage> {
   TextEditingController inputControl = TextEditingController();
   TextEditingController nameControl = TextEditingController();
@@ -28,6 +48,7 @@ class ImportMnePageState extends State<ImportMnePage> {
     return true;
   }
 
+  /// handle import mne
   void handleImport(BuildContext context, String type) async {
     String inputStr = inputControl.text.trim().replaceAll(RegExp(r'\s+'), ' ');
     String label = nameControl.text.trim();
@@ -51,6 +72,7 @@ class ImportMnePageState extends State<ImportMnePage> {
       showCustomError('errorExist'.tr);
       return;
     }
+    addOperation('import_mne');
     Wallet wallet = Wallet(
       ck: ck,
       address: address,
@@ -62,11 +84,12 @@ class ImportMnePageState extends State<ImportMnePage> {
     Get.toNamed(passwordSetPage, arguments: {'wallet': wallet});
   }
 
+  /// handle scan
   void handleScan() {
     Get.toNamed(scanPage, arguments: {'scene': ScanScene.Mne}).then((value) {
       try {
         //var ck = aesDecrypt(value, tokenify('filwallet'));
-        inputControl.text = value;
+        inputControl.text = value as String;
       } catch (e) {
         showCustomError('wrongMne'.tr);
       }
@@ -120,7 +143,8 @@ class ImportMnePageState extends State<ImportMnePage> {
                     size: 14,
                   ),
                   GestureDetector(
-                    child: Image(width: 20, image: AssetImage('images/cop.png')),
+                    child:
+                        Image(width: 20, image: AssetImage('images/cop.png')),
                     onTap: () async {
                       var data = await Clipboard.getData(Clipboard.kTextPlain);
                       inputControl.text = data.text;

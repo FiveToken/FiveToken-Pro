@@ -1,11 +1,20 @@
+import 'dart:convert';
+import 'package:fil/models/cacheMessage.dart';
+import 'package:fil/models/host.dart';
+import 'package:fil/models/message.dart';
+import 'package:fil/models/miner.dart';
+import 'package:fil/models/nonce.dart';
+import 'package:fil/models/nonce_unit.dart';
+import 'package:fil/models/wallet.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:fil/index.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 const messageBox = 'message';
 const addressBox = 'address';
 const signedMessageBox = 'signedMessage';
 const nonceBox = 'nonceBox';
+const nonceUnitBox = 'nonceUnitBox';
 const monitorBox = 'monitorAddressBox';
 const unsignedMessageBox = 'unsignedMessageBox';
 const pushMessageBox = 'pushMessageBox';
@@ -20,6 +29,9 @@ const multiProposeBox = 'multiProposeBox';
 const minerAddressBox = 'minerAddressBox';
 const multiApproveBox = 'multiApproveBox';
 const minerBalanceBox = '';
+const hostBox = 'hostBox';
+
+List<int> encryptionKey;
 
 /// init hive db
 Future initHive() async {
@@ -30,6 +42,7 @@ Future initHive() async {
   Hive.registerAdapter(WalletAdapter());
   Hive.registerAdapter(StoreMessageAdapter());
   Hive.registerAdapter(NonceAdapter());
+  Hive.registerAdapter(NonceUnitAdapter());
   Hive.registerAdapter(StoreUnsignedMessageAdapter());
   Hive.registerAdapter(StoreSignedMessageAdapter());
   Hive.registerAdapter(MinerAddressAdapter());
@@ -41,29 +54,16 @@ Future initHive() async {
   Hive.registerAdapter(CacheMultiMessageAdapter());
   Hive.registerAdapter(MultiApproveMessageAdapter());
   Hive.registerAdapter(MinerSelfBalanceAdapter());
-  await Hive.openBox<StoreMessage>(messageBox);
-  await Hive.openBox<Wallet>(addressBox);
-  await Hive.openBox<SignedMessage>(signedMessageBox);
-  await Hive.openBox<Nonce>(nonceBox);
-  await Hive.openBox<StoreUnsignedMessage>(unsignedMessageBox);
-  await Hive.openBox<StoreSignedMessage>(pushMessageBox);
-  await Hive.openBox<StoreMultiMessage>(multiMessageBox);
-  await Hive.openBox<MultiSignWallet>(multiWalletBox);
-  await Hive.openBox<Wallet>(addressBookBox);
-  await Hive.openBox<CacheGas>(gasBox);
-  await Hive.openBox<MinerMeta>(minerMetaBox);
-  await Hive.openBox<MinerHistoricalStats>(minerStatisticBox);
-  await Hive.openBox<CacheMultiMessage>(multiProposeBox);
-  await Hive.openBox<MinerAddress>(minerAddressBox);
-  await Hive.openBox<MultiApproveMessage>(multiApproveBox);
-  await Hive.openBox<MinerSelfBalance>(minerBalanceBox);
-  OpenedBox.initBox();
-  // OpenedBox.addressInsance.deleteFromDisk();
-  // OpenedBox.multiMesInsance.deleteFromDisk();
-  // OpenedBox.multiInsance.deleteFromDisk();
-  // OpenedBox.messageInsance.deleteFromDisk();
-  // OpenedBox.minerAddressInstance.deleteFromDisk();
-  // OpenedBox.multiProposeInstance.deleteFromDisk();
+
+  final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
+  var containsEncryptionKey = await secureStorage.read(key: 'key');
+  if (containsEncryptionKey == null || containsEncryptionKey == '') {
+    var key = Hive.generateSecureKey();
+    await secureStorage.write(key: 'key', value: base64UrlEncode(key));
+  }
+  encryptionKey = base64Url.decode(await secureStorage.read(key: 'key'));
+
+  await OpenedBox.initBox();
 }
 
 class OpenedBox {
@@ -82,12 +82,14 @@ class OpenedBox {
   /// box to store all used nonce
   static Box<Nonce> nonceInsance;
 
+  /// box to store all used nonceUnit
+  static Box<NonceUnit> nonceUnitInstance;
+
   /// box to store all unsigned messages
   static Box<StoreUnsignedMessage> unsignedInsance;
 
   /// box to store all pushed messages
   static Box<StoreSignedMessage> pushInsance;
-
 
   /// box to store all multi-sig messages
   static Box<StoreMultiMessage> multiMesInsance;
@@ -115,22 +117,49 @@ class OpenedBox {
 
   /// box to store miner balance
   static Box<MinerSelfBalance> minerBalanceInstance;
-  static void initBox() {
-    messageInsance = Hive.box<StoreMessage>(messageBox);
-    addressInsance = Hive.box<Wallet>(addressBox);
-    addressBookInsance = Hive.box<Wallet>(addressBookBox);
-    signedInstance = Hive.box<SignedMessage>(signedMessageBox);
-    nonceInsance = Hive.box<Nonce>(nonceBox);
-    unsignedInsance = Hive.box<StoreUnsignedMessage>(unsignedMessageBox);
-    pushInsance = Hive.box<StoreSignedMessage>(pushMessageBox);
-    multiMesInsance = Hive.box<StoreMultiMessage>(multiMessageBox);
-    multiInsance = Hive.box<MultiSignWallet>(multiWalletBox);
-    gasInsance = Hive.box<CacheGas>(gasBox);
-    minerMetaInstance = Hive.box<MinerMeta>(minerMetaBox);
-    minerStatisticInstance = Hive.box<MinerHistoricalStats>(minerStatisticBox);
-    multiProposeInstance = Hive.box<CacheMultiMessage>(multiProposeBox);
-    minerAddressInstance = Hive.box<MinerAddress>(minerAddressBox);
-    multiApproveInstance = Hive.box<MultiApproveMessage>(multiApproveBox);
-    minerBalanceInstance = Hive.box<MinerSelfBalance>(minerBalanceBox);
+
+  static Box<Host> hostInstance;
+
+  static Future initBox() async {
+    messageInsance = await Hive.openBox<StoreMessage>(messageBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    addressInsance = await Hive.openBox<Wallet>(addressBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    addressBookInsance = await Hive.openBox<Wallet>(addressBookBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    signedInstance = await Hive.openBox<SignedMessage>(signedMessageBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    nonceInsance = await Hive.openBox<Nonce>(nonceBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    nonceUnitInstance = await Hive.openBox<NonceUnit>(nonceUnitBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    unsignedInsance = await Hive.openBox<StoreUnsignedMessage>(
+        unsignedMessageBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    pushInsance = await Hive.openBox<StoreSignedMessage>(pushMessageBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    multiMesInsance = await Hive.openBox<StoreMultiMessage>(multiMessageBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    multiInsance = await Hive.openBox<MultiSignWallet>(multiWalletBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    gasInsance = await Hive.openBox<CacheGas>(gasBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    minerMetaInstance = await Hive.openBox<MinerMeta>(minerMetaBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    minerStatisticInstance = await Hive.openBox<MinerHistoricalStats>(
+        minerStatisticBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    multiProposeInstance = await Hive.openBox<CacheMultiMessage>(
+        multiProposeBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    minerAddressInstance = await Hive.openBox<MinerAddress>(minerAddressBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    multiApproveInstance = await Hive.openBox<MultiApproveMessage>(
+        multiApproveBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    minerBalanceInstance = await Hive.openBox<MinerSelfBalance>(minerBalanceBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
+    hostInstance = await Hive.openBox<Host>(hostBox,
+        encryptionCipher: HiveAesCipher(encryptionKey));
   }
 }

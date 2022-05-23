@@ -1,6 +1,14 @@
-import 'package:fil/index.dart';
+import 'package:fil/style/index.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
 
-typedef dynamic OnPress();
+import 'icon.dart';
+
+typedef OnPress = dynamic Function();
 
 class CommonScaffold extends StatelessWidget {
   final String title;

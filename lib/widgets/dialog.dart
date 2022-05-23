@@ -1,4 +1,17 @@
-import 'package:fil/index.dart';
+import 'package:fil/chain/filecoinWallet.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/widgets/pass.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
 typedef SingleStringParamFn = void Function(String pass);
 void showCustomDialog(BuildContext context, Widget child,
@@ -100,13 +113,13 @@ class PassDialogState extends State<PassDialog> {
     var wal = widget.from ?? $store.wal;
 
     try {
-      var valid = await validatePrivateKey(
-          wal.addrWithNet, pass, wal.skKek, wal.digest);
+      var valid =
+          await FilecoinWallet.validatePrivateKey(wal.skKek, wal.address, pass);
       var instance = Global.store;
-      var pre = instance.getInt('passWrongCount') ?? 0;
+      var pre = instance.getInt(StoreKey.wrongPasswordCount) ?? 0;
       if (!valid) {
         var now = pre + 1;
-        instance.setInt('passWrongCount', pre + 1);
+        instance.setInt(StoreKey.wrongPasswordCount, pre + 1);
         if (now >= 5) {
           showCustomError('wrongPass'.tr);
           return;
@@ -115,7 +128,7 @@ class PassDialogState extends State<PassDialog> {
           return;
         }
       } else {
-        instance.setInt('passWrongCount', 0);
+        instance.setInt(StoreKey.wrongPasswordCount, 0);
         widget.callback(pass);
         Get.back();
       }

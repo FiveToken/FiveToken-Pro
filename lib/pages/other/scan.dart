@@ -1,6 +1,16 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/style/index.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_instance/src/extension_instance.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 import 'package:scan/scan.dart';
 import 'package:image_picker/image_picker.dart';
+
 /// scan qrcode
 enum ScanScene {
   Address,
@@ -18,6 +28,7 @@ class ScanPage extends StatefulWidget {
   }
 }
 
+/// page of scan
 class ScanPageState extends State<ScanPage> {
   ScanController controller = ScanController();
   StoreController controller2 = Get.find();
@@ -26,9 +37,12 @@ class ScanPageState extends State<ScanPage> {
   @override
   void initState() {
     super.initState();
-    scene = Get.arguments['scene'];
+    if(Get.arguments!=null) {
+      scene = Get.arguments['scene'] as ScanScene;
+    }
   }
 
+  /// check scan by sene
   bool checkScanResultBySene(String result) {
     var valid = false;
     switch (scene) {

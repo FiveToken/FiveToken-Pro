@@ -1,10 +1,34 @@
-import 'package:fil/common/index.dart';
-import 'package:fil/index.dart';
+import 'package:fbutton/fbutton.dart';
+import 'package:fil/common/back.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/event/index.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/models/wallet.dart';
 import 'package:fil/pages/main/drawer.dart';
 import 'package:fil/pages/main/miner.dart';
 import 'package:fil/pages/main/offline.dart';
 import 'package:fil/pages/main/online.dart';
 import 'package:fil/pages/main/widgets/select.dart';
+import 'package:fil/pages/message/make.dart';
+import 'package:fil/pages/message/method.dart';
+import 'package:fil/pages/other/scan.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/style/index.dart';
+import 'package:fil/utils/enum.dart';
+import 'package:fil/widgets/bottomSheet.dart';
+import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/icon.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_root_jailbreak/flutter_root_jailbreak.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
 class MainPage extends StatefulWidget {
   @override
@@ -14,10 +38,15 @@ class MainPage extends StatefulWidget {
 }
 
 class MainPageState extends State<MainPage> {
+  @override
+  void initState() {
+    checkRoot();
+  }
+
   void handleScan() async {
     Get.toNamed(scanPage, arguments: {'scene': ScanScene.Address})
         .then((value) async {
-      if (value != null && isValidAddress(value)) {
+      if (value != null && isValidAddress(value as String)) {
         Get.toNamed(filTransferPage, arguments: {'to': value});
       }
     });
@@ -28,12 +57,11 @@ class MainPageState extends State<MainPage> {
     if (!Global.onlineMode) {
       return 'offlineW'.tr;
     } else {
-      if (type == 2) {
-        return 'minerW'.tr;
+      if (type == WalletsType.miner) {
+        return 'minerWallet'.tr;
       } else {
-        var readonly = wal.readonly == 1;
-        if (readonly) {
-          return 'readonlyW'.tr;
+        if (wal.readonly == 1) {
+          return 'readonlyWallet'.tr;
         } else {
           return 'commonAccount'.tr;
         }
@@ -41,8 +69,65 @@ class MainPageState extends State<MainPage> {
     }
   }
 
+  Future<void> checkRoot() async {
+    bool isRoot = await isRooted();
+    if (isRoot) {
+      rootDialog();
+    }
+  }
+
+  void rootDialog() {
+    showCustomDialog(
+        context,
+        Column(
+          children: [
+            CommonTitle(
+              'rootTitle'.tr,
+              showDelete: true,
+            ),
+            Container(
+              child: Text(
+                'rootTips'.tr,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 57, vertical: 28),
+            ),
+            Divider(
+              height: 1,
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: double.infinity,
+                alignment: Alignment.center,
+                child: CommonText(
+                  'know'.tr,
+                  color: CustomColor.primary,
+                ),
+                padding: EdgeInsets.symmetric(vertical: 8),
+              ),
+              onTap: () {
+                Get.back();
+              },
+            ),
+          ],
+        ));
+  }
+
+  Future<bool> isRooted() async {
+    try {
+      bool result = Global.platform == 'android'
+          ? await FlutterRootJailbreak.isRooted
+          : await FlutterRootJailbreak.isJailBroken;
+      return result;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Widget get child {
-    if ($store.wal.walletType == 2) {
+    if ($store.wal.walletType == WalletsType.miner) {
       return MinerAddressStats();
     } else {
       if (Global.onlineMode) {
@@ -97,8 +182,9 @@ class MainPageState extends State<MainPage> {
                       if (wallet.addr != $store.addr) {
                         $store.setWallet(wallet);
                         Global.store.setString(
-                            'activeWalletAddress', wallet.addrWithNet);
-                        setState(() {});
+                            'activeWalletAddress', wallet.addressWithNet);
+                        //
+                        Global.eventBus.fire(AccountChangeEvent());
                       }
                       Get.back();
                     },
@@ -116,8 +202,9 @@ class MainPageState extends State<MainPage> {
             appBar: PreferredSize(
                 child: AppBar(
                   actions: [
-                    Obx(() => $store.wal.walletType != 2 && Global.onlineMode
-                        ? $store.wal.readonly != 1
+                    Obx(() => $store.wal.walletType != WalletsType.miner &&
+                            Global.onlineMode
+                        ? $store.wal.readonly == 0
                             ? Padding(
                                 child: GestureDetector(
                                     onTap: handleScan,
@@ -185,7 +272,7 @@ class MainPageState extends State<MainPage> {
               ),
             ),
             backgroundColor: Colors.white,
-            body: Obx(() => $store.wal.walletType == 2
+            body: Obx(() => $store.wal.walletType == WalletsType.miner
                 ? MinerAddressStats()
                 : Global.onlineMode
                     ? OnlineWallet()

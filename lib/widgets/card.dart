@@ -1,4 +1,10 @@
-import 'package:fil/index.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+
+import 'icon.dart';
+
 class CommonCard extends StatelessWidget {
   final Widget child;
   CommonCard(this.child);

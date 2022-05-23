@@ -1,4 +1,17 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/pages/other/scan.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+
 /// add address to local db or edit a address that was exist
 class AddressBookAddPage extends StatefulWidget {
   @override
@@ -7,6 +20,7 @@ class AddressBookAddPage extends StatefulWidget {
   }
 }
 
+/// page of add address book
 class AddressBookAddPageState extends State<AddressBookAddPage> {
   TextEditingController addrCtrl = TextEditingController();
   TextEditingController nameCtrl = TextEditingController();
@@ -66,8 +80,8 @@ class AddressBookAddPageState extends State<AddressBookAddPage> {
     Get.toNamed(scanPage, arguments: {'scene': ScanScene.Address})
         .then((scanResult) {
       if (scanResult != '') {
-        if (isValidAddress(scanResult)) {
-          addrCtrl.text = scanResult;
+        if (isValidAddress(scanResult as String)) {
+          addrCtrl.text = scanResult as String;
         } else {
           showCustomError('wrongAddr'.tr);
         }

@@ -1,6 +1,27 @@
-import 'package:fil/index.dart';
+import 'dart:convert';
+import 'package:fbutton/fbutton.dart';
+import 'package:fil/bloc/unsign/unsign_bloc.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/models/message.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/pages/sign/signBody.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:fil/widgets/icon.dart';
+import 'package:fil/widgets/layout.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
 typedef EditCallback = void Function(TMessage);
+
 /// widget to show the info of a unsigned message
 class UnsignedMessage extends StatefulWidget {
   final Noop onTap;
@@ -18,7 +39,6 @@ class UnsignedMessageState extends State<UnsignedMessage> {
     return widget.message != null;
   }
 
-  bool advanced = false;
   // @override
   // void initState() {
   //   super.initState();
@@ -30,91 +50,96 @@ class UnsignedMessageState extends State<UnsignedMessage> {
 
   @override
   Widget build(BuildContext context) {
-    return Layout.colStart([
-      CommonText(
-        'sign'.tr,
-        size: 16,
-        weight: FontWeight.w500,
-      ),
-      Container(
-        child: CommonText('useCurSign'.tr),
-        padding: EdgeInsets.fromLTRB(0, 5, 0, 10),
-      ),
-      showDetail
-          ? advanced
-              ? EditableMessage(
-                  message: widget.message,
-                  edit: widget.edit,
-                  exit: () {
-                    Global.store.setInt('signMode', 0);
-                    setState(() {
-                      advanced = false;
-                    });
-                  },
-                )
-              : DisplayMessage(
-                  onTap: () {
-                    Global.store.setInt('signMode', 1);
-                    setState(() {
-                      advanced = true;
-                    });
-                  },
-                  message: widget.message,
-                )
-          : Column(
-              children: [
-                GestureDetector(
-                  child: CommonCard(Container(
-                    height: Get.height / 2,
-                    alignment: Alignment.center,
-                    child: CommonText(
-                      'clickCode'.tr,
-                      size: 16,
-                    ),
-                  )),
-                  onTap: widget.onTap,
-                ),
-                GestureDetector(
-                  onTap: () async {
-                    var data = await Clipboard.getData(Clipboard.kTextPlain);
-                    var result = data.text;
-                    var valid = result.indexOf('GasLimit') > 0 &&
-                        result.indexOf('Signature') < 0;
-                    if (!valid) {
-                      showCustomError('copyErrorMes'.tr);
-                      return;
-                    }
-                    try {
-                      var res = jsonDecode(result);
-                      TMessage message = TMessage.fromJson(res);
-                      if (message.valid) {
-                        widget.edit(message);
-                      }
-                    } catch (e) {
-                      print(e);
-                    }
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(vertical: 20),
-                      child: Text(
-                        'copyMes'.tr,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: CustomColor.grey,
-                          fontSize: 14,
-                          decoration: TextDecoration.underline,
-                        ),
+    return BlocProvider(
+        create: (context) => UnsignBloc()..add(SetUnsignEvent()),
+        child: BlocBuilder<UnsignBloc, UnsignState>(builder: (context, state) {
+          return Layout.colStart([
+            CommonText(
+              'sign'.tr,
+              size: 16,
+              weight: FontWeight.w500,
+            ),
+            Container(
+              child: CommonText('useCurSign'.tr),
+              padding: EdgeInsets.fromLTRB(0, 5, 0, 10),
+            ),
+            showDetail
+                ? state.advanced
+                    ? EditableMessage(
+                        message: widget.message,
+                        edit: widget.edit,
+                        exit: () {
+                          Global.store.setInt('signMode', 0);
+                          BlocProvider.of<UnsignBloc>(context)
+                              .add(SetUnsignEvent(advanced: false));
+                        },
+                      )
+                    : DisplayMessage(
+                        onTap: () {
+                          Global.store.setInt('signMode', 1);
+                          BlocProvider.of<UnsignBloc>(context)
+                              .add(SetUnsignEvent(advanced: true));
+                        },
+                        message: widget.message,
+                      )
+                : Column(
+                    children: [
+                      GestureDetector(
+                        child: CommonCard(Container(
+                          height: Get.height / 2,
+                          alignment: Alignment.center,
+                          child: CommonText(
+                            'clickCode'.tr,
+                            size: 16,
+                          ),
+                        )),
+                        onTap: widget.onTap,
                       ),
-                    ),
-                  ),
-                )
-              ],
-            )
-    ]);
+                      GestureDetector(
+                        onTap: () async {
+                          var data =
+                              await Clipboard.getData(Clipboard.kTextPlain);
+                          var result = data.text;
+                          var valid = result.indexOf('GasLimit') > 0 &&
+                              result.indexOf('Signature') < 0;
+                          if (!valid) {
+                            showCustomError('copyErrorMes'.tr);
+                            return;
+                          }
+                          try {
+                            var res = jsonDecode(result);
+                            TMessage message =
+                                TMessage.fromJson(res as Map<String, dynamic>);
+                            if (message.valid) {
+                              widget.edit(message);
+                            }
+                          } catch (e) {
+                            print(e);
+                          }
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Text(
+                              'copyMes'.tr,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: CustomColor.grey,
+                                fontSize: 14,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    ],
+                  )
+          ]);
+        }));
   }
 }
+
 /// widget which can edit nonce and gas of a unsigned message
 class EditableMessage extends StatefulWidget {
   final TMessage message;

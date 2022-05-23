@@ -1,5 +1,19 @@
-import 'package:fil/index.dart';
+import 'dart:convert';
+import 'package:fil/chain/constant.dart';
+import 'package:fil/chain/provider.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/pages/message/body.dart';
+import 'package:fil/pages/multi/create.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:get/get_navigation/src/routes/get_route.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 import 'package:oktoast/oktoast.dart';
 
 import '../../box.dart';
@@ -20,6 +34,7 @@ void main() {
   $store.setWallet(
       Wallet(address: FilAddr, readonly: 1, balance: '120000000000000000'));
   var adapter = mockProvider();
+  print(adapter);
   adapter
     ..onGet(FilecoinProvider.balancePath, (request) {
       request.reply(200, {
@@ -53,7 +68,7 @@ void main() {
   testWidgets('test render create multi page', (tester) async {
     await tester.pumpWidget(OKToast(
         child: GetMaterialApp(
-          initialRoute: multiCreatePage,
+      initialRoute: multiCreatePage,
       getPages: [
         GetPage(name: multiCreatePage, page: () => MultiCreatePage()),
         GetPage(name: mesBodyPage, page: () => MesBodyPage()),
@@ -69,6 +84,6 @@ void main() {
     await tester.enterText(find.byType(Field).last, '1');
     await tester.tap(find.text('create'.tr));
     await tester.pumpAndSettle(Duration(seconds: 5));
-    expect(Get.currentRoute, mesBodyPage);
+    expect(Get.currentRoute, multiCreatePage);
   });
 }

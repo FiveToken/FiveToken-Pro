@@ -1,5 +1,17 @@
-import 'package:fil/index.dart';
+import 'dart:convert';
+import 'package:fil/common/utils.dart';
+import 'package:fil/models/message.dart';
+import 'package:fil/models/noop.dart';
+import 'package:fil/pages/message/method.dart';
+import 'package:fil/pages/transfer/detail.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
+/// page of display message
 class DisplayMessage extends StatelessWidget {
   final TMessage message;
   final Noop onTap;
@@ -21,7 +33,7 @@ class DisplayMessage extends StatelessWidget {
         return '';
       } else {
         var p = jsonDecode(message.args);
-        return formatFil(p['AmountRequested']);
+        return formatFil(p['AmountRequested'] as String);
       }
     } catch (e) {
       return '';

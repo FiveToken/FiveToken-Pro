@@ -1,6 +1,18 @@
-import 'package:fil/index.dart';
+import 'package:fil/chain/constant.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/models/cacheMessage.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/widgets/layout.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+import 'index.dart';
 
+/// widget of message item
 class MessageItem extends StatelessWidget {
   final StoreMessage mes;
   MessageItem(this.mes);

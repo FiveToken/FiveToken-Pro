@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: ./../../../.pub-cache/hosted/pub.flutter-io.cn/flotus-2.0.1/android/wlib/wlib.aar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/ae5e767935a67308a7f1adb7e1de7ee4/wlib/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/ae5e767935a67308a7f1adb7e1de7ee4/wlib/res" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/ae5e767935a67308a7f1adb7e1de7ee4/wlib/AndroidManifest.xml" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

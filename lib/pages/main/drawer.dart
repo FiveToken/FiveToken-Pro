@@ -1,7 +1,19 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/models/noop.dart';
 import 'package:fil/pages/other/webview.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 import 'package:share/share.dart';
 
+/// page of drawer
 class DrawerBody extends StatelessWidget {
   final Noop onTap;
   DrawerBody({this.onTap});
@@ -140,6 +152,7 @@ class DrawerBody extends StatelessWidget {
   }
 }
 
+/// widget of drawer item
 class DrawerItem extends StatelessWidget {
   final Noop onTap;
   final String label;

@@ -1,7 +1,18 @@
-
-import 'package:fil/index.dart';
-
-
+import 'package:fil/common/global.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/pages/multi/main.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
+import '../index.dart';
 
 void tapSign(List<MultiSignWallet> multiList) {
   var comleteList = multiList.where((wal) => wal.status == 1).toList();
@@ -60,20 +71,10 @@ void tapSign(List<MultiSignWallet> multiList) {
           );
         });
   } else {
-    // if ($store.multiWal == null ||
-    //     $store.multiWal.id == '' ||
-    //     !($store.multiWal.signers is List &&
-    //         $store.multiWal.signers
-    //             .contains($store.wal.addrWithNet))) {
-    //   $store.setMultiWallet(comleteList[0]);
-    //   Global.store.setString('activeMultiAddress', comleteList[0].addrWithNet);
-    // }
-
-    // Get.toNamed(multiMainPage);
     if (comleteList.length == 1) {
-      
       $store.setMultiWallet(comleteList[0]);
-      Global.store.setString('activeMultiAddress', comleteList[0].addrWithNet);
+      Global.store
+          .setString('activeMultiAddress', comleteList[0].addressWithNet);
       Get.toNamed(multiMainPage);
     } else {
       showMultiWalletSelector(Get.context, () {
@@ -84,7 +85,7 @@ void tapSign(List<MultiSignWallet> multiList) {
 }
 
 List<MultiSignWallet> getList() {
-  var signer = $store.wal.addrWithNet;
+  var signer = $store.wal.addressWithNet;
   var l = OpenedBox.multiInsance.values.where((wal) {
     return wal.signers.contains(signer);
   }).toList();
@@ -98,7 +99,7 @@ List<MultiSignWallet> getList() {
   return l;
 }
 
-class HdService extends StatelessWidget {
+class HdBtns extends StatelessWidget {
   List<MultiSignWallet> get multiList => getList();
   @override
   Widget build(BuildContext context) {
@@ -164,7 +165,7 @@ class HdService extends StatelessWidget {
   }
 }
 
-class ReadonlyService extends StatelessWidget {
+class ReadonlyBtns extends StatelessWidget {
   List<MultiSignWallet> get multiList => getList();
   @override
   Widget build(BuildContext context) {
@@ -250,7 +251,7 @@ class ReadonlyService extends StatelessWidget {
   }
 }
 
-class OfflineService extends StatelessWidget {
+class OfflineBtns extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(

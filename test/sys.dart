@@ -1,4 +1,5 @@
-import 'package:fil/index.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/src/deprecated.dart';
 
 class MockClipboard {
   Object _clipboardData = <String, dynamic>{

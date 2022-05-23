@@ -1,4 +1,4 @@
-import 'package:fil/index.dart';
+import 'package:hive/hive.dart';
 part 'miner.g.dart';
 
 @HiveType(typeId: 9)
@@ -74,22 +74,22 @@ class MinerMeta {
   }
 
   MinerMeta.fromMap(Map<String, dynamic> map) {
-    this.balance = map['rewards'];
-    this.lock = map['lock'] ?? '0';
-    this.pledge = map['pledge'] ?? "0";
-    this.available = map['available'] ?? "0";
-    this.qualityPower = map['quality_adj_power'];
-    this.rewards = map['rewards'];
-    this.deposit = map['deposit'];
-    this.rawPower = map['power'];
-    this.percent = map['power_percent'];
-    this.rank = map['rank'];
-    this.blockCount = map['block_count'];
-    this.sectorSize = map['sector_size'];
-    this.allSectors = map['sector_count'];
-    this.liveSectors = map['active_sector_count'];
-    this.faultSectors = map['fault_sector_count'];
-    this.preCommitSectors = map['recover_sector_count'];
+    this.balance = map['rewards'] as String;
+    this.lock = map['lock'] as String ?? '0';
+    this.pledge = map['pledge'] as String ?? "0";
+    this.available = map['available'] as String ?? "0";
+    this.qualityPower = map['quality_adj_power'] as String;
+    this.rewards = map['rewards'] as String;
+    this.deposit = map['deposit'] as String;
+    this.rawPower = map['power'] as String;
+    this.percent = map['power_percent'] as String;
+    this.rank = map['rank'] as int;
+    this.blockCount = map['block_count'] as int;
+    this.sectorSize = map['sector_size'] as int;
+    this.allSectors = map['sector_count'] as int;
+    this.liveSectors = map['active_sector_count'] as int;
+    this.faultSectors = map['fault_sector_count'] as int;
+    this.preCommitSectors = map['recover_sector_count'] as int;
   }
 }
 
@@ -119,11 +119,11 @@ class MinerAddress {
       this.miner = '',
       this.yestodayGasFee = '0'});
   MinerAddress.fromMap(Map map) {
-    address = map['address'];
-    type = map['type'];
-    balance = map['balance'];
-    time = map['estimate_valid_time'];
-    yestodayGasFee = map['yesterday_cost'];
+    address = map['address'] as String;
+    type = map['type'] as String;
+    balance = map['balance'] as String;
+    time = map['estimate_valid_time'] as int;
+    yestodayGasFee = map['yesterday_cost'] as String;
   }
   Map<String, dynamic> toJson() {
     return {
@@ -179,15 +179,15 @@ class MinerHistoricalStats {
   }
 
   MinerHistoricalStats.fromMap(Map<String, dynamic> map) {
-    block = map['blocks_rewards'];
-    total = map['blocks_rewards'];
-    worker = map['yesterday_worker_gas'];
-    controller = map['yesterday_controller_gas'];
-    sector = map['power_incr'];
-    pledge = map['yesterday_sector_pledge'];
-    profitPerTib = map['net_profit_per_tb'];
-    gasFee = map['gas_fee_cap'];
-    lucky = map['lucky'];
+    block = map['blocks_rewards'] as String;
+    total = map['blocks_rewards'] as String;
+    worker = map['yesterday_worker_gas'] as String;
+    controller = map['yesterday_controller_gas'] as String;
+    sector = map['power_incr'] as String;
+    pledge = map['yesterday_sector_pledge'] as String;
+    profitPerTib = map['net_profit_per_tb'] as String;
+    gasFee = map['gas_fee_cap'] as String;
+    lucky = map['lucky'] as String;
   }
 }
 
@@ -213,9 +213,9 @@ class MinerSelfBalance {
       this.locked = '0',
       this.pledge = '0'});
   MinerSelfBalance.fromJson(Map<String, dynamic> json) {
-    total = json['total_balance'];
-    available = json['available_balance'];
-    locked = json['locked_funds'];
-    pledge = json['initial_pledge'];
+    total = json['total_balance'] as String;
+    available = json['available_balance'] as String;
+    locked = json['locked_funds'] as String;
+    pledge = json['initial_pledge'] as String;
   }
 }

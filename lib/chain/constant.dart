@@ -1,4 +1,5 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/models/message.dart';
 
 class FilecoinAccount {
   static String get f01 => Global.netPrefix + '01';
@@ -33,7 +34,7 @@ class FilecoinMethod {
       ];
   static String getMethodNameByMessage(TMessage message) {
     var to = message.to;
-    switch (message.method) {
+    switch (message.method as int) {
       case 0:
         return send;
       case 2:

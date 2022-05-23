@@ -1,4 +1,23 @@
-import 'package:fil/index.dart';
+import 'package:fil/common/global.dart';
+import 'package:fil/common/libsodium.dart';
+import 'package:fil/common/toast.dart';
+import 'package:fil/common/utils.dart';
+import 'package:fil/init/hive.dart';
+import 'package:fil/models/wallet.dart';
+import 'package:fil/routes/path.dart';
+import 'package:fil/store/store.dart';
+import 'package:fil/widgets/card.dart';
+import 'package:fil/widgets/dialog.dart';
+import 'package:fil/widgets/field.dart';
+import 'package:fil/widgets/icon.dart';
+import 'package:fil/widgets/scaffold.dart';
+import 'package:fil/widgets/style.dart';
+import 'package:fil/widgets/text.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
 /// rename,export mne,export private key, reset pass
 class WalletManagePage extends StatefulWidget {
@@ -8,6 +27,7 @@ class WalletManagePage extends StatefulWidget {
   }
 }
 
+/// page of wallet manage
 class WalletManagePageState extends State<WalletManagePage> {
   Wallet wallet;
   TextEditingController controller = TextEditingController();
@@ -27,10 +47,10 @@ class WalletManagePageState extends State<WalletManagePage> {
       $store.setWallet(Wallet());
       Get.offAllNamed(initLangPage);
     } else {
-      if (wal.addrWithNet == $store.wal.addrWithNet) {
-        var w = list.where((wal) => wal.addrWithNet != '').toList()[0];
+      if (wal.addressWithNet == $store.wal.addressWithNet) {
+        var w = list.where((wal) => wal.addressWithNet != '').toList()[0];
         $store.setWallet(w);
-        Global.store.setString('activeWalletAddress', w.addrWithNet);
+        Global.store.setString('activeWalletAddress', w.addressWithNet);
       }
       Get.back();
       showCustomToast('deleteSucc'.tr);
@@ -49,8 +69,8 @@ class WalletManagePageState extends State<WalletManagePage> {
           label: 'pkExport'.tr,
           onTap: () {
             showPassDialog(context, (String pass) async {
-              var sk =
-                  await getPrivateKey(wallet.addrWithNet, pass, wallet.skKek);
+              var address = wallet.addressWithNet;
+              var sk = await decryptSodium(wallet.skKek, address, pass);
               Get.toNamed(walletPrivatekey, arguments: {'pk': sk});
             }, from: wallet);
           }),
@@ -59,9 +79,8 @@ class WalletManagePageState extends State<WalletManagePage> {
           onTap: () {
             showPassDialog(context, (String pass) async {
               try {
-                var ck =
-                    await getPrivateKey(wallet.addrWithNet, pass, wallet.skKek);
-                var mne = aesDecrypt(wallet.mne, ck);
+                var address = wallet.addressWithNet;
+                var mne = await decryptSodium(wallet.mne, address, pass);
                 Get.toNamed(walletMnePage, arguments: {'mne': mne});
               } catch (e) {
                 showCustomError(e.toString());
@@ -92,7 +111,7 @@ class WalletManagePageState extends State<WalletManagePage> {
             TapCard(
               items: [
                 CardItem(
-                  label: 'walletAddr'.tr,
+                  label: 'walletAddress'.tr,
                   onTap: () {},
                   append: CommonText(
                     dotString(str: addr),
